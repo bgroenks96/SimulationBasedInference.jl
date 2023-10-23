@@ -23,18 +23,19 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
-[weakdeps]
-Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
-Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+#[weakdeps]
+#Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
+#Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
-[extensions]
-SimulationBasedInferenceGenExt = "Gen"
-SimulationBasedInferenceTuringExt = "Turing"
+#[extensions]
+#SimulationBasedInferenceGenExt = "Gen"
+#SimulationBasedInferenceTuringExt = "Turing"
 
 [compat]
 AbstractMCMC = "4"
 DiffEqBase = "6"
 EnsembleKalmanProcesses = "1"
+julia = "1.6,1.7,1.8,1.9,1.10"
 
 [extras]
 Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"

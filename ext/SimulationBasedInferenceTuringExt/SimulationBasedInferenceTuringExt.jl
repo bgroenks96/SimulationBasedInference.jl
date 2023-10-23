@@ -2,11 +2,14 @@ module SimulationBasedInferenceTuringExt
 
 using SimulationBasedInference
 
+# weak dependency
+using ..Turing
+
+# common dependencies
 using CommonSolve
 using DiffEqBase
 using Random
 using StatsBase
-using Turing
 
 include("utils.jl")
 

@@ -1729,11 +1729,6 @@ deps = ["AbstractMCMC", "Bijectors", "CommonSolve", "CondaPkg", "Dates", "DiffEq
 path = ".."
 uuid = "78927d98-f421-490e-8789-96b006983a5c"
 version = "0.1.0"
-weakdeps = ["Gen", "Turing"]
-
-    [deps.SimulationBasedInference.extensions]
-    SimulationBasedInferenceGenExt = "Gen"
-    SimulationBasedInferenceTuringExt = "Turing"
 
 [[deps.SnoopPrecompile]]
 deps = ["Preferences"]

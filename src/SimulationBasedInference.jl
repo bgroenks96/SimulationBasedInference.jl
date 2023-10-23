@@ -39,12 +39,14 @@ export SimulatorInferenceAlgorithm, EKS, fitekp!
 include("inference/inference.jl")
 
 function __init__()
-    # Extension loading:
-    # We use Requires.jl to allow for re-exporting of types from the extension modules.
-    # This is a crude hack to get around current (v1.9) limitations of Julia's extension feature.
+    # Extension loading;
+    # We use Requires.jl instead of built-in extensions for now (v1.9.3).
+    # This is due to built-in extensions having the incredibly unfortunate limitation
+    # of not being loadable or exportable at precompile time... so there is no way to
+    # re-export types defined within them.
     @require Turing="fce5fe82-541a-59a6-adf8-730c64b5f9a0" begin
-        turing_ext_module = Base.get_extension(@__MODULE__, :SimulationBasedInferenceTuringExt)
-        @reexport using .turing_ext_module
+        include("../ext/SimulationBasedInferenceTuringExt/SimulationBasedInferenceTuringExt.jl")
+        @reexport using .SimulationBasedInferenceTuringExt
     end
 end
 
