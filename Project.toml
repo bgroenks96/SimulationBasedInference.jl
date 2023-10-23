@@ -1,0 +1,45 @@
+name = "SimulationBasedInference"
+uuid = "78927d98-f421-490e-8789-96b006983a5c"
+authors = ["Brian Groenke <brian.groenke@awi.de>"]
+version = "0.1.0"
+
+[deps]
+AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
+Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
+CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
+CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+EnsembleKalmanProcesses = "aa8a2aa5-91d8-4396-bcef-d4f2ec43552d"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
+MLJBase = "a7f614a8-145f-11e9-1d2a-a57a1082229d"
+MLJModelInterface = "e80e1ace-859a-464e-9ed9-23947d8ae3ea"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
+[weakdeps]
+Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+
+[extensions]
+SimulationBasedInferenceGenExt = "Gen"
+SimulationBasedInferenceTuringExt = "Turing"
+
+[compat]
+AbstractMCMC = "4"
+DiffEqBase = "6"
+EnsembleKalmanProcesses = "1"
+
+[extras]
+Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+
+[targets]
+test = ["Gen", "Turing", "Test"]
