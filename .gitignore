@@ -31,3 +31,4 @@ docs/site/
 *.mem
 *.log
 .CondaPkg/
+.scratch/

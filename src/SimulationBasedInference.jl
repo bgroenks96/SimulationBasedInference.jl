@@ -35,7 +35,7 @@ include("problems.jl")
 
 include("forward_solve.jl")
 
-export EKS, fitekp!
+export SimulatorInferenceAlgorithm, EKS, fitekp!
 include("inference/inference.jl")
 
 function __init__()

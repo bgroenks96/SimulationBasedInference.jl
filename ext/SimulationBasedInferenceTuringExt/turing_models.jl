@@ -49,9 +49,9 @@ end
     return (; σ)
 end
 
-function CommonSolve.solve(prob::SimulatorInferenceProblem, mcmc::MCMC, ode_alg; kwargs...)
+function CommonSolve.solve(prob::SimulatorInferenceProblem, mcmc::TuringMCMC, ode_alg; kwargs...)
     m = joint_model(prob, ode_alg; kwargs...)
     m_cond = Turing.condition(m; prob.data...)
-    chain = sample(m_cond, mcmc.alg, mcmc.strat, mcmc.num_samples, mcmc.num_chains)
+    chain = Turing.sample(m_cond, mcmc.alg, mcmc.strat, mcmc.num_samples, mcmc.num_chains)
     return chain
 end
