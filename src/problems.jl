@@ -127,6 +127,16 @@ function logprob(inference_prob::SimulatorInferenceProblem, _x::AbstractVector; 
     return sum(map((x,D) -> logpdf(D,x), inference_prob.data, lik_dists))
 end
 
+# solve interface method stub
+function CommonSolve.solve(
+    inference_prob::SimulatorInferenceProblem,
+    alg::SimulatorInferenceAlgorithm,
+    args...;
+    kwargs...
+)
+    error("solve not implemented for algorithm $(typeof(alg)) on $(typeof(inference_prob))")
+end
+
 # log density interface
 
 LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensityProblems.LogDensityOrder{0}()
