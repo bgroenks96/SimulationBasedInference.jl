@@ -31,6 +31,9 @@ Calculate the log probability of `x` under the given distribution `d`.
 """
 logprob(d::Distribution, x) = logpdf(d, x)
 
+export SimulatorInferenceAlgorithm
+include("types.jl")
+
 export autoprior, from_moments
 include("utils.jl")
 
@@ -53,8 +56,11 @@ include("problems.jl")
 export SimulatorForwardDEIntegrator
 include("forward_diffeq.jl")
 
-export SimulatorInferenceAlgorithm, EKS, fitekp!
-include("inference/inference.jl")
+include("Ensemble/Ensemble.jl")
+@reexport using .Ensemble
+
+include("Emulators/Emulators.jl")
+@reexport using .Emulators
 
 function __init__()
     # Extension loading;
