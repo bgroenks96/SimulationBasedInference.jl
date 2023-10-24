@@ -52,14 +52,3 @@ Statistics.cov(prior::PriorDistribution) = map(cov, prior.dist)
 
 Bijectors.bijector(prior::UnivariatePriorDistribution) = bijector(prior.dist[1])
 Bijectors.bijector(prior::MultivariatePriorDistribution) = Stacked(collect(map(bijector, prior.dist)))
-
-# Hotfix for incorrect implementation of bijector for product distribution.
-# See: https://github.com/TuringLang/Bijectors.jl/issues/290
-function Bijectors.bijector(prod::Product{Continuous})
-    D = eltype(prod.v)
-    return if Bijectors.has_constant_bijector(D)
-        Bijectors.elementwise(bijector(prod.v[1]))
-    else
-        Bijectors.Stacked(map(bijector, Tuple(prod.v)))
-    end
-end
