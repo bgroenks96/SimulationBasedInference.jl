@@ -1,16 +1,18 @@
 """
-    TuringPrior{varnames,TM<:Turing.Model} <: AbstractPrior
+    TuringPrior{varnames,TM<:Turing.Model,axesType} <: AbstractPrior
 
 Represents a prior distribution formulated as a `Turing` model. The Turing model
 can have any arbitrary structure, e.g. hierarchical or otherwise.
 """
-struct TuringPrior{varnames,TM<:Turing.Model} <: AbstractPrior
-    model::TM
-    pnames::Vector{Symbol}
+struct TuringPrior{varnames,modelType<:Turing.Model,axesType} <: AbstractPrior
+    model::modelType
+    axes::axesType
+    chain_names::Vector{Symbol}
     function TuringPrior(model::Turing.Model)
         varnames = keys(Turing.VarInfo(model).metadata)
-        sampled_param_names = extract_parameter_names(model)
-        new{varnames,typeof(model)}(model, sampled_param_names)
+        axes = getaxes(ComponentArray(rand(model)))
+        chain_names = extract_parameter_names(model)
+        new{varnames,typeof(model),typeof(axes)}(model, axes, chain_names)
     end
 end
 
@@ -24,6 +26,13 @@ function (prior::TuringPrior)(θ::AbstractVector{T}) where {T}
     return ϕ
 end
 
+SimulationBasedInference.logprob(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
+function SimulationBasedInference.logprob(prior::TuringPrior, θ::AbstractVector)
+    return Turing.logprior(prior.model, ComponentVector(getdata(θ), prior.axes))
+end
+
 # mandatory sampling dispatches
-Base.rand(prior::TuringPrior) = rand(prior.model)
+Base.rand(prior::TuringPrior) = ComponentArray(rand(prior.model))
+
 StatsBase.sample(rng::AbstractRNG, prior::TuringPrior, n::Int, args...; kwargs...) = sample(rng, prior.model, Prior(), n, args...; kwargs...)
+

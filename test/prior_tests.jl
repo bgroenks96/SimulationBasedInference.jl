@@ -1,17 +1,18 @@
 using SimulationBasedInference
 
 using ComponentArrays
+using LinearAlgebra
 using Random
 using Test
 
-@testset "PriorDistributions" begin
+@testset "PriorDistribution" begin
     @testset "Sampling" begin
         rng = Random.MersenneTwister(1234)
         priordist = PriorDistribution(:x, Normal(0,1))
         @test isa(rand(rng, priordist).x, Float64)
         samples = sample(rng, priordist, 100)
         @test isa(samples, Vector{<:ComponentVector})
-        priordist = PriorDistribution(:X, MvNormal(zeros(2),1))
+        priordist = PriorDistribution(:X, MvNormal(zeros(2), I))
         @test isa(rand(priordist).X, AbstractVector)
         samples = sample(rng, priordist, 100)
         @test isa(samples, Vector{<:ComponentVector})

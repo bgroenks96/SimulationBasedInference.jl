@@ -1,12 +1,13 @@
 module SimulationBasedInferenceTuringExt
 
-using SimulationBasedInference
-
 # weak dependency
 using ..Turing
 
+using SimulationBasedInference
+
 # common dependencies
 using CommonSolve
+using ComponentArrays
 using DiffEqBase
 using Random
 using StatsBase

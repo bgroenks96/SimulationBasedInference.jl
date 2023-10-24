@@ -1,10 +1,11 @@
 module SimulationBasedInference
 
+using Reexport
+
 # Utility
-using ComponentArrays
+@reexport using ComponentArrays
 using Dates
 using LinearAlgebra
-using Reexport
 using Requires
 
 # SciML/DiffEq

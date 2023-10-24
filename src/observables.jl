@@ -59,7 +59,7 @@ struct BufferedObservable{timeType,sampleFuncType,reducerType} <: SimulatorObser
     reducer::reducerType # reducer function
     cache::BufferedObservableCache
 end
-function BufferedObservable(name::Symbol, samplefunc, t0::T, tsave::AbstractVector{T}; ndims=1, reducer=mean, samplerate::T=Hour(3)) where {T}
+function BufferedObservable(name::Symbol, samplefunc, t0::tType, tsave::AbstractVector{tType}; ndims=1, reducer=mean, samplerate=Hour(3)) where {tType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
     @assert minimum(diff(tsave)) >= samplerate "sample frequency must be higher than all saving intervals"
