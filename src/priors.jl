@@ -12,7 +12,8 @@ StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, n::Int, args...; kwargs
 
 Base.rand(rng::AbstractRNG, prior::AbstractPrior) = error("rand not implemented for $(typeof(prior))")
 
-ParameterMapping(prior::AbstractPrior) = ParameterMapping(bijector(prior))
+# note that Bijectors.jl maps constrained -> unconstrained, so we need to take the inverse here
+ParameterMapping(prior::AbstractPrior) = ParameterMapping(inverse(bijector(prior)))
 
 # Simple implementation for Distributions.jl types
 
@@ -22,7 +23,7 @@ ParameterMapping(prior::AbstractPrior) = ParameterMapping(bijector(prior))
 Simple diagonal prior that wraps a `NamedTuple` of distributions from the `Distributions` package.
 """
 struct PriorDistribution{distTypes<:NamedTuple} <: AbstractPrior
-    dists::distTypes
+    dist::distTypes
 end
 
 const UnivariatePriorDistribution{T} = PriorDistribution{NamedTuple{x,Tuple{T}}} where {x,T<:UnivariateDistribution}
@@ -35,14 +36,22 @@ Alias for `PriorDistribution((name = dist))`.
 """
 PriorDistribution(name::Symbol, dist::Distribution) = PriorDistribution((; name => dist))
 
-logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dists, x))
+logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
 
-Base.names(prior::PriorDistribution) = keys(prior.dists)
+Base.names(prior::PriorDistribution) = keys(prior.dist)
 
-Base.rand(rng::AbstractRNG, prior::PriorDistribution) = ComponentVector(map(dᵢ -> rand(rng, dᵢ), prior.dists))
+Base.rand(rng::AbstractRNG, prior::PriorDistribution) = ComponentVector(map(dᵢ -> rand(rng, dᵢ), prior.dist))
 
-Bijectors.bijector(prior::UnivariatePriorDistribution) = bijector(prior.dists[1])
-Bijectors.bijector(prior::MultivariatePriorDistribution) = Stacked(collect(map(bijector, prior.dists)))
+# Statistics
+
+Statistics.mean(prior::PriorDistribution) = map(mean, prior.dist)
+Statistics.var(prior::PriorDistribution) = map(var, prior.dist)
+Statistics.cov(prior::PriorDistribution) = map(cov, prior.dist)
+
+# Bijectors
+
+Bijectors.bijector(prior::UnivariatePriorDistribution) = bijector(prior.dist[1])
+Bijectors.bijector(prior::MultivariatePriorDistribution) = Stacked(collect(map(bijector, prior.dist)))
 
 # Hotfix for incorrect implementation of bijector for product distribution.
 # See: https://github.com/TuringLang/Bijectors.jl/issues/290

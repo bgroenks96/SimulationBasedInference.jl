@@ -1,6 +1,5 @@
 using SimulationBasedInference
 
-using ComponentArrays
 using LogDensityProblems
 using OrdinaryDiffEq
 using Test
@@ -22,7 +21,8 @@ end
     observable = BufferedObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     prior = PriorDistribution(:α, LogNormal(0,1))
-    lik = MvGaussianLikelihood(:obs, observable)
+    noise_scale_prior = PriorDistribution(:σ, Exponential(1.0))
+    lik = MvGaussianLikelihood(:obs, observable, noise_scale_prior)
     data = randn(10)
     inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik => data)
     u = copy(inferenceprob.u0)

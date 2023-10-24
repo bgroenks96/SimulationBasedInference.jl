@@ -2,7 +2,7 @@
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "d2ba9bd5cd5110417e043f0f87d9728f7ac6262e"
+project_hash = "46ab98ddce8d20754d79fcbe3377ab5f8f03bb04"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "5d2e21d7b0d8c22f67483ef95ebdc39c0e6b6003"
@@ -687,6 +687,12 @@ git-tree-sha1 = "b12f05108e405dadcc2aff0008db7f831374e051"
 uuid = "29a986be-02c6-4525-aec4-84b980013641"
 version = "2.0.0"
 
+[[deps.FileIO]]
+deps = ["Pkg", "Requires", "UUIDs"]
+git-tree-sha1 = "299dc33549f68299137e51e6d49a13b5b1da9673"
+uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+version = "1.16.1"
+
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
@@ -880,6 +886,12 @@ version = "1.8.0"
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
+
+[[deps.JLD2]]
+deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "PrecompileTools", "Printf", "Reexport", "Requires", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "ebec83429b5dea3857e071d927156207ebd6d617"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.4.37"
 
 [[deps.JLLWrappers]]
 deps = ["Artifacts", "Preferences"]
@@ -1725,7 +1737,7 @@ uuid = "ce78b400-467f-4804-87d8-8f486da07d0a"
 version = "1.1.0"
 
 [[deps.SimulationBasedInference]]
-deps = ["AbstractMCMC", "Bijectors", "CommonSolve", "ComponentArrays", "CondaPkg", "Dates", "DiffEqBase", "Distributions", "EnsembleKalmanProcesses", "LinearAlgebra", "LogDensityProblems", "MCMCChains", "MLJBase", "MLJModelInterface", "Random", "Reexport", "Requires", "SciMLBase", "Statistics", "StatsBase"]
+deps = ["AbstractMCMC", "Bijectors", "CommonSolve", "ComponentArrays", "CondaPkg", "Dates", "DiffEqBase", "Distributions", "EnsembleKalmanProcesses", "FileIO", "JLD2", "LinearAlgebra", "LogDensityProblems", "MCMCChains", "MLJBase", "MLJModelInterface", "Random", "Reexport", "Requires", "SciMLBase", "Statistics", "StatsBase"]
 path = "../.."
 uuid = "78927d98-f421-490e-8789-96b006983a5c"
 version = "0.1.0"

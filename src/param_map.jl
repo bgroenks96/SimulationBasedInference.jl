@@ -11,9 +11,6 @@ struct ParameterMapping{Tfn,Tlp}
     ParameterMapping(transform=identity, logabsdetJ=θ -> zero(eltype(θ))) = new{typeof(transform),typeof(logabsdetJ)}(transform, logabsdetJ)
 end
 
-# note that Bijectors.jl maps constrained -> unconstrained, so we need to take the inverse here
-ParameterMapping(bijector::Bijectors.Bijector) = ParameterMaping(Bijectors.inverse(bijector), x -> logabsdetjacinv(bijector, x))
-
 # makes ParameterMapping a callable type
 (map::ParameterMapping)(θ::AbstractVector) = transform(map, θ)
 

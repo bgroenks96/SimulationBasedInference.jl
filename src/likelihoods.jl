@@ -18,8 +18,8 @@ struct MvGaussianLikelihood{priorType<:AbstractPrior,obsType<:SimulatorObservabl
     name::Symbol
     obs::obsType
     prior::priorType # prior for likelihood parameters (e.g. noise scale)
-    function MvGaussianLikelihood(name::Symbol, obs::SimulatorObservable, σ_prior=PriorDistribution(:σ, Exponential(1.0)))
-        return new{typeof(σ_prior),typeof(obs)}(name, obs, σ_prior)
+    function MvGaussianLikelihood(name::Symbol, obs::SimulatorObservable, noise_scale_prior::AbstractPrior)
+        return new{typeof(noise_scale_prior),typeof(obs)}(name, obs, noise_scale_prior)
     end
 end
 

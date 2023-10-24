@@ -12,6 +12,10 @@ end
     include("problem_tests.jl")
 end
 
+@testset "EKS" begin
+    include("eks_tests.jl")
+end
+
 @testset "Turing integration" begin
     include("TuringExt/turing_tests.jl")
 end

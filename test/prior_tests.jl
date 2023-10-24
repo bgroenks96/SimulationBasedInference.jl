@@ -1,6 +1,5 @@
 using SimulationBasedInference
 
-using ComponentArrays
 using LinearAlgebra
 using Random
 using Test

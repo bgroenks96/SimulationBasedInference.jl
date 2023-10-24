@@ -1,7 +1,7 @@
 """
     fitekp!(
         ekp::EnsembleKalmanProcess,
-        initial_prob::SciMLBase.DEProblem,
+        initial_prob::SciMLBase.AbstractSciMLProblem,
         ensalg::SciMLBase.BasicEnsembleAlgorithm,
         alg::DEAlgorithm,
         param_map,
@@ -28,7 +28,7 @@ The default `prob_func` implementation simply invokes `remake(prob, p=p, u0=u0)`
 """
 function fitekp!(
     ekp::EnsembleKalmanProcess,
-    initial_prob::SciMLBase.DEProblem,
+    initial_prob::SciMLBase.AbstractSciMLProblem,
     ensalg::SciMLBase.BasicEnsembleAlgorithm,
     alg::DEAlgorithm,
     param_map,
@@ -39,8 +39,9 @@ function fitekp!(
     maxΔt=2.0,
     warmstart=true,
     output_dir=".",
-    statefile="ekpstate.jld2",
+    statefile=nothing,
     itercallback=(i,state) -> true,
+    verbose=true,
     solve_kwargs...
 )
     hasconverged(ekp) = length(ekp.Δt) > 1 ? sum(ekp.Δt[2:end]) >= maxΔt : false
@@ -63,7 +64,7 @@ function fitekp!(
     end
     state = Dict("ekp" => ekp, "i" => i, "lp" => logprobs)
     while !hasconverged(ekp) && i <= maxiters
-        @info "Starting iteration $i (maxiters=$(maxiters))"
+        verbose && @info "Starting iteration $i (maxiters=$(maxiters))"
         logprobsᵢ, _ = ekpstep!(ekp, initial_prob, ensalg, alg, param_map, prob_func, output_func, ensemble_pred_func, i; solve_kwargs...)
         push!(logprobs, logprobsᵢ)
         err_prev = err
@@ -71,10 +72,10 @@ function fitekp!(
         Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing
         state["i"] = i
         if !isnothing(statefile)
-            @info "Saving ensemble state"
+            verbose && @info "Saving ensemble state"
             save(statefilepath, state)
         end
-        @info "Finished iteration $i; err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
+        verbose && @info "Finished iteration $i; err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
         if !itercallback(i, state)
             # terminate iteration if itercallback returns false
             break
@@ -83,10 +84,11 @@ function fitekp!(
     end
     return state
 end
+
 """
     ekpstep!(
         ekp::EnsembleKalmanProcess,
-        initial_prob::SciMLBase.DEProblem,
+        initial_prob::SciMLBase.AbstractSciMLProblem,
         ensalg::SciMLBase.BasicEnsembleAlgorithm,
         alg::DEAlgorithm,
         param_map::ParameterMapping,
@@ -103,7 +105,7 @@ log probabilities (log-likelihood or log-joint for EKS) for each ensemble member
 """
 function ekpstep!(
     ekp::EnsembleKalmanProcess,
-    initial_prob::SciMLBase.DEProblem,
+    initial_prob::SciMLBase.AbstractSciMLProblem,
     ensalg::SciMLBase.BasicEnsembleAlgorithm,
     alg::DEAlgorithm,
     param_map::ParameterMapping,
@@ -127,19 +129,19 @@ function ekpstep!(
     # update ensemble
     update_ensemble!(ekp, enspred)
     # compute log joint probability (or likelihood if not EKS)
-    logprobs = map((i,y) -> Inference.logprob(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
+    logprobs = map((i,y) -> logprob(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
     return logprobs, enssol
 end
 
 function logprob(ekp::EnsembleKalmanProcess, pmap::ParameterMapping, θ, y)
     loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
-    logdetJ⁻¹ = Inference.logprob(pmap, θ)
+    logdetJ⁻¹ = logprob(pmap, θ)
     return loglik + logdetJ⁻¹
 end
 function logprob(ekp::EnsembleKalmanProcess{FT,IT,<:Sampler}, pmap::ParameterMapping, θ, y) where {FT,IT}
     loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
     logprior = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov))
-    logdetJ⁻¹ = Inference.logprob(pmap, θ)
+    logdetJ⁻¹ = logprob(pmap, θ)
     return loglik + logprior + logdetJ⁻¹
 end
 
