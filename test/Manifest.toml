@@ -2,7 +2,7 @@
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "2933acf245771be91481f1ffde4cab9613243030"
+project_hash = "db34f9e187895bdd0e4d1ec6a8b474c0682d42a2"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "5d2e21d7b0d8c22f67483ef95ebdc39c0e6b6003"
@@ -45,9 +45,9 @@ version = "0.4.4"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
-git-tree-sha1 = "76289dc51920fdc6e0013c872ba9551d54961c24"
+git-tree-sha1 = "68c4c187a232e7abe00ac29e3b03e09af9d77317"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "3.6.2"
+version = "3.7.0"
 weakdeps = ["StaticArrays"]
 
     [deps.Adapt.extensions]
@@ -1725,7 +1725,7 @@ uuid = "ce78b400-467f-4804-87d8-8f486da07d0a"
 version = "1.1.0"
 
 [[deps.SimulationBasedInference]]
-deps = ["AbstractMCMC", "Bijectors", "CommonSolve", "CondaPkg", "Dates", "DiffEqBase", "Distributions", "EnsembleKalmanProcesses", "LinearAlgebra", "MCMCChains", "MLJBase", "MLJModelInterface", "Random", "Reexport", "Requires", "SciMLBase", "Statistics", "StatsBase"]
+deps = ["AbstractMCMC", "Bijectors", "CommonSolve", "ComponentArrays", "CondaPkg", "Dates", "DiffEqBase", "Distributions", "EnsembleKalmanProcesses", "LinearAlgebra", "LogDensityProblems", "MCMCChains", "MLJBase", "MLJModelInterface", "Random", "Reexport", "Requires", "SciMLBase", "Statistics", "StatsBase"]
 path = ".."
 uuid = "78927d98-f421-490e-8789-96b006983a5c"
 version = "0.1.0"

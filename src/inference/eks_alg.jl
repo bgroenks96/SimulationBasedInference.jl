@@ -37,7 +37,7 @@ function default_eks_inference_output(sol::SimulatorForwardSolution, i, iter)
 end
 
 """
-    solve(::SimulatorInferenceProblem, ::EKS, ensemble_alg, ode_alg; kwargs...)
+    solve(::SimulatorInferenceProblem, ::EKS, ensemble_alg; kwargs...)
 
 Solve the given `SimulatorInferenceProblem` using the Ensemble Kalman Sampling algorithm. This method automatically
 constructs an `EnsembleKalmanProcess` from the given inference problem and `named_data` pairs. The `ekp_ctor` keyword
@@ -47,8 +47,7 @@ directly). If `initial_ens` is not provided, the initial ensemble is sampled fro
 function CommonSolve.solve(
     inference_prob::SimulatorInferenceProblem,
     alg::EKS,
-    ensemble_alg,
-    ode_alg;
+    ensemble_alg;
     prob_func=(prob,p) -> remake(prob, p=p),
     ekp_ctor=EnsembleKalmanProcess,
     rng=Random.default_rng(),
@@ -80,7 +79,7 @@ function CommonSolve.solve(
         ekp,
         forward_prob,
         ensemble_alg,
-        ode_alg,
+        inference_prob.forward_solver,
         param_map,
         alg.output_func,
         alg.pred_func;
