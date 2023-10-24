@@ -12,7 +12,10 @@ using StatsBase
 
 import Random
 
+export fitekp!
 include("ekp.jl")
+
+export EKS
 include("eks_alg.jl")
 
 end
