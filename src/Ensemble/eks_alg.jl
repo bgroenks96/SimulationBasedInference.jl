@@ -24,7 +24,7 @@ eks_obs_cov(likelihoods...) = error("EKS currently supports only (diagonal) Gaus
 # currently only diagonal covariances are supported
 function eks_obs_cov(likelihoods::Union{DiagonalGaussianLikelihood,IsotropicGaussianLikelihood}...)
     cov_diags = map(likelihoods) do lik
-        return diag(covariance(lik, collect(mean(lik.prior))))
+        return diag(SimulationBasedInference.covariance(lik, collect(mean(lik.prior))))
     end
     # concatenate all covariance matrices 
     return Diagonal(reduce(vcat, cov_diags))
