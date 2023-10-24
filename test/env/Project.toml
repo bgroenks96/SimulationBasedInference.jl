@@ -1,0 +1,7 @@
+[deps]
+Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+SimulationBasedInference = "78927d98-f421-490e-8789-96b006983a5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
