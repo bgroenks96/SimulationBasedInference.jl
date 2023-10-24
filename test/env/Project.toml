@@ -1,5 +1,6 @@
 [deps]
 Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
+EnsembleKalmanProcesses = "aa8a2aa5-91d8-4396-bcef-d4f2ec43552d"
 Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 LogDensityProblems = "6fdf6af0-433a-55f7-b3ed-c6c6e0b8df7c"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"

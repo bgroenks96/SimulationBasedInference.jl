@@ -57,11 +57,11 @@ include("problems.jl")
 export SimulatorForwardDEIntegrator
 include("forward_diffeq.jl")
 
-include("Ensemble/Ensemble.jl")
-@reexport using .Ensemble
+include("Ensembles/Ensembles.jl")
+using .Ensembles
 
 # include("Emulators/Emulators.jl")
-# @reexport using .Emulators
+# using .Emulators
 
 function __init__()
     # Extension loading;

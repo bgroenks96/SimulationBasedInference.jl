@@ -1,7 +1,8 @@
-module Ensemble
+module Ensembles
 
 using SimulationBasedInference
 
+using Bijectors
 using CommonSolve
 using DiffEqBase, SciMLBase
 using EnsembleKalmanProcesses

@@ -133,12 +133,12 @@ function ekpstep!(
     return logprobs, enssol
 end
 
-function logprob(ekp::EnsembleKalmanProcess, pmap::ParameterMapping, θ, y)
+function SimulationBasedInference.logprob(ekp::EnsembleKalmanProcess, pmap::ParameterMapping, θ, y)
     loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
     logdetJ⁻¹ = logprob(pmap, θ)
     return loglik + logdetJ⁻¹
 end
-function logprob(ekp::EnsembleKalmanProcess{FT,IT,<:Sampler}, pmap::ParameterMapping, θ, y) where {FT,IT}
+function SimulationBasedInference.logprob(ekp::EnsembleKalmanProcess{FT,IT,<:Sampler}, pmap::ParameterMapping, θ, y) where {FT,IT}
     loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
     logprior = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov))
     logdetJ⁻¹ = logprob(pmap, θ)

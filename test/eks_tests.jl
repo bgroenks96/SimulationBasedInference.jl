@@ -1,6 +1,8 @@
 using SimulationBasedInference
+using SimulationBasedInference.Ensembles
 
 using Bijectors
+using EnsembleKalmanProcesses
 using LinearAlgebra
 using OrdinaryDiffEq
 using Test
@@ -28,7 +30,7 @@ import Random
     eks_prior = MvNormal(unconstrained_mean[:,1], Diagonal(unconstrained_cov[:,1]))
     eks = EKS(256, EnsembleThreads(), eks_prior)
     eks_sol = solve(inferenceprob, eks, verbose=false, rng=rng)
-    u_ens = SimulationBasedInference.get_u_final(eks_sol["ekp"])
+    u_ens = get_u_final(eks_sol["ekp"])
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)
     @test abs(posterior_mean[1] - 0.5) < 0.05
