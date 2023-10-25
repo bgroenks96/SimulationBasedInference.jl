@@ -38,8 +38,8 @@ abstract type SimulatorInferenceAlgorithm end
 export autoprior, from_moments
 include("utils.jl")
 
-export SimulatorObservable, BufferedObservable
-export samplepoints, observe!, retrieve
+export SimulatorObservable
+export observe!, retrieve
 include("observables.jl")
 
 export ParameterMapping

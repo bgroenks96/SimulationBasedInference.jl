@@ -73,7 +73,7 @@ function CommonSolve.init(prob::SimulatorForwardProblem{<:DEProblem}, ode_alg; p
     integrator = init(newprob.prob, ode_alg; kwargs...)
     # initialize observables
     for obs in prob.observables
-        init!(obs, integrator)
+        initialize!(obs, integrator)
     end
     return SimulatorForwardDEIntegrator(prob, integrator, t_points, 1)
 end

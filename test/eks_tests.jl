@@ -13,7 +13,7 @@ import Random
     rng = Random.MersenneTwister(1234)
     ode_p = ComponentArray(α=0.5, s=0.1)
     odeprob = ODEProblem((u,p,t) -> -p[1]*u .+ p[2], [1.0], (0.0,1.0), ode_p)
-    observable = BufferedObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
+    observable = SimulatorObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     forward_sol = solve(forwardprob, Tsit5())
     @assert forward_sol.sol.retcode == ReturnCode.Default

@@ -7,7 +7,7 @@ using Test
 @testset "Forward problem" begin
     p = ComponentArray(α=0.1)
     odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), p)
-    observable = BufferedObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
+    observable = SimulatorObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     forward_sol = solve(forwardprob, Tsit5())
     @test isa(forward_sol, SimulatorForwardSolution)
@@ -18,7 +18,7 @@ end
 @testset "Inference problem" begin
     ode_p = ComponentArray(α=0.1)
     odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), ode_p)
-    observable = BufferedObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
+    observable = SimulatorObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     prior = PriorDistribution(:α, LogNormal(0,1))
     noise_scale_prior = PriorDistribution(:σ, Exponential(1.0))
