@@ -36,6 +36,13 @@ Alias for `PriorDistribution((name = dist))`.
 """
 PriorDistribution(name::Symbol, dist::Distribution) = PriorDistribution((; name => dist))
 
+"""
+    PriorDistribution(; dists...)
+
+Alias for `PriorDistribution((; dists...))`.
+"""
+PriorDistribution(; dists...) = PriorDistribution((; dists...))
+
 logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
 
 Base.names(prior::PriorDistribution) = keys(prior.dist)
