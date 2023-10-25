@@ -1,38 +1,39 @@
-const DEProblem = SciMLBase.DEProblem
-const DEIntegrator = SciMLBase.DEIntegrator
+const AbstractODEProblem = SciMLBase.AbstractODEProblem
+const AbstractODEIntegrator = SciMLBase.AbstractODEIntegrator
 
-struct SimulatorDEConfig{F}
+struct SimulatorODEConfig{F}
     obs_to_prob_time::F
 end
 
-default_time_converter(prob::DEProblem) = identity
+default_time_converter(::AbstractODEProblem) = identity
 
-function SimulatorForwardProblem(prob::DEProblem, observables::SimulatorObservable...; obs_to_prob_time=default_time_converter(prob))
+function SimulatorForwardProblem(prob::AbstractODEProblem, observables::SimulatorObservable...; obs_to_prob_time=default_time_converter(prob))
     named_observables = (; map(x -> nameof(x) => x, observables)...)
-    return SimulatorForwardProblem(prob, named_observables, SimulatorDEConfig(obs_to_prob_time))
+    return SimulatorForwardProblem(prob, named_observables, SimulatorODEConfig(obs_to_prob_time))
 end
 
 """
-    DiffEqSimulatorForwardSolver{algType,uType,tType,iip,integratorType<:DEIntegrator{algType,iip,uType,tType}} <: DEIntegrator{algType,iip,uType,tType}
+    SimulatorODEForwardSolver{algType,uType,tType,iip,integratorType<:AbstractODEIntegrator{algType,iip,uType,tType}} <: AbstractODEIntegrator{algType,iip,uType,tType}
 
-Specialized integrator type that wraps a `SciMLBase.DEIntegrator` and controls the stepping procedure such that each observable sample point is hit.
+Specialized integrator type that wraps a SciML ODE integrator and controls the stepping procedure such that each observable sample point is hit.
 """
-mutable struct DiffEqSimulatorForwardSolver{algType,uType,tType,iip,integratorType<:DEIntegrator{algType,iip,uType,tType}} <: DEIntegrator{algType,true,uType,tType}
+mutable struct SimulatorODEForwardSolver{algType,uType,tType,iip,integratorType<:AbstractODEIntegrator{algType,iip,uType,tType}} <: AbstractODEIntegrator{algType,true,uType,tType}
     prob::SimulatorForwardProblem
     integrator::integratorType
     tstops::Vector{tType}
     step_idx::Int
 end
 
-Base.propertynames(integrator::DiffEqSimulatorForwardSolver) = (:prob,:integrator,:tstops,:step_idx,propertynames(integrator.integrator)...)
-function Base.getproperty(integrator::DiffEqSimulatorForwardSolver, sym::Symbol)
+# forwarding property dispatches to nested integrator
+Base.propertynames(integrator::SimulatorODEForwardSolver) = (:prob,:integrator,:tstops,:step_idx,propertynames(integrator.integrator)...)
+function Base.getproperty(integrator::SimulatorODEForwardSolver, sym::Symbol)
     if sym ∈ (:prob,:integrator,:tstops,:step_idx)
         return getfield(integrator, sym)
     else
         return getproperty(getfield(integrator,:integrator), sym)
     end
 end
-function Base.setproperty!(integrator::DiffEqSimulatorForwardSolver, sym::Symbol, value)
+function Base.setproperty!(integrator::SimulatorODEForwardSolver, sym::Symbol, value)
     if sym ∈ (:prob,:integrator,:tstops,:step_idx)
         return setfield!(integrator, sym, value)
     else
@@ -40,7 +41,9 @@ function Base.setproperty!(integrator::DiffEqSimulatorForwardSolver, sym::Symbol
     end
 end
 
-function CommonSolve.step!(forward::DiffEqSimulatorForwardSolver)
+# CommonSolve interface
+
+function CommonSolve.step!(forward::SimulatorODEForwardSolver)
     if forward.step_idx > length(forward.tstops)
         return nothing
     end
@@ -64,7 +67,7 @@ function CommonSolve.step!(forward::DiffEqSimulatorForwardSolver)
     return nothing
 end
 
-function CommonSolve.init(prob::SimulatorForwardProblem{<:DEProblem}, ode_alg; p=prob.prob.p, kwargs...)
+function CommonSolve.init(prob::SimulatorForwardProblem{<:AbstractODEProblem}, ode_alg; p=prob.prob.p, kwargs...)
     # collect and combine sample points from all obsevables
     t_points = sort(unique(union(map(samplepoints, prob.observables)...)))
     # reinitialize forward problem with new parameters
@@ -75,7 +78,7 @@ function CommonSolve.init(prob::SimulatorForwardProblem{<:DEProblem}, ode_alg; p
     for obs in prob.observables
         initialize!(obs, integrator)
     end
-    return DiffEqSimulatorForwardSolver(prob, integrator, t_points, 1)
+    return SimulatorODEForwardSolver(prob, integrator, t_points, 1)
 end
 
 """
@@ -83,7 +86,7 @@ end
 
 Solves the forward problem using the given diffeq algorithm and parameters `p`.
 """
-function CommonSolve.solve!(forwardsolver::DiffEqSimulatorForwardSolver)
+function CommonSolve.solve!(forwardsolver::SimulatorODEForwardSolver)
     # iterate until end
     for i in forwardsolver end
     return SimulatorForwardSolution(forwardsolver.prob, forwardsolver.integrator.sol)

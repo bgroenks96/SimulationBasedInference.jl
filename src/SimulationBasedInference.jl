@@ -54,8 +54,11 @@ include("likelihoods.jl")
 export SimulatorForwardProblem, SimulatorForwardSolution, SimulatorInferenceProblem, SimulatorInferenceSolution
 include("problems.jl")
 
-export DiffEqSimulatorForwardSolver
-include("forward_diffeq.jl")
+export SimulatorForwardSolver
+include("forward_prob.jl")
+
+export SimulatorODEForwardSolver
+include("forward_ode.jl")
 
 include("Ensembles/Ensembles.jl")
 using .Ensembles

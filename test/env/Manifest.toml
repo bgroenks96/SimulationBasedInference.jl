@@ -2,7 +2,7 @@
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "4bacb748569f3d68f1dc4c65b6dc74e9582c8a3f"
+project_hash = "1f87d3e366e4931f478cba129cde11c3ee898d64"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "5d2e21d7b0d8c22f67483ef95ebdc39c0e6b6003"
@@ -1041,9 +1041,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LinearSolve]]
 deps = ["ArrayInterface", "ConcreteStructs", "DocStringExtensions", "EnumX", "EnzymeCore", "FastLapackInterface", "GPUArraysCore", "InteractiveUtils", "KLU", "Krylov", "Libdl", "LinearAlgebra", "MKL_jll", "PrecompileTools", "Preferences", "RecursiveFactorization", "Reexport", "Requires", "SciMLBase", "SciMLOperators", "Setfield", "SparseArrays", "Sparspak", "SuiteSparse", "UnPack"]
-git-tree-sha1 = "158e45dd35cec1ecade0e554c0104ee89e772d82"
+git-tree-sha1 = "3196f7408f7c6014dc4ed55260e6c5e1e01c58a3"
 uuid = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
-version = "2.11.1"
+version = "2.12.0"
 
     [deps.LinearSolve.extensions]
     LinearSolveBandedMatricesExt = "BandedMatrices"
@@ -1202,9 +1202,9 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[deps.MathOptInterface]]
 deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "DataStructures", "ForwardDiff", "JSON", "LinearAlgebra", "MutableArithmetics", "NaNMath", "OrderedCollections", "PrecompileTools", "Printf", "SparseArrays", "SpecialFunctions", "Test", "Unicode"]
-git-tree-sha1 = "5c9f1e635e8d491297e596b56fec1c95eafb95a3"
+git-tree-sha1 = "13b3d40084d04e609e0509730f05215fb2a2fba4"
 uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
-version = "1.20.1"
+version = "1.21.0"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1357,6 +1357,33 @@ deps = ["ChainRulesCore", "Functors", "LinearAlgebra", "Random", "Statistics"]
 git-tree-sha1 = "34205b1204cc83c43cd9cfe53ffbd3b310f6e8c5"
 uuid = "3bd65402-5787-11e9-1adc-39752487f4e2"
 version = "0.3.1"
+
+[[deps.Optimization]]
+deps = ["ADTypes", "ArrayInterface", "ConsoleProgressMonitor", "DocStringExtensions", "LinearAlgebra", "Logging", "LoggingExtras", "Pkg", "Printf", "ProgressLogging", "Reexport", "Requires", "SciMLBase", "SparseArrays", "TerminalLoggers"]
+git-tree-sha1 = "1aa7ffea6e171167e9cae620d749e16d5874414a"
+uuid = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
+version = "3.19.3"
+
+    [deps.Optimization.extensions]
+    OptimizationEnzymeExt = "Enzyme"
+    OptimizationFiniteDiffExt = "FiniteDiff"
+    OptimizationForwardDiffExt = "ForwardDiff"
+    OptimizationMTKExt = "ModelingToolkit"
+    OptimizationReverseDiffExt = "ReverseDiff"
+    OptimizationSparseDiffExt = ["SparseDiffTools", "Symbolics", "ReverseDiff"]
+    OptimizationTrackerExt = "Tracker"
+    OptimizationZygoteExt = "Zygote"
+
+    [deps.Optimization.weakdeps]
+    Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+    FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
+    ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+    ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
+    ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
+    SparseDiffTools = "47a9eef4-7e08-11e9-0b38-333d64bd3804"
+    Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
+    Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
+    Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [[deps.OrderedCollections]]
 git-tree-sha1 = "2e73fe17cac3c62ad1aebe70d44c963c3cfdc3e3"

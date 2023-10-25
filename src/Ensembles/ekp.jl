@@ -7,6 +7,54 @@ end
 hasconverged(ekp::EnsembleKalmanProcess, minΔt) = length(ekp.Δt) > 1 ? sum(ekp.Δt[2:end]) >= minΔt : false
 
 """
+    ekpstep!(
+        ekp::EnsembleKalmanProcess,
+        initial_prob::SciMLBase.AbstractSciMLProblem,
+        ensalg::SciMLBase.BasicEnsembleAlgorithm,
+        alg::DEAlgorithm,
+        param_map::ParameterMapping,
+        initial_prob,
+        ensemble_prob_func,
+        ensemble_output_func,
+        ensemble_pred_func,
+        iter::Int;
+        solve_kwargs...
+    )
+
+Performs a single step/iteration for the given `ekp::EnsembleKalmanProcess` and returns a vector of
+log probabilities (log-likelihood or log-joint for EKS) for each ensemble member.
+"""
+function ekpstep!(
+    ekp::EnsembleKalmanProcess,
+    initial_prob::SciMLBase.AbstractSciMLProblem,
+    ensalg::SciMLBase.BasicEnsembleAlgorithm,
+    alg::DEAlgorithm,
+    param_map::ParameterMapping,
+    ensemble_prob_func,
+    ensemble_output_func,
+    ensemble_pred_func,
+    iter::Int;
+    solve_kwargs...
+)
+    # get current ensemeble state (unconstrained parameters)
+    Θ = get_u_final(ekp)
+    N_ens = size(Θ,2)
+    # construct EnsembleProblem for forward simulations
+    function prob_func(prob, i, repeat)
+        ϕ = param_map(Θ[:,i])
+        return ensemble_prob_func(prob, ϕ)
+    end
+    ensprob = EnsembleProblem(initial_prob; prob_func, output_func=(sol,i) -> ensemble_output_func(sol,i,iter))
+    enssol = solve(ensprob, alg, ensalg; trajectories=N_ens, solve_kwargs...)
+    enspred = reduce(hcat, map((i,out) -> ensemble_pred_func(out, i, iter), 1:N_ens, enssol.u))
+    # update ensemble
+    update_ensemble!(ekp, enspred)
+    # compute log joint probability (or likelihood if not EKS)
+    logprobs = map((i,y) -> logprob(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
+    return logprobs, enssol
+end
+
+"""
     fitekp!(
         ekp::EnsembleKalmanProcess,
         initial_prob::SciMLBase.AbstractSciMLProblem,
@@ -72,54 +120,6 @@ function fitekp!(
         i += 1
     end
     return state
-end
-
-"""
-    ekpstep!(
-        ekp::EnsembleKalmanProcess,
-        initial_prob::SciMLBase.AbstractSciMLProblem,
-        ensalg::SciMLBase.BasicEnsembleAlgorithm,
-        alg::DEAlgorithm,
-        param_map::ParameterMapping,
-        initial_prob,
-        ensemble_prob_func,
-        ensemble_output_func,
-        ensemble_pred_func,
-        iter::Int;
-        solve_kwargs...
-    )
-
-Performs a single step/iteration for the given `ekp::EnsembleKalmanProcess` and returns a vector of
-log probabilities (log-likelihood or log-joint for EKS) for each ensemble member.
-"""
-function ekpstep!(
-    ekp::EnsembleKalmanProcess,
-    initial_prob::SciMLBase.AbstractSciMLProblem,
-    ensalg::SciMLBase.BasicEnsembleAlgorithm,
-    alg::DEAlgorithm,
-    param_map::ParameterMapping,
-    ensemble_prob_func,
-    ensemble_output_func,
-    ensemble_pred_func,
-    iter::Int;
-    solve_kwargs...
-)
-    # get current ensemeble state (unconstrained parameters)
-    Θ = get_u_final(ekp)
-    N_ens = size(Θ,2)
-    # construct EnsembleProblem for forward simulations
-    function prob_func(prob, i, repeat)
-        ϕ = param_map(Θ[:,i])
-        return ensemble_prob_func(prob, ϕ)
-    end
-    ensprob = EnsembleProblem(initial_prob; prob_func, output_func=(sol,i) -> ensemble_output_func(sol,i,iter))
-    enssol = solve(ensprob, alg, ensalg; trajectories=N_ens, solve_kwargs...)
-    enspred = reduce(hcat, map((i,out) -> ensemble_pred_func(out, i, iter), 1:N_ens, enssol.u))
-    # update ensemble
-    update_ensemble!(ekp, enspred)
-    # compute log joint probability (or likelihood if not EKS)
-    logprobs = map((i,y) -> logprob(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
-    return logprobs, enssol
 end
 
 function SimulationBasedInference.logprob(ekp::EnsembleKalmanProcess, pmap::ParameterMapping, θ, y)
