@@ -16,6 +16,22 @@ end
 
 EKS(n_ens::Int, ens_alg::SciMLBase.EnsembleAlgorithm, prior::MvNormal; kwargs...) = EKS(; n_ens, ens_alg, prior, kwargs...)
 
+function EKS(
+    n_ens::Int,
+    ens_alg::SciMLBase.EnsembleAlgorithm,
+    prior::AbstractPrior,
+    rng::Random.AbstractRNG=Random.GLOBAL_RNG;
+    num_prior_samples=1000,
+    kwargs...
+)
+    constrained_to_unconstrained = bijector(prior)
+    prior_samples = reduce(hcat, map(constrained_to_unconstrained, sample(rng, prior, num_prior_samples)))
+    unconstrained_mean = mean(prior_samples, dims=2)
+    unconstrained_var = var(prior_samples, dims=2)
+    eks_prior = MvNormal(unconstrained_mean[:,1], Diagonal(unconstrained_var[:,1]))
+    return EKS(n_ens, ens_alg, eks_prior; kwargs...)
+end
+
 """
     init(::SimulatorInferenceProblem, ::EKS, ensemble_alg; kwargs...)
 

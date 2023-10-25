@@ -31,13 +31,7 @@ import Random
     noisy_obs = true_obs .+ 0.01*randn(rng, 10)
     # inference problem
     inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik => noisy_obs)
-    # construct unconstrained prior for EKS
-    constrained_to_unconstrained = bijector(prior)
-    prior_samples = reduce(hcat, map(constrained_to_unconstrained, sample(rng, prior, 1000)))
-    unconstrained_mean = mean(prior_samples, dims=2)
-    unconstrained_cov = var(prior_samples, dims=2)
-    eks_prior = MvNormal(unconstrained_mean[:,1], Diagonal(unconstrained_cov[:,1]))
-    eks = EKS(128, EnsembleThreads(), eks_prior)
+    eks = EKS(128, EnsembleThreads(), prior, rng)
     # solve inference problem with EKS
     eks_sol = solve(inferenceprob, eks, verbose=false, rng=rng)
     # check results
