@@ -31,11 +31,12 @@ import Random
     noisy_obs = true_obs .+ 0.01*randn(rng, 10)
     # inference problem
     inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik => noisy_obs)
-    eks = EKS(128, EnsembleThreads(), prior, rng)
+    eks = EKS(256, EnsembleThreads(), prior, rng)
     # solve inference problem with EKS
     eks_sol = solve(inferenceprob, eks, verbose=false, rng=rng)
     # check results
     u_ens = get_u_final(eks_sol.ekp)
+    constrained_to_unconstrained = bijector(prior)
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)
     @test abs(posterior_mean[1] - 0.5) < 0.05
