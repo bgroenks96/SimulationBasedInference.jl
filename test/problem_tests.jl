@@ -1,5 +1,6 @@
 using SimulationBasedInference
 
+using LinearAlgebra
 using LogDensityProblems
 using OrdinaryDiffEq
 using Test
@@ -15,6 +16,7 @@ using Test
     @test size(obs) == (1,10)
     @test all(diff(obs[1,:]) .< 0.0)
 end
+
 @testset "Inference problem" begin
     ode_p = ComponentArray(α=0.1)
     odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), ode_p)

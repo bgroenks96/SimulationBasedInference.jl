@@ -13,26 +13,26 @@ function SimulatorForwardProblem(prob::DEProblem, observables::SimulatorObservab
 end
 
 """
-    SimulatorForwardDEIntegrator{algType,uType,tType,iip,integratorType<:DEIntegrator{algType,iip,uType,tType}} <: DEIntegrator{algType,iip,uType,tType}
+    DiffEqSimulatorForwardSolver{algType,uType,tType,iip,integratorType<:DEIntegrator{algType,iip,uType,tType}} <: DEIntegrator{algType,iip,uType,tType}
 
 Specialized integrator type that wraps a `SciMLBase.DEIntegrator` and controls the stepping procedure such that each observable sample point is hit.
 """
-mutable struct SimulatorForwardDEIntegrator{algType,uType,tType,iip,integratorType<:DEIntegrator{algType,iip,uType,tType}} <: DEIntegrator{algType,true,uType,tType}
+mutable struct DiffEqSimulatorForwardSolver{algType,uType,tType,iip,integratorType<:DEIntegrator{algType,iip,uType,tType}} <: DEIntegrator{algType,true,uType,tType}
     prob::SimulatorForwardProblem
     integrator::integratorType
     tstops::Vector{tType}
     step_idx::Int
 end
 
-Base.propertynames(integrator::SimulatorForwardDEIntegrator) = (:prob,:integrator,:tstops,:step_idx,propertynames(integrator.integrator)...)
-function Base.getproperty(integrator::SimulatorForwardDEIntegrator, sym::Symbol)
+Base.propertynames(integrator::DiffEqSimulatorForwardSolver) = (:prob,:integrator,:tstops,:step_idx,propertynames(integrator.integrator)...)
+function Base.getproperty(integrator::DiffEqSimulatorForwardSolver, sym::Symbol)
     if sym ∈ (:prob,:integrator,:tstops,:step_idx)
         return getfield(integrator, sym)
     else
         return getproperty(getfield(integrator,:integrator), sym)
     end
 end
-function Base.setproperty!(integrator::SimulatorForwardDEIntegrator, sym::Symbol, value)
+function Base.setproperty!(integrator::DiffEqSimulatorForwardSolver, sym::Symbol, value)
     if sym ∈ (:prob,:integrator,:tstops,:step_idx)
         return setfield!(integrator, sym, value)
     else
@@ -40,7 +40,7 @@ function Base.setproperty!(integrator::SimulatorForwardDEIntegrator, sym::Symbol
     end
 end
 
-function CommonSolve.step!(forward::SimulatorForwardDEIntegrator)
+function CommonSolve.step!(forward::DiffEqSimulatorForwardSolver)
     if forward.step_idx > length(forward.tstops)
         return nothing
     end
@@ -75,17 +75,16 @@ function CommonSolve.init(prob::SimulatorForwardProblem{<:DEProblem}, ode_alg; p
     for obs in prob.observables
         initialize!(obs, integrator)
     end
-    return SimulatorForwardDEIntegrator(prob, integrator, t_points, 1)
+    return DiffEqSimulatorForwardSolver(prob, integrator, t_points, 1)
 end
 
 """
-    solve(prob::SimulatorForwardProblem, ode_alg, p; kwargs...)
+    solve!(prob::SimulatorForwardProblem, ode_alg, p; kwargs...)
 
 Solves the forward problem using the given diffeq algorithm and parameters `p`.
 """
-function CommonSolve.solve(prob::SimulatorForwardProblem{<:DEProblem}, ode_alg; p=prob.prob.p, kwargs...)
-    forward = CommonSolve.init(prob::SimulatorForwardProblem, ode_alg; p, kwargs...)
+function CommonSolve.solve!(forwardsolver::DiffEqSimulatorForwardSolver)
     # iterate until end
-    for i in forward end
-    return SimulatorForwardSolution(forward.prob, forward.integrator.sol)
+    for i in forwardsolver end
+    return SimulatorForwardSolution(forwardsolver.prob, forwardsolver.integrator.sol)
 end

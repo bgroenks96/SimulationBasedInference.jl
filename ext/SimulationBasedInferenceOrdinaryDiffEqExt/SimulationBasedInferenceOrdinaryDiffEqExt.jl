@@ -4,6 +4,6 @@ using ..OrdinaryDiffEq
 
 using SimulationBasedInference
 
-OrdinaryDiffEq.postamble!(integrator::SimulatorForwardDEIntegrator) = OrdinaryDiffEq.postamble!(integrator.integrator)
+OrdinaryDiffEq.postamble!(solver::DiffEqSimulatorForwardSolver) = OrdinaryDiffEq.postamble!(solver.integrator)
 
 end

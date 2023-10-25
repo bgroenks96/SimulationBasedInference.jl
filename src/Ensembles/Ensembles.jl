@@ -13,6 +13,9 @@ using StatsBase
 
 import Random
 
+export EnsembleSolver
+include("ensemble_solver.jl")
+
 export fitekp!
 include("ekp.jl")
 

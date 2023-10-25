@@ -1,3 +1,8 @@
+"""
+    with_names(xs)
+
+`map`s over `xs` and returns a `NamedTuple` where the keys are `nameof(x)` for each `x`.
+"""
 with_names(xs) = (; map(x -> nameof(x) => x, xs)...)
 
 """

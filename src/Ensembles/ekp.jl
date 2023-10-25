@@ -1,3 +1,11 @@
+mutable struct EKPState{ekpType<:EnsembleKalmanProcess}
+    ekp::ekpType
+    iter::Int  # iteration step
+    lp::Vector # log probs
+end
+
+hasconverged(ekp::EnsembleKalmanProcess, minΔt) = length(ekp.Δt) > 1 ? sum(ekp.Δt[2:end]) >= minΔt : false
+
 """
     fitekp!(
         ekp::EnsembleKalmanProcess,
@@ -8,11 +16,10 @@
         output_func,
         ensemble_pred_func;
         maxiters=10,
-        maxΔt=2.0,
-        warmstart=true,
-        output_dir=".",
-        statefile="ekpstate.jld2",
-        itercallback=(i,state) -> true,
+        minΔt=2.0,
+        initialstate=EKPState(ekp, 0, []),
+        itercallback=(state, i) -> true,
+        verbose=true,
         solve_kwargs...
     )
 
@@ -36,47 +43,29 @@ function fitekp!(
     ensemble_pred_func;
     prob_func=(prob, p) -> remake(prob, p=p),
     maxiters=10,
-    maxΔt=2.0,
-    warmstart=true,
-    output_dir=".",
-    statefile=nothing,
-    itercallback=(i,state) -> true,
+    minΔt=2.0,
+    initialstate=EKPState(ekp, 0, []),
+    itercallback=(state, i) -> true,
     verbose=true,
     solve_kwargs...
 )
-    hasconverged(ekp) = length(ekp.Δt) > 1 ? sum(ekp.Δt[2:end]) >= maxΔt : false
-    err = missing
-    err_prev = missing
-    Δerr = missing
-    i = 1
-    logprobs = []
-    statefilepath = isnothing(statefile) ? "" : joinpath(output_dir, statefile)
-    # warm start if saved state file is present
-    if warmstart && isfile(statefilepath)
-        warmstate = load(statefilepath)
-        i = warmstate["i"]
-        logprobs = warmstate["lp"]
-        ekp = warmstate["ekp"]
-        err = ekp.err[end]
-        err_prev = i > 1 ? ekp.err[end-1] : missing
-        Δerr = err - err_prev
-        i += 1
-    end
-    state = Dict("ekp" => ekp, "i" => i, "lp" => logprobs)
-    while !hasconverged(ekp) && i <= maxiters
+    state = initialstate
+    i = state.iter
+    logprobs = state.lp
+    ekp = state.ekp
+    err = i >= 1 ? ekp.err[end] : missing
+    err_prev = i > 1 ? ekp.err[end-1] : missing
+    Δerr = err - err_prev
+    i += 1
+    while !hasconverged(ekp, minΔt) && i <= maxiters
         verbose && @info "Starting iteration $i (maxiters=$(maxiters))"
         logprobsᵢ, _ = ekpstep!(ekp, initial_prob, ensalg, alg, param_map, prob_func, output_func, ensemble_pred_func, i; solve_kwargs...)
         push!(logprobs, logprobsᵢ)
-        err_prev = err
         err = ekp.err[end]
         Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing
-        state["i"] = i
-        if !isnothing(statefile)
-            verbose && @info "Saving ensemble state"
-            save(statefilepath, state)
-        end
+        state.iter = i
         verbose && @info "Finished iteration $i; err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
-        if !itercallback(i, state)
+        if !itercallback(state, i)
             # terminate iteration if itercallback returns false
             break
         end
@@ -140,7 +129,7 @@ function SimulationBasedInference.logprob(ekp::EnsembleKalmanProcess, pmap::Para
 end
 function SimulationBasedInference.logprob(ekp::EnsembleKalmanProcess{FT,IT,<:Sampler}, pmap::ParameterMapping, θ, y) where {FT,IT}
     loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
-    logprior = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov))
+    logprior = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θ)
     logdetJ⁻¹ = logprob(pmap, θ)
     return loglik + logprior + logdetJ⁻¹
 end
