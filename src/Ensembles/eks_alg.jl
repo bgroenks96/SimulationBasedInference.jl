@@ -67,7 +67,7 @@ function CommonSolve.init(
     constrained_to_unconstrained = bijector(inference_prob.prior.model)
     # sample initial ensemble
     if isnothing(initial_ens)
-        samples = sample(model_prior, alg.n_ens)
+        samples = sample(rng, model_prior, alg.n_ens)
         # apply transform to samples and then concatenate on second axis
         initial_ens = reduce(hcat, map(constrained_to_unconstrained, samples))
     end
