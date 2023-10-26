@@ -21,7 +21,7 @@ import Random
     # generate "true" solution
     forward_sol = solve(forwardprob, Tsit5())
     @assert forward_sol.sol.retcode == ReturnCode.Default
-    true_obs = retrieve(observable)[1,:]
+    true_obs = retrieve(observable)
     # specify priors
     prior = PriorDistribution(α=Beta(1,1), s=Normal(0,1))
     noise_scale = 0.01

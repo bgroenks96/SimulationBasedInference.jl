@@ -1,7 +1,30 @@
 abstract type SimulatorOutput end
 
+abstract type Observable{outputType<:SimulatorOutput} end
+
 """
-    SimulatorObservable{outputType<:SimulatorOutput,funcType}
+    initialize!(::Observable, state)
+
+Initialize the `Observable` from the given simulator state.
+"""
+initialize!(obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
+
+"""
+    observe!(::Observable, state)
+
+Computes and stores the relevant state variables from the given simulator state.
+"""
+observe!(obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
+
+"""
+    retrieve(::Observable, ::Type{T}=Any) where {T}
+
+Retreive the obsevable at all saved time points, assuming all sample times have been stored appropriately.
+"""
+retrieve(obs::Observable, ::Type{T}=Any) where {T} = error("not implemented for observable of type $(typeof(obs))")
+
+"""
+    SimulatorObservable{outputType<:SimulatorOutput,funcType} <: Observable{outputType}
 
 Represents a named "observable" that stores output from a simulator. `obsfunc`
 defines a mapping from the simulator state to the observed quantity. The type
@@ -9,7 +32,7 @@ and implementation of `output` determines how the samples are stored. The simple
 output type is `Transient` which simply maintains a pointer to the last observed
 output.
 """
-struct SimulatorObservable{outputType<:SimulatorOutput,funcType}
+struct SimulatorObservable{outputType<:SimulatorOutput,funcType} <: Observable{outputType}
     name::Symbol
     obsfunc::funcType
     output::outputType
@@ -51,25 +74,10 @@ mutable struct Transient <: SimulatorOutput
     state
 end
 
-"""
-    initialize!(::SimulatorObservable, state)
-
-Initialize the `SimulatorObservable` from the given simulator state.
-"""
 initialize!(obs::SimulatorObservable{Transient}, state) = obs.output.state = obs.obsfunc(state)
 
-"""
-    observe!(::SimulatorObservable, state)
-
-Computes and stores the relevant state variables from the given simulator state.
-"""
 observe!(obs::SimulatorObservable{Transient}, state) = obs.output.state = obs.obsfunc(state)
 
-"""
-    retrieve(::SimulatorObservable, ::Type{T}=Any) where {T}
-
-Retreive the obsevable at all saved time points, assuming all sample times have been stored appropriately.
-"""
 retrieve(obs::SimulatorObservable{Transient}, ::Type{T}=Any) where {T} = obs.output.state
 
 """
@@ -99,13 +107,15 @@ function TimeSampled(
 ) where {tType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
-    @assert minimum(diff(tsave)) >= samplerate "sample frequency must be higher than all saving intervals"
+    @assert length(tsave) == 1 || minimum(diff(tsave)) >= samplerate "sample frequency must be higher than all saving intervals"
     tsample = [t0]
     for t in tsave
         # append sample points up to next t
         append!(tsample, tsample[end]+samplerate:samplerate:t-samplerate)
-        # add next t
-        push!(tsample, t)
+        if t > tsample[end]
+            # add next t
+            push!(tsample, t)
+        end
     end
     return TimeSampled(ndims, extrema(tsample), tsample, collect(tsave), reducer, nothing, nothing, 1)
 end
@@ -115,7 +125,7 @@ const DynamicSimulatorObservable{T} = SimulatorObservable{T} where {T<:TimeSampl
 Base.size(obs::DynamicSimulatorObservable) = (obs.output.ndims, length(obs.output.tsave))
 
 """
-    samplepoints(::DynamicSimulatorObservable)
+    sampletimes(::DynamicSimulatorObservable)
 
 Return the time points at which the simulator should be sampled in order to compare to
 observations. Note that this may not exactly correspond to the observation time points;
@@ -123,7 +133,14 @@ e.g. mean annual ground temperature observations would require the simulator to 
 at appropriate intervals relative to the forcing. The implementation of `SimulatorObservable` is thus
 responsible for computing and storing the model state at each sample time.
 """
-samplepoints(obs::DynamicSimulatorObservable) = obs.output.tsample
+sampletimes(obs::DynamicSimulatorObservable) = obs.output.tsample
+
+"""
+    savetimes(::DynamicSimulatorObservable)
+
+Return the time points at which simulator outputs will be saved.
+"""
+savetimes(obs::DynamicSimulatorObservable) = obs.output.tsave
 
 function initialize!(obs::DynamicSimulatorObservable, state)
     Y = obs.obsfunc(state)
@@ -138,10 +155,6 @@ end
 function observe!(obs::DynamicSimulatorObservable, state)
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
     t = obs.output.tsample[obs.output.sampleidx]
-    if t < first(obs.output.tsample) || t > last(obs.output.tsample)
-        # do nothing if outside of sampling period
-        return nothing
-    end
     # find index of time point
     idx = searchsorted(obs.output.tsave, t)
     # if t ∈ save points, compute and store reduced output
@@ -160,11 +173,9 @@ end
 
 function retrieve(obs::DynamicSimulatorObservable, ::Type{TT}=Float64) where {TT}
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
-    if length(obs.output.output) > 1
-        return reduce(hcat, obs.output.output)
-    else
-        return first(obs.output.output)
-    end
+    out = reduce(hcat, obs.output.output)
+    # drop first dimension if it is of length 1
+    return size(out,1) == 1 ? dropdims(out, dims=1) : out
 end
 
 unflatten(obs::DynamicSimulatorObservable, x::AbstractVector) = reshape(x, length(first(obs.output.output)), length(obs.output.output))

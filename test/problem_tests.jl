@@ -14,7 +14,7 @@ using Test
     forward_sol = solve(forwardprob, Tsit5())
     @test isa(forward_sol, SimulatorForwardSolution)
     obs = retrieve(observable)
-    @test size(obs) == (1,10)
+    @test size(obs) == (10,)
     @test all(diff(obs[1,:]) .< 0.0)
 end
 
@@ -47,7 +47,7 @@ end
     u.obs.σ = 1.0
     lp = logprob(inferenceprob, u)
     # check that the logprob is equal to the logpdf of a manually constructed likelihood
-    @test lp == logpdf(MvNormal(retrieve(observable)[1,:], I), data)
+    @test lp == logpdf(MvNormal(retrieve(observable), I), data)
     # check LogDensityProblems interface
     ldpcheck = LogDensityProblems.capabilities(inferenceprob)
     @test isa(ldpcheck, LogDensityProblems.LogDensityOrder{0})

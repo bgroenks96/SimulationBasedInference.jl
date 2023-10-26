@@ -51,14 +51,14 @@ function CommonSolve.step!(forward::SimulatorODEForwardSolver)
     prob = forward.prob
     integrator = forward.integrator
     t = forward.tstops[forward.step_idx]
-    dt = prob.config.obs_to_prob_time(t) - integrator.t
+    dt = t - integrator.t
     if dt > 0
         # step to next t if dt > 0
         step!(integrator, dt, true)
     end
     # iterate over observables and update those for which t is a sample point
     for obs in prob.observables
-        if t ∈ samplepoints(obs)
+        if t ∈ map(prob.config.obs_to_prob_time, sampletimes(obs))
             observe!(obs, integrator)
         end
     end
@@ -69,7 +69,7 @@ end
 
 function CommonSolve.init(prob::SimulatorForwardProblem{<:AbstractODEProblem}, ode_alg; p=prob.prob.p, kwargs...)
     # collect and combine sample points from all obsevables
-    t_points = sort(unique(union(map(samplepoints, prob.observables)...)))
+    t_points = prob.config.obs_to_prob_time.(sort(unique(union(map(sampletimes, prob.observables)...))))
     # reinitialize forward problem with new parameters
     newprob = remake(prob, p=p)
     # initialize integrator with built-in saving disabled
