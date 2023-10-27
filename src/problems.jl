@@ -69,6 +69,7 @@ struct SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType,dat
     param_map::ParameterMapping
     likelihoods::NamedTuple{names,likType}
     data::NamedTuple{names,dataType}
+    metadata::Dict
 end
 (::Type{SimulatorInferenceProblem})(
     prob::SimulatorInferenceProblem;
@@ -79,7 +80,8 @@ end
     param_map=prob.param_map,
     likelihoods=prob.likelihoods,
     data=prob.data,
-) = SimulatorInferenceProblem(u0, forward_prob, forward_solver, prior, param_map, likelihoods, data)
+    metadata=prob.metadata,
+) = SimulatorInferenceProblem(u0, forward_prob, forward_solver, prior, param_map, likelihoods, data, metadata)
 
 """
     SimulatorInferenceProblem(
@@ -97,6 +99,7 @@ function SimulatorInferenceProblem(
     prior::AbstractPrior,
     lik_with_data::Pair{<:Likelihood,<:AbstractArray}...;
     param_map=ParameterMapping(prior),
+    metadata::Dict=Dict(),
 )
     likelihoods = map(first, lik_with_data)
     data = map(last, lik_with_data)
@@ -105,13 +108,14 @@ function SimulatorInferenceProblem(
     data_with_names = (; map(Pair, keys(likelihoods_with_names), data)...)
     joint_prior = JointPrior(prior, likelihoods...)
     u0 = zero(rand(joint_prior))
-    SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, likelihoods_with_names, data_with_names)
+    SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, likelihoods_with_names, data_with_names, metadata)
 end
 
 Base.names(::SimulatorInferenceProblem{TP,TL,TD,names}) where {TP,TL,TD,names} = names
 
+Base.propertynames(prob::SimulatorInferenceProblem) = (fieldnames(typeof(prob))..., propertynames(getfield(prob, :forward_prob))...)
 function Base.getproperty(prob::SimulatorInferenceProblem, sym::Symbol)
-    if sym ∈ (:u0,:forward_prob,:forward_solver,:prior,:param_map,:likelihoods,:data)
+    if sym ∈ fieldnames(typeof(prob))
         return getfield(prob, sym)
     end
     return getproperty(getfield(prob, :forward_prob), sym)

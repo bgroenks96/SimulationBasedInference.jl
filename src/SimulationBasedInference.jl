@@ -55,10 +55,10 @@ export SimulatorForwardProblem, SimulatorForwardSolution, SimulatorInferenceProb
 include("problems.jl")
 
 export SimulatorForwardSolver
-include("forward_prob.jl")
+include("forward_solve.jl")
 
 export SimulatorODEForwardSolver
-include("forward_ode.jl")
+include("forward_solve_ode.jl")
 
 include("Ensembles/Ensembles.jl")
 using .Ensembles
