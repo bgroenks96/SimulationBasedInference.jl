@@ -1,5 +1,5 @@
 mutable struct EnsembleSolver{probType,algType,ensalgType,stateType,kwargTypes}
-    prob::probType
+    sol::SimulatorInferenceSolution{probType}
     alg::algType
     ensalg::ensalgType
     state::stateType

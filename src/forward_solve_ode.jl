@@ -27,14 +27,14 @@ end
 # forwarding property dispatches to nested integrator
 Base.propertynames(integrator::SimulatorODEForwardSolver) = (:prob,:integrator,:tstops,:step_idx,propertynames(integrator.integrator)...)
 function Base.getproperty(integrator::SimulatorODEForwardSolver, sym::Symbol)
-    if sym ∈ (:prob,:integrator,:tstops,:step_idx)
+    if sym ∈ fieldnames(typeof(integrator))
         return getfield(integrator, sym)
     else
         return getproperty(getfield(integrator,:integrator), sym)
     end
 end
 function Base.setproperty!(integrator::SimulatorODEForwardSolver, sym::Symbol, value)
-    if sym ∈ (:prob,:integrator,:tstops,:step_idx)
+    if sym ∈ fieldnames(typeof(integrator))
         return setfield!(integrator, sym, value)
     else
         return setproperty!(getfield(integrator, :integrator), sym, value)
@@ -67,18 +67,24 @@ function CommonSolve.step!(forward::SimulatorODEForwardSolver)
     return nothing
 end
 
-function CommonSolve.init(prob::SimulatorForwardProblem{<:AbstractODEProblem}, ode_alg; p=prob.prob.p, kwargs...)
+"""
+    init(forward_prob::SimulatorForwardProblem{<:AbstractODEProblem}, ode_alg; p=forward_prob.prob.p, saveat=[], solve_kwargs...)
+
+Initializes a `SimulatorODEForwardSolver` for the given forward problem and ODE integrator algorithm. Additional keyword arguments are
+passed through to the integrator `init` implementation.
+"""
+function CommonSolve.init(forward_prob::SimulatorForwardProblem{<:AbstractODEProblem}, ode_alg; p=forward_prob.prob.p, saveat=[], solve_kwargs...)
     # collect and combine sample points from all obsevables
-    t_points = prob.config.obs_to_prob_time.(sort(unique(union(map(sampletimes, prob.observables)...))))
-    # reinitialize forward problem with new parameters
-    newprob = remake(prob, p=p)
+    t_points = forward_prob.config.obs_to_prob_time.(sort(unique(union(map(sampletimes, forward_prob.observables)...))))
+    # reinitialize inner problem with new parameters
+    innerprob = remake(forward_prob.prob, p=p)
     # initialize integrator with built-in saving disabled
-    integrator = init(newprob.prob, ode_alg; kwargs...)
+    integrator = init(innerprob, ode_alg; saveat, solve_kwargs...)
     # initialize observables
-    for obs in prob.observables
+    for obs in forward_prob.observables
         initialize!(obs, integrator)
     end
-    return SimulatorODEForwardSolver(prob, integrator, t_points, 1)
+    return SimulatorODEForwardSolver(forward_prob, integrator, t_points, 1)
 end
 
 """

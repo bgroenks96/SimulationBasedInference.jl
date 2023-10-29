@@ -36,7 +36,7 @@ import Random
     # solve inference problem with EKS
     eks_sol = solve(inferenceprob, eks, verbose=false, rng=rng)
     # check results
-    u_ens = get_u_final(eks_sol.ekp)
+    u_ens = get_u_final(eks_sol.inference_result.ekp)
     constrained_to_unconstrained = bijector(prior)
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)

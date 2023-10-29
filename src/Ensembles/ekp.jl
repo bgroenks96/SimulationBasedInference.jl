@@ -44,14 +44,14 @@ function ekpstep!(
         ϕ = param_map(Θ[:,i])
         return ensemble_prob_func(prob, ϕ)
     end
-    ensprob = EnsembleProblem(initial_prob; prob_func, output_func=(sol,i) -> ensemble_output_func(sol,i,iter))
+    ensprob = EnsembleProblem(initial_prob; prob_func, output_func=(sol,i) -> ensemble_output_func(sol, i, iter))
     enssol = solve(ensprob, alg, ensalg; trajectories=N_ens, solve_kwargs...)
     enspred = reduce(hcat, map((i,out) -> ensemble_pred_func(out, i, iter), 1:N_ens, enssol.u))
     # update ensemble
     update_ensemble!(ekp, enspred)
     # compute log joint probability (or likelihood if not EKS)
     logprobs = map((i,y) -> logdensity(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
-    return logprobs, enssol
+    return enssol, logprobs
 end
 
 """
@@ -107,7 +107,7 @@ function fitekp!(
     i += 1
     while !hasconverged(ekp, minΔt) && i <= maxiters
         verbose && @info "Starting iteration $i (maxiters=$(maxiters))"
-        logprobsᵢ, _ = ekpstep!(ekp, initial_prob, ensalg, alg, param_map, prob_func, output_func, ensemble_pred_func, i; solve_kwargs...)
+        _, logprobsᵢ = ekpstep!(ekp, initial_prob, ensalg, alg, param_map, prob_func, output_func, ensemble_pred_func, i; solve_kwargs...)
         push!(logprobs, logprobsᵢ)
         err = ekp.err[end]
         Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing

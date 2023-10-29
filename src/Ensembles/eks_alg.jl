@@ -44,8 +44,8 @@ function CommonSolve.init(
     inference_prob::SimulatorInferenceProblem,
     alg::EKS;
     prob_func=(prob,p) -> remake(prob, p=p),
-    output_func=default_forward_solve_output,
-    pred_func=(y,i,iter) -> y,
+    output_func=(sol,i,iter) -> (sol, false),
+    pred_func=default_forward_solve_pred,
     ekp_ctor=EnsembleKalmanProcess,
     rng=Random.default_rng(),
     initial_ens=nothing,
@@ -76,8 +76,9 @@ function CommonSolve.init(
     # build EKP using constructor function
     ekp = ekp_ctor(initial_ens, obs_mean, Matrix(obs_cov), sampler; rng)
     ekpstate = EKPState(ekp, 0, [])
+    inference_sol = SimulatorInferenceSolution(inference_prob, [], nothing)
     return EnsembleSolver(
-        inference_prob,
+        inference_sol,
         alg,
         alg.ens_alg,
         ekpstate,
@@ -96,16 +97,18 @@ function CommonSolve.step!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EK
     if solver.retcode != ReturnCode.Default
         return false
     end
-    # otherwise do EKS step
     alg = solver.alg
-    inference_prob = solver.prob
+    sol = solver.sol
+    inference_prob = sol.prob
     state = solver.state
     ekp = state.ekp
     state.iter += 1
     solver.verbose && @info "Starting iteration $(state.iter) (maxiters=$(alg.maxiters))"
+    # parameter mapping (model parameters only)
     constrained_to_unconstrained = bijector(inference_prob.prior.model)
     param_map = ParameterMapping(inverse(constrained_to_unconstrained))
-    logprobsᵢ, _ = ekpstep!(
+    # EKS iteration
+    enssol, logprobsᵢ = ekpstep!(
         ekp,
         inference_prob.forward_prob,
         alg.ens_alg,
@@ -117,11 +120,17 @@ function CommonSolve.step!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EK
         state.iter;
         solver.solve_kwargs...
     )
+    # update ensemble solver state
     push!(state.lp, logprobsᵢ)
+    push!(sol.sols, enssol)
+    sol.inference_result = state
+    # calculate change in error
     err = ekp.err[end]
     Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing
     solver.verbose && @info "Finished iteration $(state.iter); err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
+    # iteration callback
     callback_retval = solver.itercallback(state, state.iter)
+    # check convergence
     converged = hasconverged(ekp, alg.minΔt)
     maxiters_reached = state.iter >= alg.maxiters
     retcode = if converged
@@ -140,7 +149,7 @@ end
 function CommonSolve.solve!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EKS})
     # step until convergence
     while CommonSolve.step!(solver) end
-    return solver.state
+    return solver.sol
 end
 
 eks_obs_cov(likelihoods...) = error("EKS currently supports only (diagonal) Gaussian likelihoods")
@@ -154,8 +163,9 @@ function eks_obs_cov(likelihoods::Union{DiagonalGaussianLikelihood,IsotropicGaus
     return Diagonal(reduce(vcat, cov_diags))
 end
 
-function default_forward_solve_output(sol::SimulatorForwardSolution, i, iter)
+function default_forward_solve_pred(sol::SimulatorForwardSolution, i, iter)
     @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
     observables = sol.prob.observables
-    return reduce(vcat, map(vec ∘ retrieve, observables)), false
+    # retrieve observables and flatten them into a vector
+    return reduce(vcat, map(obs -> vec(retrieve(obs)), observables))
 end
