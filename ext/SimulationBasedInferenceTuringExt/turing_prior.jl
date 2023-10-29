@@ -26,8 +26,8 @@ function (prior::TuringPrior)(θ::AbstractVector{T}) where {T}
     return ϕ
 end
 
-SimulationBasedInference.logprob(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
-function SimulationBasedInference.logprob(prior::TuringPrior, θ::AbstractVector)
+SimulationBasedInference.logdensity(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
+function SimulationBasedInference.logdensity(prior::TuringPrior, θ::AbstractVector)
     return Turing.logprior(prior.model, ComponentVector(getdata(θ), prior.axes))
 end
 

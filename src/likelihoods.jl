@@ -68,3 +68,10 @@ function Bijectors.bijector(jp::JointPrior)
     bs = map(l -> bijector(getprior(l)), jp.likelihoods)
     Stacked([bijector(jp.model), bs...])
 end
+
+function logdensity(jp::JointPrior, x::ComponentVector)
+    lp_model = logdensity(jp.model, x.model)
+    liknames = map(nameof, jp.likelihoods)
+    lp_lik = sum(map((l,n) -> logdensity(getprior(l), getproperty(x, n)), jp.likelihoods, liknames))
+    return lp_model + lp_lik
+end

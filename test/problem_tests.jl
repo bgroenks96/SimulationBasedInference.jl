@@ -45,9 +45,10 @@ end
     @test hasproperty(u, :model) && hasproperty(u, :obs)
     u.model.α = 0.5
     u.obs.σ = 1.0
-    lp = logprob(inferenceprob, u)
-    # check that the logprob is equal to the logpdf of a manually constructed likelihood
-    @test lp == logpdf(MvNormal(retrieve(observable), I), data)
+    lp = logdensity(inferenceprob, u)
+    lj = logpdf(MvNormal(retrieve(observable), I), data) + logdensity(prior, u.model) + logdensity(noise_scale_prior, u.obs)
+    # check the logdensity is equal to the logjoint
+    @test lp == lj
     # check LogDensityProblems interface
     ldpcheck = LogDensityProblems.capabilities(inferenceprob)
     @test isa(ldpcheck, LogDensityProblems.LogDensityOrder{0})

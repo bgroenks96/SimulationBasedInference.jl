@@ -108,7 +108,7 @@ function SimulatorInferenceProblem(
     data_with_names = (; map(Pair, keys(likelihoods_with_names), data)...)
     joint_prior = JointPrior(prior, likelihoods...)
     u0 = zero(rand(joint_prior))
-    SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, likelihoods_with_names, data_with_names, metadata)
+    return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, likelihoods_with_names, data_with_names, metadata)
 end
 
 Base.names(::SimulatorInferenceProblem{TP,TL,TD,names}) where {TP,TL,TD,names} = names
@@ -121,29 +121,50 @@ function Base.getproperty(prob::SimulatorInferenceProblem, sym::Symbol)
     return getproperty(getfield(prob, :forward_prob), sym)
 end
 
-function logprob(inference_prob::SimulatorInferenceProblem, _x::AbstractVector; transform=false, solve_kwargs...)
-    x = ComponentVector(getdata(_x), getaxes(inference_prob.u0))
-    logp = zero(eltype(x))
+"""
+    logjoint(inference_prob::SimulatorInferenceProblem, x::AbstractVector; forward_solve=true, transform=false, solve_kwargs...)
+
+Evaluate the the log-joint density `p(D|x)p(x)`. If `transform=true`, `x` is transformed by the `param_map` defined on the given
+inference problem before evaluating the log-joint density.
+"""
+function logjoint(
+    inference_prob::SimulatorInferenceProblem,
+    x::AbstractVector;
+    forward_solve=true,
+    transform=false,
+    solve_kwargs...
+)
+    xvec = ComponentVector(getdata(x), getaxes(inference_prob.u0))
+    logprior = zero(eltype(x))
     # transform from unconstrained space if necessary
     if transform
-        logp += logprob(inference_prob.prior, x)
-        logp += logprob(inference_prob.param_map, x)
-        z = inference_prob.param_map(x)
+        z = inference_prob.param_map(xvec)
+        logprior += logdensity(inference_prob.param_map, xvec)
     else
-        z = x
+        z = xvec
     end
+    logprior += logdensity(inference_prob.prior, z)
     # solve forward problem
-    _ = solve(inference_prob.forward_prob, inference_prob.forward_solver; p=z.model, solve_kwargs...)
+    if forward_solve
+        # we can discard the result of solve since the reuslts are stored in the observables
+        _ = solve(inference_prob.forward_prob, inference_prob.forward_solver; p=z.model, solve_kwargs...)
+    end
     # compute the likelihood distributions from the observables and likelihood parameters
     lik_dists = map(l -> l(getproperty(z, nameof(l))), inference_prob.likelihoods)
     # compute and sum the log densities
-    return sum(map((x,D) -> logpdf(D,x), inference_prob.data, lik_dists))
+    loglik = sum(map((x,D) -> logpdf(D,x), inference_prob.data, lik_dists))
+    return (; loglik, logprior)
 end
+
+"""
+    logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
+
+Calls `logjoint` with the given arguments and sums the resulting likelihood and prior log-densities.
+"""
+logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...) = sum(logjoint(inference_prob, x; kwargs...))
 
 # log density interface
 
 LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensityProblems.LogDensityOrder{0}()
 
 LogDensityProblems.dimension(inference_prob::SimulatorInferenceProblem) = length(inference_prob.u0)
-
-LogDensityProblems.logdensity(inference_prob::SimulatorInferenceProblem, x) = logprob(inference_prob, x)

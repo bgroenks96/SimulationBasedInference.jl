@@ -22,7 +22,7 @@ end
     draw = rand(m_prior)
     @test isa(draw, ComponentVector)
     @test haskey(draw, :x) && haskey(draw, :p)
-    lp = logprob(m_prior, draw)
+    lp = logdensity(m_prior, draw)
     @test lp == Turing.logprior(m_prior.model, (x=draw.x, p=draw.p))
     chain = sample(rng, m_prior, 100, progress=false, verbose=false)
     @test isa(chain, MCMCChains.Chains)

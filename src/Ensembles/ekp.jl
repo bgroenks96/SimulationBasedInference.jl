@@ -50,7 +50,7 @@ function ekpstep!(
     # update ensemble
     update_ensemble!(ekp, enspred)
     # compute log joint probability (or likelihood if not EKS)
-    logprobs = map((i,y) -> logprob(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
+    logprobs = map((i,y) -> logdensity(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
     return logprobs, enssol
 end
 
@@ -122,15 +122,15 @@ function fitekp!(
     return state
 end
 
-function SimulationBasedInference.logprob(ekp::EnsembleKalmanProcess, pmap::ParameterMapping, θ, y)
+function SimulationBasedInference.logdensity(ekp::EnsembleKalmanProcess, pmap::ParameterMapping, θ, y)
     loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
-    logdetJ⁻¹ = logprob(pmap, θ)
+    logdetJ⁻¹ = logdensity(pmap, θ)
     return loglik + logdetJ⁻¹
 end
-function SimulationBasedInference.logprob(ekp::EnsembleKalmanProcess{FT,IT,<:Sampler}, pmap::ParameterMapping, θ, y) where {FT,IT}
+function SimulationBasedInference.logdensity(ekp::EnsembleKalmanProcess{FT,IT,<:Sampler}, pmap::ParameterMapping, θ, y) where {FT,IT}
     loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
     logprior = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θ)
-    logdetJ⁻¹ = logprob(pmap, θ)
+    logdetJ⁻¹ = logdensity(pmap, θ)
     return loglik + logprior + logdetJ⁻¹
 end
 

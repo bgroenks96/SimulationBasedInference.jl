@@ -22,8 +22,8 @@ Invokes the forward map `map.transform` Θ ↦ Φ.
 transform(map::ParameterMapping, θ) = map.transform(θ)
 
 """
-    logprob(map::ParameterMapping, θ)
+    logdensity(map::ParameterMapping, θ)
 
 Computes the additive log-probability of the transformation.
 """
-logprob(map::ParameterMapping, θ) = map.logabsdetJ(θ)
+logdensity(map::ParameterMapping, θ) = map.logabsdetJ(θ)

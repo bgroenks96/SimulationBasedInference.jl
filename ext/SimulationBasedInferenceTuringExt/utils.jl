@@ -26,7 +26,7 @@ function ParameterMapping(priormodel::Turing.Model)
         p = first(Turing.DynamicPPL.evaluate!!(priormodel, new_vi, context))
         return p.*one(T)
     end
-    # define logprob function for transform
+    # define logdensity function for transform
     lp(θ) = Turing.logabsdetjacinv(priormap, θ)
     return Inference.ParameterMapping(param_map, lp)
 end

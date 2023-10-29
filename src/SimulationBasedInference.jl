@@ -22,14 +22,11 @@ using Random
 using StatsBase
 using Statistics
 
-export logprob
+import LogDensityProblems: logdensity
 
-"""
-    logprob(d::Distribution, x)
+export logdensity
 
-Calculate the log probability of `x` under the given distribution `d`.
-"""
-logprob(d::Distribution, x) = logpdf(d, x)
+logdensity(d::Distribution, x) = logpdf(d, x)
 
 export SimulatorInferenceAlgorithm
 

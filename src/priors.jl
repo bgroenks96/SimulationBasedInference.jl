@@ -2,7 +2,7 @@ abstract type AbstractPrior end
 
 # prior interface methods
 
-logprob(prior::AbstractPrior, x) = error("logprob not implemented for prior of type $(typeof(prior))")
+logdensity(prior::AbstractPrior, x) = error("logdensity not implemented for prior of type $(typeof(prior))")
 
 Base.names(prior::AbstractPrior) = error("names not implemented")
 
@@ -43,7 +43,7 @@ Alias for `PriorDistribution((; dists...))`.
 """
 PriorDistribution(; dists...) = PriorDistribution((; dists...))
 
-logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
+logdensity(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
 
 Base.names(prior::PriorDistribution) = keys(prior.dist)
 

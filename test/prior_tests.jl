@@ -21,14 +21,14 @@ using Test
     @test hasproperty(draw, :p)
 end
 
-@testset "logprob" begin
+@testset "logdensity" begin
     d = Normal(0,1)
     priordist = PriorDistribution(:x, d)
-    lp = logprob(priordist, 0.5)
+    lp = logdensity(priordist, 0.5)
     @test lp .≈ logpdf(d, 0.5)
     d = (x = Normal(0,1), p = Beta(1,1))
     priordist = PriorDistribution(d)
-    lp = logprob(priordist, [0.5,0.5])
+    lp = logdensity(priordist, [0.5,0.5])
     @test lp .≈ sum(map(logpdf, d, [0.5,0.5]))
 end
 
