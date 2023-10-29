@@ -76,7 +76,7 @@ function CommonSolve.init(
     # build EKP using constructor function
     ekp = ekp_ctor(initial_ens, obs_mean, Matrix(obs_cov), sampler; rng)
     ekpstate = EKPState(ekp, 0, [])
-    inference_sol = SimulatorInferenceSolution(inference_prob, [], nothing)
+    inference_sol = SimulatorInferenceSolution(inference_prob, [], [], nothing)
     return EnsembleSolver(
         inference_sol,
         alg,
@@ -107,6 +107,7 @@ function CommonSolve.step!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EK
     # parameter mapping (model parameters only)
     constrained_to_unconstrained = bijector(inference_prob.prior.model)
     param_map = ParameterMapping(inverse(constrained_to_unconstrained))
+    θᵢ = get_u_final(ekp)
     # EKS iteration
     enssol, logprobsᵢ = ekpstep!(
         ekp,
@@ -122,7 +123,8 @@ function CommonSolve.step!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EK
     )
     # update ensemble solver state
     push!(state.lp, logprobsᵢ)
-    push!(sol.sols, enssol)
+    push!(sol.inputs, θᵢ)
+    push!(sol.outputs, enssol)
     sol.inference_result = state
     # calculate change in error
     err = ekp.err[end]

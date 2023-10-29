@@ -77,14 +77,14 @@ function CommonSolve.init(forward_prob::SimulatorForwardProblem{<:AbstractODEPro
     # collect and combine sample points from all obsevables
     t_points = forward_prob.config.obs_to_prob_time.(sort(unique(union(map(sampletimes, forward_prob.observables)...))))
     # reinitialize inner problem with new parameters
-    innerprob = remake(forward_prob.prob, p=p)
+    newprob = remake(forward_prob, p=p, copy_observables=false)
     # initialize integrator with built-in saving disabled
-    integrator = init(innerprob, ode_alg; saveat, solve_kwargs...)
+    integrator = init(newprob.prob, ode_alg; saveat, solve_kwargs...)
     # initialize observables
-    for obs in forward_prob.observables
+    for obs in newprob.observables
         initialize!(obs, integrator)
     end
-    return SimulatorODEForwardSolver(forward_prob, integrator, t_points, 1)
+    return SimulatorODEForwardSolver(newprob, integrator, t_points, 1)
 end
 
 """

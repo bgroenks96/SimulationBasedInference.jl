@@ -14,6 +14,12 @@ getprior(lik::Likelihood)::AbstractPrior = lik.prior
 
 (lik::Likelihood)(args...) = lik(args...)
 
+function SciMLBase.remaker_of(lik::likType) where {likType<:Likelihood}
+    # by default, just use the type name to reconstruct the likelihood with each parameter;
+    # additional dispatches can be added for special cases
+    remake(; name=lik.name, obs=lik.obs, prior=lik.prior) = nameof(likType)(name, obs, prior)
+end
+
 struct MvGaussianLikelihood{priorType<:AbstractPrior,obsType<:SimulatorObservable} <: Likelihood{obsType}
     name::Symbol
     obs::obsType
