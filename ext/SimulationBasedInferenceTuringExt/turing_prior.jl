@@ -32,7 +32,8 @@ function SimulationBasedInference.logdensity(prior::TuringPrior, θ::AbstractVec
 end
 
 # mandatory sampling dispatches
-Base.rand(prior::TuringPrior) = ComponentArray(rand(prior.model))
+Base.rand(rng::AbstractRNG, prior::TuringPrior) = ComponentArray(rand(rng, prior.model))
 
 StatsBase.sample(rng::AbstractRNG, prior::TuringPrior, n::Int, args...; kwargs...) = sample(rng, prior.model, Prior(), n, args...; kwargs...)
 
+Bijectors.bijector(prior::TuringPrior) = bijector(prior.model)

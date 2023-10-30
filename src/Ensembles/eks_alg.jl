@@ -21,7 +21,7 @@ function EKS(
     ens_alg::SciMLBase.EnsembleAlgorithm,
     prior::AbstractPrior,
     rng::Random.AbstractRNG=Random.GLOBAL_RNG;
-    num_prior_samples=1000,
+    num_prior_samples=10_000,
     kwargs...
 )
     constrained_to_unconstrained = bijector(prior)
