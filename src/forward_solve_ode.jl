@@ -24,6 +24,9 @@ mutable struct SimulatorODEForwardSolver{algType,uType,tType,iip,integratorType<
     step_idx::Int
 end
 
+SciMLBase.done(solver::SimulatorODEForwardSolver) = SciMLBase.done(solver.integrator)
+SciMLBase.postamble!(solver::SimulatorODEForwardSolver) = SciMLBase.postamble!(solver.integrator)
+
 # forwarding property dispatches to nested integrator
 Base.propertynames(integrator::SimulatorODEForwardSolver) = (:prob,:integrator,:tstops,:step_idx,propertynames(integrator.integrator)...)
 function Base.getproperty(integrator::SimulatorODEForwardSolver, sym::Symbol)

@@ -48,8 +48,11 @@ include("priors.jl")
 export MvGaussianLikelihood, IsotropicGaussianLikelihood, DiagonalGaussianLikelihood
 include("likelihoods.jl")
 
-export SimulatorForwardProblem, SimulatorForwardSolution, SimulatorInferenceProblem, SimulatorInferenceSolution
-include("problems.jl")
+export SimulatorForwardProblem, SimulatorForwardSolution
+include("forward_problem.jl")
+
+export SimulatorInferenceProblem, SimulatorInferenceSolution
+include("inference_problem.jl")
 
 export SimulatorForwardSolver
 include("forward_solve.jl")

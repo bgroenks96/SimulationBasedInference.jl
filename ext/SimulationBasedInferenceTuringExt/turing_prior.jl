@@ -34,6 +34,6 @@ end
 # mandatory sampling dispatches
 Base.rand(rng::AbstractRNG, prior::TuringPrior) = ComponentArray(rand(rng, prior.model))
 
-StatsBase.sample(rng::AbstractRNG, prior::TuringPrior, n::Int, args...; kwargs...) = sample(rng, prior.model, Prior(), n, args...; kwargs...)
+StatsBase.sample(rng::AbstractRNG, prior::TuringPrior, n::Int, args...; kwargs...) = [rand(rng, prior) for i in 1:n]
 
 Bijectors.bijector(prior::TuringPrior) = bijector(prior.model)

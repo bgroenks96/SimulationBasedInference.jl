@@ -25,9 +25,10 @@ function EKS(
     kwargs...
 )
     constrained_to_unconstrained = bijector(prior)
-    prior_samples = reduce(hcat, map(constrained_to_unconstrained, sample(rng, prior, num_prior_samples)))
-    unconstrained_mean = mean(prior_samples, dims=2)
-    unconstrained_var = var(prior_samples, dims=2)
+    constrained_prior_samples = sample(rng, prior, num_prior_samples)
+    unconstrained_prior_samples = reduce(hcat, map(constrained_to_unconstrained, constrained_prior_samples))
+    unconstrained_mean = mean(unconstrained_prior_samples, dims=2)
+    unconstrained_var = var(unconstrained_prior_samples, dims=2)
     eks_prior = MvNormal(unconstrained_mean[:,1], Diagonal(unconstrained_var[:,1]))
     return EKS(n_ens, ens_alg, eks_prior; kwargs...)
 end
