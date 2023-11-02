@@ -31,8 +31,6 @@ function SimulationBasedInference.ParameterMapping(priormodel::Turing.Model)
     return ParameterMapping(param_map, lp)
 end
 
-SimulationBasedInference.ParameterMapping(prior::TuringPrior) = ParameterMapping(prior.model)
-
 function extract_parameter_names(m::Turing.Model)
     # sample chain to extract param names
     chain = sample(m, Prior(), 1, progress=false, verbose=false)
