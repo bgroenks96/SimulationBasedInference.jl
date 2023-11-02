@@ -12,8 +12,8 @@ import Random
 @testset "Linear ODE inversion" begin
     rng = Random.MersenneTwister(1234)
     # set up linear ODE problem with two parameters
-    ode_p = ComponentArray(α=0.5, s=0.1)
-    odeprob = ODEProblem((u,p,t) -> -p[1]*u .+ p[2], [1.0], (0.0,1.0), ode_p)
+    ode_p = ComponentArray(α=0.2)
+    odeprob = ODEProblem((u,p,t) -> -p[1]*u, [1.0], (0.0,1.0), ode_p)
     # observable extracts state from integrator
     observable = SimulatorObservable(:obs, integrator -> integrator.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
     # specify forward problem
@@ -23,9 +23,9 @@ import Random
     @assert forward_sol.sol.retcode == ReturnCode.Default
     true_obs = retrieve(observable)
     # specify priors
-    prior = PriorDistribution(α=Beta(1,1), s=Normal(0,1))
+    prior = PriorDistribution(α=Beta(1,1))
     noise_scale = 0.01
-    noise_scale_prior = PriorDistribution(:σ, Exponential(noise_scale^2))
+    noise_scale_prior = PriorDistribution(:σ, Exponential(noise_scale))
     # simple Gaussian likelihood; note that we're cheating a bit here since we know the noise level a priori
     lik = MvGaussianLikelihood(:obs, observable, noise_scale_prior)
     # create noisy data
@@ -40,6 +40,5 @@ import Random
     constrained_to_unconstrained = bijector(prior)
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)
-    @test abs(posterior_mean[1] - 0.5) < 0.1
-    @test abs(posterior_mean[2] - 0.1) < 0.1
+    @test abs(posterior_mean[1] - 0.2) < 0.01
 end

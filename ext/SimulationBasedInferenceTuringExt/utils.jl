@@ -4,7 +4,7 @@
 Constructs a `ParameterMapping` from the given Turing model. It is assumed that `priormodel`
 returns the transformed parameter vector as an output.
 """
-function ParameterMapping(priormodel::Turing.Model)
+function SimulationBasedInference.ParameterMapping(priormodel::Turing.Model)
     params = rand(priormodel)
     param_names = keys(params)
     param_array = ComponentArray(params)
@@ -28,8 +28,10 @@ function ParameterMapping(priormodel::Turing.Model)
     end
     # define logdensity function for transform
     lp(θ) = Turing.logabsdetjacinv(priormap, θ)
-    return Inference.ParameterMapping(param_map, lp)
+    return ParameterMapping(param_map, lp)
 end
+
+SimulationBasedInference.ParameterMapping(prior::TuringPrior) = ParameterMapping(prior.model)
 
 function extract_parameter_names(m::Turing.Model)
     # sample chain to extract param names
