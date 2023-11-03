@@ -3,6 +3,7 @@ module Emulators
 using SimulationBasedInference
 
 using LinearAlgebra
+using MLJBase
 using Statistics
 
 import MLJModelInterface as MMI
