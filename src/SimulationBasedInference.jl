@@ -63,8 +63,8 @@ include("forward_solve_ode.jl")
 include("Ensembles/Ensembles.jl")
 using .Ensembles
 
-# include("Emulators/Emulators.jl")
-# using .Emulators
+include("Emulators/Emulators.jl")
+using .Emulators
 
 function __init__()
     # Extension loading;

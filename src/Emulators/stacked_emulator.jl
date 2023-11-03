@@ -1,3 +1,9 @@
+"""
+    StackedMLEmulator{TM} <: Emulator
+
+Data structure consisting of some training data for a model emulator, a tranform operation,
+and a tuple of univariate regressors which are applied to the transformed data.
+"""
 mutable struct StackedMLEmulator{TM} <: Emulator
     data::EmulatorData
     transform::EmulatorDataTransform
