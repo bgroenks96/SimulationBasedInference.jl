@@ -106,8 +106,7 @@ function CommonSolve.step!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EK
     state.iter += 1
     solver.verbose && @info "Starting iteration $(state.iter) (maxiters=$(alg.maxiters))"
     # parameter mapping (model parameters only)
-    constrained_to_unconstrained = bijector(inference_prob.prior.model)
-    param_map = ParameterMapping(inverse(constrained_to_unconstrained))
+    param_map = ParameterMapping(inference_prob.prior.model)
     θᵢ = get_u_final(ekp)
     # EKS iteration
     enssol, logprobsᵢ = ekpstep!(
