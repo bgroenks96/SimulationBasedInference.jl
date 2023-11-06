@@ -23,7 +23,7 @@ end
 
 function MMI.predict(em::StackedMLEmulator, X_new::AbstractMatrix; obs_noise=1e-6)
     preds = map(em.models) do m
-        MMI.predict(m, MMI.table(X_new))
+        MMI.predict(m, MMI.table(transpose(X_new)))
     end
     dists = reduce(hcat, preds)
     μ_pred = mean.(dists)

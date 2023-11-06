@@ -28,7 +28,14 @@ end
 
 SimulationBasedInference.logdensity(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
 function SimulationBasedInference.logdensity(prior::TuringPrior, θ::AbstractVector)
-    return Turing.logprior(prior.model, ComponentVector(getdata(θ), prior.axes))
+    ϕ = ComponentVector(getdata(θ), prior.axes)
+    # here we have to do some nasty Turing manipulation to make sure this function is
+    # autodiff compatible; basically we have to reconstruct `varinfo` based on the type of ϕ.
+    varinfo = Turing.DynamicPPL.VarInfo(prior.model);
+    context = prior.model.context;
+    # constructs a new VarInfo type from the parameter values
+    new_vi = Turing.DynamicPPL.unflatten(varinfo, context, ϕ);
+    return Turing.logprior(prior.model, new_vi)
 end
 
 SimulationBasedInference.ParameterMapping(prior::TuringPrior) = ParameterMapping(prior.model)
