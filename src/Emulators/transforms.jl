@@ -1,39 +1,58 @@
+"""
+    EmulatorData
+
+Generic container for emulator data matrices `X` and `Y`.
+`X` should have shape `N x m` where `N` is the number of samples
+and `m` is the number of covariates. `Y` should have dimensions
+`N x d` where `d` is the number of ouptut covariates.
+"""
 struct EmulatorData
     X::AbstractMatrix
     Y::AbstractMatrix
+    function EmulatorData(X::AbstractMatrix, Y::AbstractMatrix)
+        @assert size(X,1) == size(Y,1) "X and Y must have the same number of rows; got $(size(X,2)) != $(size(Y,2))"
+        return new(X,Y)
+    end
 end
 
 struct NoTransform <: EmulatorDataTransform end
 
-struct Decorrelated <: EmulatorDataTransform
+"""
+    DecorrelatedTarget <: EmulatorDataTransform
+
+Decorrelation transform applied to a multivariate output (target) space.
+"""
+struct DecorrelatedTarget <: EmulatorDataTransform
     mean::AbstractVector
     cov::AbstractMatrix
     truncated_svd::SVD
 end
 
-function Decorrelated(data::EmulatorData; sampledim=2, frac=0.99)
-    X, Y = data.X, data.Y
-    Y_c = mean(Y, dims=sampledim)
-    Y_centered = Y .- Y_c
-    C_Y = cov(Y, dims=sampledim)
+function DecorrelatedTarget(data::EmulatorData; frac=1.0)
+    # transpose to get matrix as d x N
+    Y = transpose(data.Y)
+    Y_mean = mean(Y, dims=2)
+    Y_c = Y .- Y_mean
+    C_Y = cov(Y_c, dims=2)
     C_svd = svd(C_Y)
     rank = findfirst(>=(frac), cumsum(C_svd.S ./ sum(C_svd.S)))
+    rank = isnothing(rank) ? length(C_svd.S) : rank
     Vt_r = C_svd.Vt[1:rank,:]
     S_r = C_svd.S[1:rank]
     truncated_svd = SVD(C_svd.U, S_r, Vt_r)
-    return Decorrelated(dropdims(Y_c, dims=sampledim), C_Y, truncated_svd)
+    return DecorrelatedTarget(dropdims(Y_mean, dims=2), C_Y, truncated_svd)
 end
 
-function transform_target(d::Decorrelated, Y)
-    Y_centered = Y .- d.mean
+function transform_target(d::DecorrelatedTarget, Y::AbstractMatrix)
+    Y_centered = Y' .- d.mean
     S_r = d.truncated_svd.S
-    Yt = inv(Diagonal(sqrt.(S_r)))*d.truncated_svd.Vt*Y_centered
-    return Yt
+    Z = inv(Diagonal(sqrt.(S_r)))*d.truncated_svd.Vt*Y_centered
+    return Z'
 end
 
-function inverse_transform_target(d::Decorrelated, Z)
+function inverse_transform_target(d::DecorrelatedTarget, Z::AbstractMatrix)
     S_r = d.truncated_svd.S
-    Y_c = d.truncated_svd.V*Diagonal(sqrt.(S_r))*Z
+    Y_c = d.truncated_svd.V*Diagonal(sqrt.(S_r))*Z'
     Y = Y_c .+ d.mean
-    return Y
+    return Y'
 end

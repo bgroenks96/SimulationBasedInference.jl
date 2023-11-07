@@ -16,6 +16,10 @@ end
     include("eks_tests.jl")
 end
 
+@testset "Emulators" begin
+    include("emulator_tests.jl")
+end
+
 @testset "Turing integration" begin
     include("TuringExt/turing_tests.jl")
 end
