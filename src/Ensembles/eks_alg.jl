@@ -74,7 +74,7 @@ function CommonSolve.init(
     @assert n_ens == alg.n_ens "expected $(alg.n_ens) initial ensemble values, got $n_ens"
     # build EKP using constructor function
     ekp = ekp_ctor(initial_ens, obs_mean, Matrix(obs_cov), sampler; rng)
-    ekpstate = EKPState(ekp, 0, [])
+    ekpstate = EKPState(ekp, 0, [], [])
     inference_sol = SimulatorInferenceSolution(inference_prob, [], [], nothing)
     return EnsembleSolver(
         inference_sol,
