@@ -28,13 +28,6 @@ export SimulatorInferenceAlgorithm
 export logdensity
 
 """
-    logdensity(d::Distribution, x)
-
-Alias for `logpdf(d,x)` on `Distribution` types.
-"""
-logdensity(d::Distribution, x) = logpdf(d, x)
-
-"""
 Base type for all simulator-based inference algorithms.
 """
 abstract type SimulatorInferenceAlgorithm end

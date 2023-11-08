@@ -36,7 +36,7 @@ getprior(lik::SimulatorLikelihood)::AbstractPrior = lik.prior
 
 function loglikelihood(lik::SimulatorLikelihood, args...)
     d = predictive_distribution(lik, args...)
-    return sum(logpdf.(d, lik.data))
+    return logdensity(d, lik.data)
 end
 
 function predictive_distribution(lik::SimulatorLikelihood{Normal}, σ)

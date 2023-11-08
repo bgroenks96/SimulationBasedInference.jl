@@ -52,7 +52,7 @@ function ekpstep!(
     update_ensemble!(ekp, enspred)
     # compute likelihoods and prior prob
     loglik = map(y -> logpdf(MvNormal(y, ekp.obs_noise_cov), y), eachcol(enspred))
-    logprior = map(θᵢ -> logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θᵢ), eachcol(θ))
+    logprior = map(θᵢ -> logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θᵢ), eachcol(Θ))
     return enssol, loglik, logprior
 end
 

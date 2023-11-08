@@ -26,12 +26,12 @@ import Random
     prior = PriorDistribution(α=Beta(1,1))
     noise_scale = 0.01
     noise_scale_prior = PriorDistribution(:σ, Exponential(noise_scale))
-    # simple Gaussian likelihood; note that we're cheating a bit here since we know the noise level a priori
-    lik = MvGaussianLikelihood(:obs, observable, noise_scale_prior)
     # create noisy data
     noisy_obs = true_obs .+ noise_scale*randn(rng, 10)
+    # simple Gaussian likelihood; note that we're cheating a bit here since we know the noise level a priori
+    lik = SimulatorLikelihood(IsoNormal, observable, noisy_obs, noise_scale_prior)
     # inference problem
-    inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik => noisy_obs)
+    inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik)
     eks = EKS(128, EnsembleThreads(), prior, rng)
     # solve inference problem with EKS
     eks_sol = solve(inferenceprob, eks, verbose=false, rng=rng)

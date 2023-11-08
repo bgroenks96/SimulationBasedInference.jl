@@ -82,3 +82,15 @@ function from_moments(::Type{Gamma}, mean, stddev)
     θ = var / mean
     return Gamma(α, θ)
 end
+
+# This is type piracy but nice to make Distributions implement log-density interface;
+# TODO: consider creating an issue on LogDensityProblems or Distributions?
+"""
+    logdensity(d::UnivariateDistribution, x::Number)
+
+Alias for `logpdf(d,x)` on `Distribution` types.
+"""
+logdensity(d::UnivariateDistribution, x::Number) = logpdf(d, x)
+logdensity(d::UnivariateDistribution, x::AbstractVector) = sum(logpdf.(d, x))
+logdensity(d::MultivariateDistribution, x::AbstractVector) = logpdf(d, x)
+logdensity(d::MultivariateDistribution, x::AbstractMatrix) = sum(map(x -> logpdf(d, x), eachcol(x)))

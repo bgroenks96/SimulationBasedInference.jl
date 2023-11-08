@@ -35,7 +35,7 @@ end
     decor = DecorrelatedTarget(data)
     emulator = StackedMLEmulator(GPR(k=gpr_kernel, optimizer=NelderMead()), data, decor)
     @test eltype(emulator.models) <: Machine{<:GPR}
-    fitted_emulator = MLJ.fit!(emulator)
+    fitted_emulator = MLJ.fit!(emulator, verbosity=0)
     @test all(map(m -> m.state == 1, fitted_emulator.models))
     preds = MLJ.predict(emulator, X)
     @test all(map(d -> isa(d, MvNormal), preds))
