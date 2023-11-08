@@ -32,19 +32,22 @@ Base.nameof(l::SimulatorLikelihood) = l.name
 
 getobservable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
 
-getdata(lik::SimulatorLikelihood)::SimulatorObservable = lik.data
-
 getprior(lik::SimulatorLikelihood)::AbstractPrior = lik.prior
 
-function loglikelihood(lik::SimulatorLikelihood{Normal}, σ)
-    μ = retrieve(lik.obs)[1]
-    return sum(logpdf.(Normal(μ, σ), lik.data))
+function loglikelihood(lik::SimulatorLikelihood, args...)
+    d = predictive_distribution(lik, args...)
+    return sum(logpdf.(d, lik.data))
 end
 
-function loglikelihood(lik::SimulatorLikelihood{<:MvNormal}, σ)
+function predictive_distribution(lik::SimulatorLikelihood{Normal}, σ)
+    μ = retrieve(lik.obs)[1]
+    return Normal(μ, σ)
+end
+
+function predictive_distribution(lik::SimulatorLikelihood{<:MvNormal}, σ)
     μ = vec(retrieve(lik.obs))
-    Σ = covariance(lik, σ)
-    return logpdf(MvNormal(μ, Σ), lik.data)
+    Σ = cov(lik, σ)
+    return MvNormal(μ, Σ)
 end
 
 Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::AbstractVector) = Diagonal(σ[1]^2*ones(prod(size(lik.obs))))

@@ -37,14 +37,14 @@ end
     obs = map(names(inference_prob)) do name
         lik = getproperty(inference_prob.likelihoods, name)
         lik_params = @submodel prefix=$name likelihood_params(lik)
-        d = lik(lik_params...)
+        d = predictive_distribution(lik, lik_params...)
         x ~ NamedDist(d, name)
         name => mean(d)
     end
     return (; obs...), forward_sol
 end
 
-@model function likelihood_params(lik::MvGaussianLikelihood)
+@model function likelihood_params(lik::SimulatorLikelihood{<:Union{Normal,MvNormal}})
     σ ~ lik.prior
     return (; σ)
 end

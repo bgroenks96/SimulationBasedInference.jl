@@ -38,7 +38,7 @@ function SimulatorInferenceProblem(
 )
     joint_prior = JointPrior(prior, likelihoods...)
     u0 = zero(rand(joint_prior))
-    return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, likelihoods, metadata)
+    return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, with_names(likelihoods), metadata)
 end
 
 SciMLBase.isinplace(prob::SimulatorInferenceProblem) = false
@@ -70,7 +70,7 @@ end
 """
     logjoint(inference_prob::SimulatorInferenceProblem, u::AbstractVector; transform=false, forward_solve=true, solve_kwargs...)
 
-Evaluate the the log-joint density components `log(p(D|x))` `log(p(u))` where `D` is the data and `u` are the parameters.
+Evaluate the the log-joint density components `log(p(D|x))` and `log(p(u))` where `D` is the data and `u` are the parameters.
 If `transform=true`, `x` is transformed by the `param_map` defined on the given inference problem before evaluating
 the density.
 """
@@ -101,7 +101,7 @@ function logjoint(
         @assert all(ϕ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameter"
     end
     # compute the likelihood distributions from the observables and likelihood parameters
-    loglik = sum(map(l -> l(getproperty(ϕ, nameof(l))), inference_prob.likelihoods))
+    loglik = sum(map(l -> loglikelihood(l, getproperty(ϕ, nameof(l))), inference_prob.likelihoods))
     return (; loglik, logprior)
 end
 

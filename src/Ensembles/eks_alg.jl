@@ -59,7 +59,7 @@ function CommonSolve.init(
     # construct EKS
     sampler = Sampler(mean(alg.prior), Matrix(cov(alg.prior)))
     # extract observations from likelihood terms
-    likelihoods = values(inference_prob.liklihoods)
+    likelihoods = values(inference_prob.likelihoods)
     obs_mean = reduce(vcat, map(l -> vec(l.data), likelihoods))
     obs_cov = alg.obs_cov(likelihoods...)
     # construct transform from model prior
