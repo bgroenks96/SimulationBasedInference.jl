@@ -21,9 +21,14 @@ function StackedMLEmulator(model::MMI.Model, data::EmulatorData, transform=NoTra
     return StackedMLEmulator(data, transform, machines)
 end
 
-MLJBase.fit!(em::StackedMLEmulator; mapper=map) = StackedMLEmulator(em.data, em.transform, mapper(MLJBase.fit!, em.models))
+function MLJBase.fit!(em::StackedMLEmulator; mapper=map, kwargs...)
+    fitted_models = mapper(_fit!, em.models, repeat([kwargs], length(em.models)))
+    return StackedMLEmulator(em.data, em.transform, fitted_models)
+end
 
 MMI.predict(em::StackedMLEmulator, X_new::AbstractMatrix) = _predict(eltype(em.models), em, X_new)
+
+_fit!(m::MLJBase.Machine, kwargs) = MLJBase.fit!(m; kwargs...)
 
 function _predict(::Type{<:Machine{<:Deterministic}}, em::StackedMLEmulator, X_new::AbstractMatrix)
     preds = map(em.models) do m
@@ -51,7 +56,7 @@ function _predict(::Type{<:Machine{<:Probabilistic}}, em::StackedMLEmulator, X_n
         inverse_transform_target(em.transform, reshape(μ, 1, :))[1,:]
     end
     Σs = map(eachrow(σ²_pred)) do σ²
-        Symmetric(V*sqrt_S*Diagonal(σ²)*sqrt_S*V')
+        Symmetric(V*sqrt_S*Diagonal(σ²)*sqrt_S*V') + 1e-6*I
     end
     return map(MvNormal, μs, Σs)
 end
