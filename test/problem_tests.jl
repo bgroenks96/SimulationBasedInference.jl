@@ -38,9 +38,9 @@ end
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     prior = PriorDistribution(:α, LogNormal(0,1))
     noise_scale_prior = PriorDistribution(:σ, Exponential(1.0))
-    lik = MvGaussianLikelihood(:obs, observable, noise_scale_prior)
     data = randn(10)
-    inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik => data)
+    lik = SimulatorLikelihood(IsoNormal, observable, data, noise_scale_prior)
+    inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik)
     u = copy(inferenceprob.u0)
     @test hasproperty(u, :model) && hasproperty(u, :obs)
     u.model.α = 0.5

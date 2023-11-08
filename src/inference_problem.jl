@@ -1,18 +1,17 @@
 #### Inverse/inference problems ####
 
 """
-    SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType,dataType,names} <: SciMLBase.AbstractSciMLProblem
+    SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType} <: SciMLBase.AbstractSciMLProblem
 
 Represents a generic simulation-based Bayesian inference problem for finding the posterior distribution over model parameters given some observed data.
 """
-struct SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType,dataType,names} <: SciMLBase.AbstractSciMLProblem
+struct SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType} <: SciMLBase.AbstractSciMLProblem
     u0::uType
     forward_prob::SimulatorForwardProblem
     forward_solver::algType
     prior::priorType
     param_map::ParameterMapping
-    likelihoods::NamedTuple{names,likType}
-    data::NamedTuple{names,dataType}
+    likelihoods::likType
     metadata::Dict
 end
 
@@ -20,28 +19,26 @@ end
     SimulatorInferenceProblem(
         prob::SimulatorForwardProblem,
         prior::AbstractPrior,
-        lik_with_data::Pair{<:Likelihood,<:AbstractArray}...;
+        likelihoods::SimulatorLikelihood...;
         param_map=ParameterMapping(prior),
+        metadata::Dict=Dict(),
     )
 
-Constructs a `SimulatorInferenceProblem` from the given forward problem, prior, and likelihood/data pairs.
+Constructs a `SimulatorInferenceProblem` from the given forward problem, prior, and likelihoods.
+The parameter mapping is by default auto-determined from the prior. Additional user-specified
+metadata may be included in the `metadata` dictionary.
 """
 function SimulatorInferenceProblem(
     forward_prob::SimulatorForwardProblem,
     forward_solver::DEAlgorithm,
     prior::AbstractPrior,
-    lik_with_data::Pair{<:Likelihood,<:AbstractArray}...;
+    likelihoods::SimulatorLikelihood...;
     param_map=ParameterMapping(prior),
     metadata::Dict=Dict(),
 )
-    likelihoods = map(first, lik_with_data)
-    data = map(last, lik_with_data)
-    # convert to named tuple with names as keys
-    likelihoods_with_names = (; map(l -> nameof(l) => l, likelihoods)...)
-    data_with_names = (; map(Pair, keys(likelihoods_with_names), data)...)
     joint_prior = JointPrior(prior, likelihoods...)
     u0 = zero(rand(joint_prior))
-    return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, likelihoods_with_names, data_with_names, metadata)
+    return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, likelihoods, metadata)
 end
 
 SciMLBase.isinplace(prob::SimulatorInferenceProblem) = false
@@ -54,10 +51,9 @@ function SciMLBase.remaker_of(prob::SimulatorInferenceProblem)
         prior=prob.prior,
         param_map=prob.param_map,
         likelihoods=prob.likelihoods,
-        data=prob.data,
         metadata=prob.metadata,
     )
-        SimulatorInferenceProblem(u0, forward_prob, forward_solver, prior, param_map, likelihoods, data, metadata)
+        SimulatorInferenceProblem(u0, forward_prob, forward_solver, prior, param_map, likelihoods, metadata)
     end
 end
 
@@ -74,7 +70,7 @@ end
 """
     logjoint(inference_prob::SimulatorInferenceProblem, u::AbstractVector; transform=false, forward_solve=true, solve_kwargs...)
 
-Evaluate the the log-joint density `log(p(D|x)) + log(p(u))` where `D` is the data and `u` are the parameters.
+Evaluate the the log-joint density components `log(p(D|x))` `log(p(u))` where `D` is the data and `u` are the parameters.
 If `transform=true`, `x` is transformed by the `param_map` defined on the given inference problem before evaluating
 the density.
 """
@@ -105,9 +101,7 @@ function logjoint(
         @assert all(ϕ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameter"
     end
     # compute the likelihood distributions from the observables and likelihood parameters
-    lik_dists = map(l -> l(getproperty(ϕ, nameof(l))), inference_prob.likelihoods)
-    # compute and sum the log densities
-    loglik = sum(map((x,D) -> logpdf(D,x), inference_prob.data, lik_dists))
+    loglik = sum(map(l -> l(getproperty(ϕ, nameof(l))), inference_prob.likelihoods))
     return (; loglik, logprior)
 end
 
@@ -138,16 +132,16 @@ LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensit
 LogDensityProblems.dimension(inference_prob::SimulatorInferenceProblem) = length(inference_prob.u0)
 
 """
-    SimulatorInferenceSolution{probType}
+    SimulatorInferenceSolution{probType,resultType}
 
 Generic container for solutions to `SimulatorInferenceProblem`s. The type of `inference_result` is method dependent
 and should generally correspond to the final state or product of the inference algorithm (e.g. posterior sampels).
 The vectors `inputs` and `outputs` should be populated with input parameters and their corresponding output solutions
 respectively.
 """
-mutable struct SimulatorInferenceSolution{probType}
+mutable struct SimulatorInferenceSolution{probType,resultType}
     prob::probType
     inputs::Vector
     outputs::Vector
-    inference_result
+    inference_result::resultType
 end

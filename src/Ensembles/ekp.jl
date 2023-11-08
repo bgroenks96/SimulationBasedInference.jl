@@ -1,7 +1,8 @@
 mutable struct EKPState{ekpType<:EnsembleKalmanProcess}
     ekp::ekpType
     iter::Int  # iteration step
-    lp::Vector # log probs
+    loglik::Vector # log likelihoods
+    logprior::Vector # log prior prob
 end
 
 hasconverged(ekp::EnsembleKalmanProcess, minΔt) = length(ekp.Δt) > 1 ? sum(ekp.Δt[2:end]) >= minΔt : false
@@ -49,9 +50,10 @@ function ekpstep!(
     enspred = reduce(hcat, map((i,out) -> ensemble_pred_func(out, i, iter), 1:N_ens, enssol.u))
     # update ensemble
     update_ensemble!(ekp, enspred)
-    # compute log joint probability (or likelihood if not EKS)
-    logprobs = map((i,y) -> logdensity(ekp, param_map, Θ[:,i], y), 1:N_ens, eachcol(enspred))
-    return enssol, logprobs
+    # compute likelihoods and prior prob
+    loglik = map(y -> logpdf(MvNormal(y, ekp.obs_noise_cov), y), eachcol(enspred))
+    logprior = map(θᵢ -> logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θᵢ), eachcol(θ))
+    return enssol, loglik, logprior
 end
 
 """
@@ -92,14 +94,15 @@ function fitekp!(
     prob_func=(prob, p) -> remake(prob, p=p),
     maxiters=10,
     minΔt=2.0,
-    initialstate=EKPState(ekp, 0, []),
+    initialstate=EKPState(ekp, 0, [], []),
     itercallback=(state, i) -> true,
     verbose=true,
     solve_kwargs...
 )
     state = initialstate
     i = state.iter
-    logprobs = state.lp
+    loglik = state.loglik
+    logprior = state.logprior
     ekp = state.ekp
     err = i >= 1 ? ekp.err[end] : missing
     err_prev = i > 1 ? ekp.err[end-1] : missing
@@ -107,8 +110,9 @@ function fitekp!(
     i += 1
     while !hasconverged(ekp, minΔt) && i <= maxiters
         verbose && @info "Starting iteration $i (maxiters=$(maxiters))"
-        _, logprobsᵢ = ekpstep!(ekp, initial_prob, ensalg, alg, param_map, prob_func, output_func, ensemble_pred_func, i; solve_kwargs...)
-        push!(logprobs, logprobsᵢ)
+        _, loglikᵢ, logpriorᵢ = ekpstep!(ekp, initial_prob, ensalg, alg, param_map, prob_func, output_func, ensemble_pred_func, i; solve_kwargs...)
+        push!(loglik, loglikᵢ)
+        push!(logprior, logpriorᵢ)
         err = ekp.err[end]
         Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing
         state.iter = i
@@ -120,18 +124,6 @@ function fitekp!(
         i += 1
     end
     return state
-end
-
-function SimulationBasedInference.logdensity(ekp::EnsembleKalmanProcess, pmap::ParameterMapping, θ, y)
-    loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
-    logdetJ⁻¹ = logdensity(pmap, θ)
-    return loglik + logdetJ⁻¹
-end
-function SimulationBasedInference.logdensity(ekp::EnsembleKalmanProcess{FT,IT,<:Sampler}, pmap::ParameterMapping, θ, y) where {FT,IT}
-    loglik = logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y)
-    logprior = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θ)
-    logdetJ⁻¹ = logdensity(pmap, θ)
-    return loglik + logprior + logdetJ⁻¹
 end
 
 """

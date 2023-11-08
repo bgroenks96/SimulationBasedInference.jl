@@ -59,10 +59,8 @@ function CommonSolve.init(
     # construct EKS
     sampler = Sampler(mean(alg.prior), Matrix(cov(alg.prior)))
     # extract observations from likelihood terms
-    names = keys(inference_prob.data)
-    data = values(inference_prob.data)
-    likelihoods = map(n -> getproperty(inference_prob.likelihoods, n), names)
-    obs_mean = reduce(vcat, map(vec, data))
+    likelihoods = values(inference_prob.liklihoods)
+    obs_mean = reduce(vcat, map(l -> vec(l.data), likelihoods))
     obs_cov = alg.obs_cov(likelihoods...)
     # construct transform from model prior
     constrained_to_unconstrained = bijector(inference_prob.prior.model)
@@ -109,7 +107,7 @@ function CommonSolve.step!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EK
     param_map = ParameterMapping(inference_prob.prior.model)
     θᵢ = get_u_final(ekp)
     # EKS iteration
-    enssol, logprobsᵢ = ekpstep!(
+    enssol, loglikᵢ, logpriorᵢ = ekpstep!(
         ekp,
         inference_prob.forward_prob,
         alg.ens_alg,
@@ -122,7 +120,8 @@ function CommonSolve.step!(solver::EnsembleSolver{<:SimulatorInferenceProblem,EK
         solver.solve_kwargs...
     )
     # update ensemble solver state
-    push!(state.lp, logprobsᵢ)
+    push!(state.loglik, loglikᵢ)
+    push!(state.logprior, logpriorᵢ)
     push!(sol.inputs, θᵢ)
     push!(sol.outputs, enssol)
     sol.inference_result = state
@@ -157,9 +156,9 @@ end
 eks_obs_cov(likelihoods...) = error("EKS currently supports only (diagonal) Gaussian likelihoods")
 
 # currently only diagonal covariances are supported
-function eks_obs_cov(likelihoods::Union{DiagonalGaussianLikelihood,IsotropicGaussianLikelihood}...)
+function eks_obs_cov(likelihoods::SimulatorLikelihood{<:Union{IsoNormal,DiagNormal}}...)
     cov_diags = map(likelihoods) do lik
-        return diag(SimulationBasedInference.covariance(lik, collect(mean(lik.prior))))
+        return diag(cov(lik, collect(mean(lik.prior))))
     end
     # concatenate all covariance matrices 
     return Diagonal(reduce(vcat, cov_diags))

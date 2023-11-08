@@ -1,83 +1,98 @@
 """
-    Likelihood{obsType<:SimulatorObservable}
+    SimulatorLikelihood{distType,obsType,dataType,priorType}
 
-Base type for specifying "likelihoods", i.e. the sampling distribution
-or density describing the data given an `SimulatorObservable`.
+Represents a simulator-based likelihood function. A `SimulatorLikelihood`
+consists of four basic components:
+
+(1) A distribution type, e.g. `Normal`,
+
+(2) A `SimulatorObservable` which represents the parameter forward map characteristic
+    to the likelihood function,
+
+(3) A set of `data`, usually a `Vector` or `Matrix`, which matches the structure of the observable,
+
+(4) A prior distribution governing one or more additional parameters required to compute the likelihood.
+
+Due to the typically high cost of evaluating the parameter forward map, `SimulatorLikelihood` effectively decouples
+the computation of the likelihood from the simulator via the `SimulatorObservable`, which stores the result of a
+forward simulation. When the `SimulatorLikelihood` is evaluated, these outputs are obtained from `retrieve(obs)`
+and the only additional parameters needed are those specified by `prior`.
 """
-abstract type Likelihood{obsType<:SimulatorObservable} end
-
-Base.nameof(l::Likelihood) = l.name
-
-observable(lik::Likelihood)::SimulatorObservable = lik.obs
-
-getprior(lik::Likelihood)::AbstractPrior = lik.prior
-
-(lik::Likelihood)(args...) = lik(args...)
-
-function SciMLBase.remaker_of(lik::likType) where {likType<:Likelihood}
-    # by default, just use the type name to reconstruct the likelihood with each parameter;
-    # additional dispatches can be added for special cases
-    remake(; name=lik.name, obs=lik.obs, prior=lik.prior) = nameof(likType)(name, obs, prior)
-end
-
-struct MvGaussianLikelihood{priorType<:AbstractPrior,obsType<:SimulatorObservable} <: Likelihood{obsType}
+struct SimulatorLikelihood{distType,obsType,dataType,priorType}
     name::Symbol
     obs::obsType
-    prior::priorType # prior for likelihood parameters (e.g. noise scale)
-    function MvGaussianLikelihood(name::Symbol, obs::SimulatorObservable, noise_scale_prior::AbstractPrior)
-        return new{typeof(noise_scale_prior),typeof(obs)}(name, obs, noise_scale_prior)
+    data::dataType
+    prior::priorType
+    function SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
+        return new{distType,typeof(obs),typeof(data),typeof(prior)}(name, obs, data, prior)
     end
 end
 
-const IsotropicGaussianLikelihood = MvGaussianLikelihood{<:UnivariatePriorDistribution}
-const DiagonalGaussianLikelihood = MvGaussianLikelihood{<:MultivariatePriorDistribution}
+Base.nameof(l::SimulatorLikelihood) = l.name
 
-function (lik::MvGaussianLikelihood)(σ)
-    μ = vec(retrieve(lik.obs))
-    Σ = covariance(lik, σ)
-    return MvNormal(μ, Σ)
+getobservable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
+
+getdata(lik::SimulatorLikelihood)::SimulatorObservable = lik.data
+
+getprior(lik::SimulatorLikelihood)::AbstractPrior = lik.prior
+
+function loglikelihood(lik::SimulatorLikelihood{Normal}, σ)
+    μ = retrieve(lik.obs)[1]
+    return sum(logpdf.(Normal(μ, σ), lik.data))
 end
 
-covariance(lik::IsotropicGaussianLikelihood, σ::Number) = Diagonal(σ^2*ones(prod(size(lik.obs))))
-covariance(lik::IsotropicGaussianLikelihood, σ::AbstractVector) = Diagonal(σ[1]^2*ones(prod(size(lik.obs))))
-covariance(::DiagonalGaussianLikelihood, σ::AbstractVector) = Diagonal(σ.^2)
+function loglikelihood(lik::SimulatorLikelihood{<:MvNormal}, σ)
+    μ = vec(retrieve(lik.obs))
+    Σ = covariance(lik, σ)
+    return logpdf(MvNormal(μ, Σ), lik.data)
+end
+
+Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::AbstractVector) = Diagonal(σ[1]^2*ones(prod(size(lik.obs))))
+Statistics.cov(lik::SimulatorLikelihood{DiagNormal}, σ::AbstractVector) = Diagonal(σ.^2)
+
+# implement SciML interface for reconstructing the type with new values
+function SciMLBase.remaker_of(lik::SimulatorLikelihood{distType}) where {distType}
+    # by default, just use the type name to reconstruct the likelihood with each parameter;
+    # additional dispatches can be added for special cases
+    remake(; name=lik.name, obs=lik.obs, data=lik.data, prior=lik.prior) = SimulatorLikelihood(distType, obs, data, prior, name)
+end
 
 # Joint prior
 
 """
-    JointPrior{priorType<:AbstractPrior,likTypes<:Tuple{Vararg{Likelihood}}} <: AbstractPrior
+    JointPrior{modelPriorType<:AbstractPrior,likPriorTypes} <: AbstractPrior
 
-Represents the prior w.r.t the full joint distribution, `p(x,θ)`, i.e. `p(θ)` where `θ = [θₘ,θₗ]`;
-θₘ are the simulator model parameters and θₗ are the observation noise model parameters.
+Represents the "joint" prior `p(θₘ,θₗ)` where `θ = [θₘ θₗ]` are the full set of parameters in the joint;
+distribution `p(x,θ)`. θₘ are the model (simulator) parameters and θₗ are the observation noise model parameters.
 """
-struct JointPrior{priorType<:AbstractPrior,likTypes<:Tuple{Vararg{Likelihood}}} <: AbstractPrior
-    model::priorType
-    likelihoods::likTypes
+struct JointPrior{modelPriorType<:AbstractPrior,likPriorTypes,lnames} <: AbstractPrior
+    model::modelPriorType
+    lik::NamedTuple{lnames,likPriorTypes}
 end
 
-JointPrior(modelprior::AbstractPrior, liks::Likelihood...) = JointPrior(modelprior, liks)
+JointPrior(modelprior::AbstractPrior, liks::SimulatorLikelihood...) = JointPrior(modelprior, map(getprior, with_names(liks)))
 
 Base.names(jp::JointPrior) = merge(
     (model=names(jp.model),),
-    map(l -> names(getprior(l)), with_names(jp.likelihoods))
+    map(names, jp.lik),
 )
 
 function Base.rand(rng::AbstractRNG, jp::JointPrior)
     param_nt = merge(
         (model=rand(rng, jp.model),),
-        map(l -> rand(rng, getprior(l)), with_names(jp.likelihoods)),
+        map(d -> rand(rng, d), jp.lik),
     )
     return ComponentVector(param_nt)
 end
 
 function Bijectors.bijector(jp::JointPrior)
-    bs = map(l -> bijector(getprior(l)), jp.likelihoods)
+    bs = map(d -> bijector(d), jp.lik)
     Stacked([bijector(jp.model), bs...])
 end
 
 function logdensity(jp::JointPrior, x::ComponentVector)
     lp_model = logdensity(jp.model, x.model)
-    liknames = map(nameof, jp.likelihoods)
-    lp_lik = sum(map((l,n) -> logdensity(getprior(l), getproperty(x, n)), jp.likelihoods, liknames))
+    liknames = keys(jp.lik)
+    lp_lik = sum(map((d,n) -> logdensity(d, getproperty(x, n)), jp.lik, liknames))
     return lp_model + lp_lik
 end

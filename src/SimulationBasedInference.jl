@@ -24,12 +24,19 @@ using Statistics
 
 import LogDensityProblems: logdensity
 
+export SimulatorInferenceAlgorithm
 export logdensity
 
+"""
+    logdensity(d::Distribution, x)
+
+Alias for `logpdf(d,x)` on `Distribution` types.
+"""
 logdensity(d::Distribution, x) = logpdf(d, x)
 
-export SimulatorInferenceAlgorithm
-
+"""
+Base type for all simulator-based inference algorithms.
+"""
 abstract type SimulatorInferenceAlgorithm end
 
 export autoprior, from_moments
@@ -45,7 +52,7 @@ include("param_map.jl")
 export AbstractPrior, PriorDistribution
 include("priors.jl")
 
-export MvGaussianLikelihood, IsotropicGaussianLikelihood, DiagonalGaussianLikelihood
+export SimulatorLikelihood, JointPrior
 include("likelihoods.jl")
 
 export SimulatorForwardProblem, SimulatorForwardSolution
