@@ -76,13 +76,20 @@ end
 Initializes a `SimulatorODEForwardSolver` for the given forward problem and ODE integrator algorithm. Additional keyword arguments are
 passed through to the integrator `init` implementation.
 """
-function CommonSolve.init(forward_prob::SimulatorForwardProblem{<:AbstractODEProblem}, ode_alg; p=forward_prob.prob.p, saveat=[], solve_kwargs...)
+function CommonSolve.init(
+    forward_prob::SimulatorForwardProblem{<:AbstractODEProblem},
+    ode_alg;
+    p=forward_prob.prob.p,
+    saveat=[],
+    save_everystep=false,
+    solve_kwargs...
+)
     # collect and combine sample points from all obsevables
     t_points = forward_prob.config.obs_to_prob_time.(sort(unique(union(map(sampletimes, forward_prob.observables)...))))
     # reinitialize inner problem with new parameters
     newprob = remake(forward_prob, p=p, copy_observables=false)
     # initialize integrator with built-in saving disabled
-    integrator = init(newprob.prob, ode_alg; saveat, solve_kwargs...)
+    integrator = init(newprob.prob, ode_alg; saveat, save_everystep, solve_kwargs...)
     # initialize observables
     for obs in newprob.observables
         initialize!(obs, integrator)
