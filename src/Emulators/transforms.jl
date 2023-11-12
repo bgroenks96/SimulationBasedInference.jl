@@ -17,6 +17,20 @@ end
 
 struct NoTransform <: EmulatorDataTransform end
 
+transform_target(::NoTransform, Y) = Y
+
+inverse_transform_target(::NoTransform, Y) = Y
+
+struct CenteredTarget <: EmulatorDataTransform
+    Y_mean
+end
+
+CenteredTarget(data::EmulatorData) = CenteredTarget(mean(data.Y, dims=1))
+
+transform_target(c::CenteredTarget, Y) = Y .- c.Y_mean
+
+inverse_transform_target(c::CenteredTarget, Yt) = Yt .+ c.Y_mean
+
 """
     DecorrelatedTarget <: EmulatorDataTransform
 

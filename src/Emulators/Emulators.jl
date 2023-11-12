@@ -12,7 +12,7 @@ abstract type Emulator end
 
 abstract type EmulatorDataTransform end
 
-export EmulatorData, DecorrelatedTarget, NoTransform
+export EmulatorData, DecorrelatedTarget, CenteredTarget, NoTransform
 export transform_target, inverse_transform_target
 include("transforms.jl")
 
