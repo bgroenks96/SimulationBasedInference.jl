@@ -158,7 +158,8 @@ eks_obs_cov(likelihoods...) = error("EKS currently supports only (diagonal) Gaus
 # currently only diagonal covariances are supported
 function eks_obs_cov(likelihoods::SimulatorLikelihood{<:Union{IsoNormal,DiagNormal}}...)
     cov_diags = map(likelihoods) do lik
-        return diag(cov(lik, collect(mean(lik.prior))))
+        @assert length(lik.prior) == 1 "Found unexpected other likelihood noise parameters"
+        return diag(cov(lik, first(mean(lik.prior))))
     end
     # concatenate all covariance matrices 
     return Diagonal(reduce(vcat, cov_diags))
