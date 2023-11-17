@@ -46,30 +46,6 @@ end
 
 # CommonSolve interface
 
-function CommonSolve.step!(forward::SimulatorODEForwardSolver)
-    if forward.step_idx > length(forward.tstops)
-        return nothing
-    end
-    # extract fields from forward integrator and compute dt
-    prob = forward.prob
-    integrator = forward.integrator
-    t = forward.tstops[forward.step_idx]
-    dt = t - integrator.t
-    if dt > 0
-        # step to next t if dt > 0
-        step!(integrator, dt, true)
-    end
-    # iterate over observables and update those for which t is a sample point
-    for obs in prob.observables
-        if t ∈ map(prob.config.obs_to_prob_time, sampletimes(obs))
-            observe!(obs, integrator)
-        end
-    end
-    # increment step index
-    forward.step_idx += 1
-    return nothing
-end
-
 """
     init(forward_prob::SimulatorForwardProblem{<:AbstractODEProblem}, ode_alg; p=forward_prob.prob.p, saveat=[], solve_kwargs...)
 
@@ -95,6 +71,30 @@ function CommonSolve.init(
         initialize!(obs, integrator)
     end
     return SimulatorODEForwardSolver(newprob, integrator, t_points, 1)
+end
+
+function CommonSolve.step!(forward::SimulatorODEForwardSolver)
+    if forward.step_idx > length(forward.tstops)
+        return nothing
+    end
+    # extract fields from forward integrator and compute dt
+    prob = forward.prob
+    integrator = forward.integrator
+    t = forward.tstops[forward.step_idx]
+    dt = t - integrator.t
+    if dt > 0
+        # step to next t if dt > 0
+        step!(integrator, dt, true)
+    end
+    # iterate over observables and update those for which t is a sample point
+    for obs in prob.observables
+        if t ∈ map(prob.config.obs_to_prob_time, sampletimes(obs))
+            observe!(obs, integrator)
+        end
+    end
+    # increment step index
+    forward.step_idx += 1
+    return nothing
 end
 
 """
