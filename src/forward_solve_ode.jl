@@ -61,7 +61,9 @@ function CommonSolve.init(
     solve_kwargs...
 )
     # collect and combine sample points from all obsevables
-    t_points = forward_prob.config.obs_to_prob_time.(sort(unique(union(map(sampletimes, forward_prob.observables)...))))
+    ttype = eltype(forward_prob.tspan)
+    t_sample = map(sampletimes, forward_prob.observables)
+    t_points = length(t_sample) > 0 ? forward_prob.config.obs_to_prob_time.(sort(unique(union(t_sample...)))) : [forward_prob.tspan[end]]
     # reinitialize inner problem with new parameters
     newprob = remake(forward_prob, p=p, copy_observables=false)
     # initialize integrator with built-in saving disabled
