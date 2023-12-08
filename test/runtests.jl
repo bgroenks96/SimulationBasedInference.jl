@@ -12,8 +12,8 @@ end
     include("problem_tests.jl")
 end
 
-@testset "EKS" begin
-    include("eks_tests.jl")
+@testset "Ensembles" begin
+    include("Ensembles/runtests.jl")
 end
 
 @testset "Emulators" begin

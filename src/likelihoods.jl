@@ -50,7 +50,8 @@ function predictive_distribution(lik::SimulatorLikelihood{<:MvNormal}, σ)
     return MvNormal(μ, Σ)
 end
 
-Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::AbstractVector) = Diagonal(σ[1]^2*ones(prod(size(lik.obs))))
+Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::Number) = Diagonal(σ^2*ones(prod(size(lik.obs))))
+Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::AbstractVector) = cov(lik, σ[1])
 Statistics.cov(lik::SimulatorLikelihood{DiagNormal}, σ::AbstractVector) = Diagonal(σ.^2)
 
 # implement SciML interface for reconstructing the type with new values
