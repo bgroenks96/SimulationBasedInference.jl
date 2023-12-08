@@ -5,9 +5,11 @@ mutable struct EKPState{ekpType<:EnsembleKalmanProcess} <: EnsembleState
     logprior::Vector # log prior prob
 end
 
-function getensemble(state::EKPState)
-    return get_u_final(state.ekp)
-end
+get_ensemble(state::EKPState) = get_u_final(state.ekp)
+
+get_obs_mean(state::EKPState) = state.ekp.obs_mean
+
+get_obs_cov(state::EKPState) = state.ekp.obs_noise_cov
 
 logdensity_prior(ekp::EnsembleKalmanProcess, θ) = 0.0
 logdensity_prior(ekp::EnsembleKalmanProcess{<:Sampler}, θ) = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θ)

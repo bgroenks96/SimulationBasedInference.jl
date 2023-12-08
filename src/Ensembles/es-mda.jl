@@ -9,6 +9,12 @@ mutable struct ESMDAState{ensType,meanType,covType}
     rng::AbstractRNG
 end
 
+get_ensemble(state::ESMDAState) = state.ens[end]
+
+get_obs_mean(state::ESMDAState) = state.obs_mean
+
+get_obs_cov(state::ESMDAState) = state.obs_cov
+
 Base.@kwdef struct ESMDA
     n_ens::Int # ensemble size
     ens_alg::SciMLBase.EnsembleAlgorithm # ensemble alg
@@ -22,8 +28,6 @@ Base.@kwdef struct ESMDA
     dosvd::Bool = true
     svd_thresh::Float64 = 0.90
 end
-
-getensemble(state::ESMDAState) = state.ens[end]
 
 function initialstate(
     esmda::ESMDA,

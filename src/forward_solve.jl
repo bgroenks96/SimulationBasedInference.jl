@@ -8,17 +8,6 @@ struct SimulatorForwardSolver{probType,stateType}
     state::stateType
 end
 
-"""
-    SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
-
-Constructs a generic simulator forward problem from the given `AbstractSciMLProblem`; note that this could be any
-problem type, e.g. an optimization problem, nonlinear system, quadrature, etc.
-"""
-function SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
-    named_observables = (; map(x -> nameof(x) => x, observables)...)
-    return SimulatorForwardProblem(prob, named_observables, nothing)
-end
-
 # Generic implementation of `CommonSolve` for any problem type.
 
 function CommonSolve.init(prob::SimulatorForwardProblem, args...; kwargs...)

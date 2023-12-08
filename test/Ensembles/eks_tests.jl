@@ -9,6 +9,10 @@ using Test
 
 import Random
 
+@testset "EKS: interface" begin
+    
+end
+
 @testset "Linear ODE inversion" begin
     rng = Random.MersenneTwister(1234)
     # set up linear ODE problem with two parameters

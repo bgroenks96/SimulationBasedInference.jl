@@ -26,17 +26,18 @@ end
 ################################
 
 """
-    getensemble(state::EnsembleState)
+    get_ensemble(state::EnsembleState)
 
 Retrieves the current ensemble matrix from the given `EnsembleState`. Must be implemented for
 each ensemble algorithm state type.
 """
-getensemble(state::EnsembleState) = error("getensemble not implemented for state type $(typeof(state))")
+get_ensemble(state::EnsembleState) = error("get_ensemble not implemented for state type $(typeof(state))")
 
 """
     hasconverged(alg::EnsembleInferenceAlgorithm, state::EnsembleState)
 
-Should return `true` when `alg` at the current `state` has converged, `false` otherwise.
+Should return `true` when `alg` at the current `state` has converged, `false` otherwise. Must be implemented
+for each ensemble algorithm state type.
 """
 hasconverged(alg::EnsembleInferenceAlgorithm, state::EnsembleState) = error("hasconverged not implemented for alg $(typeof(alg))")
 
@@ -186,7 +187,7 @@ function ensemble_predict(
     ensemble_pred_func;
     solve_kwargs...
 )
-    Θ = getensemble(state)
+    Θ = get_ensemble(state)
     N_ens = size(Θ,2)
     # construct EnsembleProblem for forward simulations
     function prob_func(prob, i, repeat)
