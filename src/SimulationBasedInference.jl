@@ -39,11 +39,15 @@ export SimulatorObservable
 export observe!, retrieve
 include("observables.jl")
 
-export ParameterMapping
+export ParameterTransform
 include("param_map.jl")
 
 export AbstractPrior, PriorDistribution
 include("priors.jl")
+
+export GaussianApproximationMethod, EmpiricalGaussian
+export gaussian_approx
+include("gaussian_approx.jl")
 
 export SimulatorLikelihood, JointPrior
 include("likelihoods.jl")

@@ -6,14 +6,17 @@ logdensity(prior::AbstractPrior, x) = error("logdensity not implemented for prio
 
 Base.names(prior::AbstractPrior) = error("names not implemented")
 
-StatsBase.sample(prior::AbstractPrior, args...; kwargs...) = sample(Random.GLOBAL_RNG, prior, args...; kwargs...)
+StatsBase.sample(prior::AbstractPrior, args...; kwargs...) = sample(Random.default_rng(), prior, args...; kwargs...)
 StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, args...; kwargs...) = rand(rng, prior)
-StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, n::Int, args...; kwargs...) = [rand(rng, prior) for i in 1:n]
+StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, n::Integer, args...; kwargs...) = rand(rng, prior, n)
 
 Base.rand(rng::AbstractRNG, prior::AbstractPrior) = error("rand not implemented for $(typeof(prior))")
+Base.rand(rng::AbstractRNG, prior::AbstractPrior, n::Integer) = [rand(rng, prior) for i in 1:n]
+Base.rand(prior::AbstractPrior) = rand(Random.default_rng(), prior)
+Base.rand(prior::AbstractPrior, n::Integer) = rand(Random.default_rng(), prior, n)
 
 # note that Bijectors.jl maps constrained -> unconstrained, so we need to take the inverse here
-ParameterMapping(prior::AbstractPrior) = ParameterMapping(inverse(bijector(prior)))
+ParameterTransform(prior::AbstractPrior) = ParameterTransform(inverse(bijector(prior)))
 
 # Simple implementation for Distributions.jl types
 

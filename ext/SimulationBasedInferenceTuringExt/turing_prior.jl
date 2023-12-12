@@ -38,7 +38,7 @@ function SimulationBasedInference.logdensity(prior::TuringPrior, θ::AbstractVec
     return Turing.logprior(prior.model, new_vi)
 end
 
-SimulationBasedInference.ParameterMapping(prior::TuringPrior) = ParameterMapping(prior.model)
+SimulationBasedInference.ParameterTransform(prior::TuringPrior) = ParameterTransform(prior.model)
 
 # mandatory sampling dispatches
 Base.rand(rng::AbstractRNG, prior::TuringPrior) = ComponentArray(rand(rng, prior.model))

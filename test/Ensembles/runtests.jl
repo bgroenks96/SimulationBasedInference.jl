@@ -1,6 +1,7 @@
 using Test
 using Random
 using SimulationBasedInference
+using SimulationBasedInference.Ensembles
 
 function test_ensemble_alg_interface(solver::EnsembleSolver)
     ens = Ensembles.get_ensemble(solver.state)
@@ -20,14 +21,14 @@ end
 
 include("../testcases.jl")
 
-@testset "EKS" begin
-    include("eks_tests.jl")
+@testset "PBS" begin
+    include("pbs_tests.jl")
 end
 
 @testset "ES-MDA" begin
     include("esmda_tests.jl")
 end
 
-@testset "PBS" begin
-    include("pbs_tests.jl")
+@testset "EKS" begin
+    include("eks_tests.jl")
 end

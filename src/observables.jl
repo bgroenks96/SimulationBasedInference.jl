@@ -35,15 +35,16 @@ output.
 struct SimulatorObservable{outputType<:SimulatorOutput,funcType} <: Observable{outputType}
     name::Symbol
     obsfunc::funcType
+    ndims::Int
     output::outputType
 end
 
 """
-    SimulatorObservable(name::Symbol, f::Function=identity)
+    SimulatorObservable(name::Symbol, f::Function=identity; ndims::Int=1)
 
 Constructs a `Transient` observable with state mapping function `f`.
 """
-SimulatorObservable(name::Symbol, f::Function=identity) = SimulatorObservable(name, f, Transient(nothing))
+SimulatorObservable(name::Symbol, f::Function=identity; ndims::Int=1) = SimulatorObservable(name, f, ndims, Transient(nothing))
 
 """
     SimulatorObservable(
@@ -66,19 +67,26 @@ SimulatorObservable(
     ndims=1,
     reducer=mean,
     samplerate=Hour(3),
-) where {tType} = SimulatorObservable(name, obsfunc, TimeSampled(t0, tsave; ndims, reducer, samplerate))
+) where {tType} = SimulatorObservable(name, obsfunc, ndims, TimeSampled(t0, tsave; reducer, samplerate))
 
 Base.nameof(obs::SimulatorObservable) = obs.name
 
 mutable struct Transient <: SimulatorOutput
-    state
+    state::Union{Nothing,AbstractVector}
 end
 
-initialize!(obs::SimulatorObservable{Transient}, state) = obs.output.state = obs.obsfunc(state)
+initialize!(obs::SimulatorObservable{Transient}, state) = nothing
 
-observe!(obs::SimulatorObservable{Transient}, state) = obs.output.state = obs.obsfunc(state)
+function observe!(obs::SimulatorObservable{Transient}, state)
+    out = obs.obsfunc(state)
+    @assert length(out) == obs.ndims "Expected output of length $(obs.ndims) but got $(length(out))"
+    obs.output.state = out
+    return out
+end
 
-retrieve(obs::SimulatorObservable{Transient}, ::Type{T}=Any) where {T} = obs.output.state
+function retrieve(obs::SimulatorObservable{Transient}, ::Type{T}=Any) where {T}
+    return obs.output.state
+end
 
 """
     TimeSampled{timeType,reducerType} <: SimulatorOutput
@@ -88,7 +96,6 @@ retrieve(obs::SimulatorObservable{Transient}, ::Type{T}=Any) where {T} = obs.out
 over higher frequency samples.
 """
 mutable struct TimeSampled{timeType,reducerType} <: SimulatorOutput
-    ndims::Int
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
@@ -101,7 +108,6 @@ end
 function TimeSampled(
     t0::tType,
     tsave::AbstractVector{tType};
-    ndims=1,
     reducer=mean,
     samplerate=Hour(3)
 ) where {tType}
@@ -117,12 +123,12 @@ function TimeSampled(
             push!(tsample, t)
         end
     end
-    return TimeSampled(ndims, extrema(tsample), tsample, collect(tsave), reducer, nothing, nothing, 1)
+    return TimeSampled(extrema(tsample), tsample, collect(tsave), reducer, nothing, nothing, 1)
 end
 
 const DynamicSimulatorObservable{T} = SimulatorObservable{T} where {T<:TimeSampled}
 
-Base.size(obs::DynamicSimulatorObservable) = (obs.output.ndims, length(obs.output.tsave))
+Base.size(obs::DynamicSimulatorObservable) = (obs.ndims, length(obs.output.tsave))
 
 """
     sampletimes(::DynamicSimulatorObservable)
@@ -145,7 +151,7 @@ savetimes(obs::DynamicSimulatorObservable) = obs.output.tsave
 function initialize!(obs::DynamicSimulatorObservable, state)
     Y = obs.obsfunc(state)
     @assert isa(Y, AbstractVector) || isa(Y, Number) "output of observable function must be a scalar or a vector!"
-    @assert length(Y) == obs.output.ndims "Size of observable vector $(length(Y)) does not match declared size $(obs.output.ndims)"
+    @assert length(Y) == obs.ndims "Size of observable vector $(length(Y)) does not match declared size $(obs.ndims)"
     obs.output.buffer = typeof(Y)[]
     obs.output.output = Vector{typeof(Y)}(undef, length(obs.output.tsave))
     obs.output.sampleidx = 1

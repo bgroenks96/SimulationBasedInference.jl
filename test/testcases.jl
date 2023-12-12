@@ -1,41 +1,65 @@
 using Bijectors
-using Bijectors:TransformedDistribution
+using ComponentArrays
 using Distributions
 using LinearAlgebra
 using SimulationBasedInference
 using Random
 
-struct InferenceTestCase{F,T}
-    forward_model::F
-    transform::T
-    hyperparams
-    prior
-    prior_pred
-    obs
-end
-
 function evensen_scalar_nonlinear(
     x_true=1.0,
     b_true=0.2;
     n_obs=100,
-    n_ens=1000,
     σ_y=0.1,
     x_prior=Normal(0,1),
-    b_prior=TransformedDistribution(Normal(log(0.1), 1.0), exp),
-    rng=Random.GLOBAL_RNG
+    b_prior=autoprior(0.1, 0.5, lower=0, upper=Inf),
+    σ_prior=Exponential(σ_y),
+    rng=Random.default_rng(),
 )
     function g(θ)
         x = θ[1]
         b = θ[2]
         return x*(1 + b*x^2)
     end
-    yt = g([x_true, b_true])
-    y = yt .+ σ_y*randn(rng, n_obs)
-    x_ens = rand(x_prior, n_ens)
-    b_ens = rand(b_prior, n_ens)
-    θ_ens = transpose(hcat(x_ens, b_ens))
-    y_ens = transpose(repeat(map(g, eachcol(θ_ens)), 1, n_obs))
-    hyperparams = (; σ_y)
-    transform = bijector(product_distribution([x_prior, b_prior]))
-    return InferenceTestCase(g, transform, hyperparams, θ_ens, y_ens, y)
+    θ_true = [x_true, b_true]
+    yt = g(θ_true)
+    y_obs = yt .+ σ_y*randn(rng, n_obs)
+    prior = PriorDistribution(x=x_prior, b=b_prior)
+    y_pred = SimulatorObservable(:y, state -> repeat(collect(state.u), n_obs), ndims=n_obs)
+    forward_prob = SimulatorForwardProblem(g, θ_true, y_pred)
+    lik = SimulatorLikelihood(IsoNormal, y_pred, y_obs, PriorDistribution(:σ, σ_prior))
+    inference_prob = SimulatorInferenceProblem(forward_prob, nothing, prior, lik)
+    return inference_prob
+end
+
+function linear_ode(
+    α_true=0.2;
+    n_obs=10,
+    σ_y=0.01,
+    α_prior=Beta(1,1),
+    σ_prior=Exponential(σ_y),
+    ode_solver=Tsit5(),
+    rng=Random.default_rng(),
+)
+    # set up linear ODE problem with one parameter
+    ode_p = ComponentArray(α=α_true)
+    odeprob = ODEProblem((u,p,t) -> -p[1]*u, [1.0], (0.0,1.0), ode_p)
+    # observable extracts state from integrator
+    observable = SimulatorObservable(:obs, integrator -> integrator.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
+    # specify forward problem
+    forwardprob = SimulatorForwardProblem(odeprob, observable)
+    # generate "true" solution
+    forward_sol = solve(forwardprob, Tsit5())
+    @assert forward_sol.sol.retcode == ReturnCode.Default
+    true_obs = retrieve(observable)
+    # specify priors
+    prior = PriorDistribution(α=α_prior)
+    noise_scale = σ_y
+    noise_scale_prior = PriorDistribution(:σ, σ_prior)
+    # create noisy data
+    noisy_obs = true_obs .+ noise_scale*randn(rng, n_obs)
+    # simple Gaussian likelihood; note that we're cheating a bit here since we know the noise level a priori
+    lik = SimulatorLikelihood(IsoNormal, observable, noisy_obs, noise_scale_prior)
+    # inference problem
+    inference_prob = SimulatorInferenceProblem(forwardprob, ode_solver, prior, lik)
+    return inference_prob
 end

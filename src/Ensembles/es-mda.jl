@@ -1,8 +1,8 @@
-mutable struct ESMDAState{ensType,meanType,covType}
+mutable struct ESMDAState{ensType,meanType,covType} <: EnsembleState
     ens::Vector{ensType}
-    pred::Vector{ensType}
     obs_mean::meanType
     obs_cov::covType
+    prior::MvNormal
     loglik::Vector # log likelihoods
     logprior::Vector # log prior prob
     iter::Int  # iteration step
@@ -15,13 +15,11 @@ get_obs_mean(state::ESMDAState) = state.obs_mean
 
 get_obs_cov(state::ESMDAState) = state.obs_cov
 
-Base.@kwdef struct ESMDA
-    n_ens::Int # ensemble size
-    ens_alg::SciMLBase.EnsembleAlgorithm # ensemble alg
-    prior::MvNormal # unconstrained prior
+Base.@kwdef struct ESMDA <: EnsembleInferenceAlgorithm
+    prior_approx::GaussianApproximationMethod = EmpiricalGaussian()
     obs_cov::Function = obscov # obs covariance function
-    maxiters::Int = 30
-    alpha::Float64 = 1.0
+    maxiters::Int = 4
+    alpha::Float64 = maxiters
     ρ_AB::Float64 = 1.0
     ρ_BB::Float64 = 1.0
     stochastic::Bool = true
@@ -29,17 +27,18 @@ Base.@kwdef struct ESMDA
     svd_thresh::Float64 = 0.90
 end
 
+hasconverged(alg::ESMDA, state::ESMDAState) = state.iter >= alg.maxiters
+
 function initialstate(
     esmda::ESMDA,
+    prior::AbstractPrior,
     ens::AbstractMatrix,
     obs::AbstractVector,
     obs_cov::AbstractMatrix;
-    rng::AbstractRNG=Random.GLOBAL_RNG,
+    rng::AbstractRNG=Random.default_rng(),
 )
-    @assert esmda.n_ens == size(ens,2) "ensemble sizes do not match"
-    # initially empty array of prediction matrices
-    preds = typeof(ens)[]
-    return ESMDAState([ens], preds, obs, obs_cov, [], [], 0, rng)
+    unconstrained_prior = gaussian_approx(esmda.prior_approx, prior; rng)
+    return ESMDAState([ens], obs, obs_cov, unconstrained_prior, [], [], 0, rng)
 end
 
 function ensemble_step!(solver::EnsembleSolver{<:ESMDA})
@@ -48,22 +47,23 @@ function ensemble_step!(solver::EnsembleSolver{<:ESMDA})
     alg = solver.alg
     rng = state.rng
     # parameter mapping (model parameters only)
-    param_map = ParameterMapping(sol.prob.prior.model)
+    param_map = ParameterTransform(sol.prob.prior.model)
     # generate ensemble predictions
-    enspred, _ = ensemble_predict(
+    enspred, _ = ensemble_solve(
         state,
         sol.prob.forward_prob,
         solver.ensalg,
         sol.prob.forward_solver,
-        param_map,
-        solver.prob_func,
-        solver.output_func,
-        solver.pred_func;
+        param_map;
+        prob_func=solver.prob_func,
+        output_func=solver.output_func,
+        pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
     # Kalman update
     @unpack ρ_AB, ρ_BB, stochastic, dosvd, svd_thresh = alg
-    ensemble_kalman_analysis(
+    Θ = state.ens[end]
+    Θ_post = ensemble_kalman_analysis(
         Θ,
         state.obs_mean,
         enspred,
@@ -77,9 +77,10 @@ function ensemble_step!(solver::EnsembleSolver{<:ESMDA})
         svd_thresh
     )
     # compute likelihoods and prior prob
-    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_noise_cov), y), eachcol(enspred))
-    logprior = map(θᵢ -> logpdf(alg.prior, θᵢ), eachcol(Θ))
-    # update ensemble solver state
+    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(enspred))
+    logprior = map(θᵢ -> logpdf(state.prior, θᵢ), eachcol(Θ))
+    # update ensemble solver and solution state
+    push!(state.ens, Θ_post)
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
     push!(sol.inputs, Θ)

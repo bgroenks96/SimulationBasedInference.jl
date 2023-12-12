@@ -10,7 +10,7 @@ struct SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType} <:
     forward_prob::SimulatorForwardProblem
     forward_solver::algType
     prior::priorType
-    param_map::ParameterMapping
+    param_map::ParameterTransform
     likelihoods::likType
     metadata::Dict
 end
@@ -18,9 +18,10 @@ end
 """
     SimulatorInferenceProblem(
         prob::SimulatorForwardProblem,
+        forward_solver::Union{Nothing,DEAlgorithm},
         prior::AbstractPrior,
         likelihoods::SimulatorLikelihood...;
-        param_map=ParameterMapping(prior),
+        param_map=ParameterTransform(prior),
         metadata::Dict=Dict(),
     )
 
@@ -30,10 +31,10 @@ metadata may be included in the `metadata` dictionary.
 """
 function SimulatorInferenceProblem(
     forward_prob::SimulatorForwardProblem,
-    forward_solver::DEAlgorithm,
+    forward_solver::Union{Nothing,DEAlgorithm},
     prior::AbstractPrior,
     likelihoods::SimulatorLikelihood...;
-    param_map=ParameterMapping(prior),
+    param_map=ParameterTransform(prior),
     metadata::Dict=Dict(),
 )
     joint_prior = JointPrior(prior, likelihoods...)

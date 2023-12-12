@@ -24,31 +24,31 @@ function SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observabl
     return SimulatorForwardProblem(prob, named_observables, nothing)
 end
 """
-    SimulatorForwardProblem(f, p0, observables::SimulatorObservable...)
+    SimulatorForwardProblem(f, p0::AbstractVector, observables::SimulatorObservable...)
 
 Creates a forward problem from the given function or callable type `f` with initial
 parameters `p0` and the given `observables`.
 """
-function SimulatorForwardProblem(f, p0, observables::SimulatorObservable...)
+function SimulatorForwardProblem(f, p0::AbstractVector, observables::SimulatorObservable...)
     named_observables = (; map(x -> nameof(x) => x, observables)...)
     return SimulatorForwardProblem(SimpleForwardProblem(f, p0), named_observables, nothing)
 end
 """
-    SimulatorForwardProblem(f, p0)
+    SimulatorForwardProblem(f, p0::AbstractVector)
 
 Creates a forward problem from the given function or callable type `f` with initial
 parameters `p0` and a default transient observable.
 """
-SimulatorForwardProblem(f, p0) = SimulatorForwardProblem(f, p0, SimulatorObservable(:y, state -> state.result))
+SimulatorForwardProblem(f, p0::AbstractVector) = SimulatorForwardProblem(f, p0, SimulatorObservable(:y, state -> state.u))
 
 """
-    SciMLBase.remaker_of(forward_prob::SimulatorSciMLForwardProblem)
+    SciMLBase.remaker_of(forward_prob::SimulatorForwardProblem)
 
 Returns a function which will rebuild a `SimulatorForwardProblem` from its arguments.
 The remaker function additionally provides a keyword argument `copy_observables` which,
 if `true`, will `deepcopy` the observables to ensure independence. The default setting is `true`.
 """
-function SciMLBase.remaker_of(forward_prob::SimulatorSciMLForwardProblem)
+function SciMLBase.remaker_of(forward_prob::SimulatorForwardProblem)
     function remake_forward_prob(;
         prob=forward_prob.prob,
         observables=forward_prob.observables,
@@ -86,16 +86,33 @@ end
 
 # Simple forward function wrapper
 
+"""
+    SimpleForwardProblem{funcType,pType}
+
+Wrapper type for generic forward models `M` of the form: `y = M(p)` where `p` are the parameters
+and `y` are the outputs.
+"""
 struct SimpleForwardProblem{funcType,pType}
     f::funcType
     p::pType
 end
 
-mutable struct SimpleForwardSolver
-    prob::SimpleForwardProblem
-    result
+function SciMLBase.remaker_of(prob::SimpleForwardProblem)
+    function remake(; f=prob.f, p=prob.p)
+        return SimpleForwardProblem(f, p)
+    end
 end
 
-CommonSolve.init(prob::SimpleForwardProblem; p=prob.p) = SimpleForwardSolver(SimpleForwardProblem(prob.f, p), missing)
+"""
+Solver for `SimpleForwardProblem` that lazily evaluates the forward map function when `solve!` is called.
+"""
+mutable struct LazyForwardMap
+    prob::SimpleForwardProblem
+    u::Union{Missing,Any}
+end
 
-CommonSolve.solve!(solver::SimpleForwardSolver) = solver.result = prob.f(prob.p)
+eval!(solver::LazyForwardMap) = solver.u = solver.prob.f(solver.prob.p)
+
+CommonSolve.init(prob::SimpleForwardProblem, ::Nothing=nothing; p=prob.p) = LazyForwardMap(SimpleForwardProblem(prob.f, p), missing)
+
+CommonSolve.solve!(solver::LazyForwardMap) = eval!(solver)
