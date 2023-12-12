@@ -30,7 +30,6 @@ end
     @test abs(posterior_mean[1] - 0.2) < 0.01
 end
 
-
 @testset "EKS: evensen_scalar_nonlinear" begin
     x_true = 1.0
     b_true = 0.2
@@ -44,8 +43,7 @@ end
     testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
-    alg = EKS()
-    testsol = solve(testprob, alg, EnsembleThreads(); n_ens)
+    testsol = solve(testprob, EKS(), EnsembleThreads(); n_ens)
     unconstrained_posterior = get_ensemble(testsol.inference_result)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]

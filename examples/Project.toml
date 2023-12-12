@@ -1,0 +1,6 @@
+[deps]
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+SimulationBasedInference = "78927d98-f421-490e-8789-96b006983a5c"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"

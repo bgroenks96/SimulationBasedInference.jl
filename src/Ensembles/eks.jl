@@ -1,5 +1,3 @@
-using EnsembleKalmanProcesses
-
 """
     EKS <: EnsembleInferenceAlgorithm
 
@@ -11,6 +9,8 @@ Base.@kwdef struct EKS <: EnsembleInferenceAlgorithm
     maxiters::Int = 30
     minΔt::Float64 = 2.0
 end
+
+isiterative(alg::EKS) = true
 
 hasconverged(alg::EKS, state::EKPState) = length(state.ekp.Δt) > 1 ? sum(state.ekp.Δt[2:end]) >= alg.minΔt : false
 

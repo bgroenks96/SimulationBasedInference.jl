@@ -34,6 +34,14 @@ each ensemble algorithm state type.
 get_ensemble(state::EnsembleState) = error("get_ensemble not implemented for state type $(typeof(state))")
 
 """
+    isiterative(alg::EnsembleInferenceAlgorithm)
+
+Returns `true` if the given ensemble inference algorithm is iterative, `false` otherwise.
+Default implementation returns `false` (non-iterative).
+"""
+isiterative(alg::EnsembleInferenceAlgorithm) = false
+
+"""
     hasconverged(alg::EnsembleInferenceAlgorithm, state::EnsembleState)
 
 Should return `true` when `alg` at the current `state` has converged, `false` otherwise. Must be implemented
@@ -108,7 +116,7 @@ function CommonSolve.init(
     obs_cov = alg.obs_cov(likelihoods...)
     n_ens = size(initial_ens, 2)
     # construct initial state
-    state = initialstate(alg, model_prior, initial_ens, obs_mean, Matrix(obs_cov); rng)
+    state = initialstate(alg, model_prior, initial_ens, obs_mean, obs_cov; rng)
     inference_sol = SimulatorInferenceSolution(inference_prob, alg, [], [], nothing)
     return EnsembleSolver(
         inference_sol,
@@ -140,8 +148,8 @@ function CommonSolve.step!(solver::EnsembleSolver)
     # iteration callback
     callback_retval = solver.itercallback(state)
     # check convergence
-    converged = hasconverged(alg, state)
-    maxiters_reached = state.iter >= alg.maxiters
+    converged = !isiterative(alg) || hasconverged(alg, state)
+    maxiters_reached = isiterative(alg) ? state.iter >= alg.maxiters : false
     retcode = if converged
         ReturnCode.Success
     elseif maxiters_reached

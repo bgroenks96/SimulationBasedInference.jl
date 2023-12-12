@@ -1,20 +1,3 @@
-mutable struct ESMDAState{ensType,meanType,covType} <: EnsembleState
-    ens::Vector{ensType}
-    obs_mean::meanType
-    obs_cov::covType
-    prior::MvNormal
-    loglik::Vector # log likelihoods
-    logprior::Vector # log prior prob
-    iter::Int  # iteration step
-    rng::AbstractRNG
-end
-
-get_ensemble(state::ESMDAState) = state.ens[end]
-
-get_obs_mean(state::ESMDAState) = state.obs_mean
-
-get_obs_cov(state::ESMDAState) = state.obs_cov
-
 Base.@kwdef struct ESMDA <: EnsembleInferenceAlgorithm
     prior_approx::GaussianApproximationMethod = EmpiricalGaussian()
     obs_cov::Function = obscov # obs covariance function
@@ -26,6 +9,25 @@ Base.@kwdef struct ESMDA <: EnsembleInferenceAlgorithm
     dosvd::Bool = true
     svd_thresh::Float64 = 0.90
 end
+
+mutable struct ESMDAState{ensType,meanType,covType} <: EnsembleState
+    ens::Vector{ensType}
+    obs_mean::meanType
+    obs_cov::covType
+    prior::MvNormal
+    loglik::Vector # log likelihoods
+    logprior::Vector # log prior prob
+    iter::Int  # iteration step
+    rng::AbstractRNG
+end
+
+isiterative(alg::ESMDA) = true
+
+get_ensemble(state::ESMDAState) = state.ens[end]
+
+get_obs_mean(state::ESMDAState) = state.obs_mean
+
+get_obs_cov(state::ESMDAState) = state.obs_cov
 
 hasconverged(alg::ESMDA, state::ESMDAState) = state.iter >= alg.maxiters
 

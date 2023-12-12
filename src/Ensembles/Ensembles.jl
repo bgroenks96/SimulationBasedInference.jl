@@ -34,4 +34,7 @@ include("eks.jl")
 export ESMDA, ensemble_kalman_analysis
 include("es-mda.jl")
 
+export PBS, get_weights
+include("pbs.jl")
+
 end
