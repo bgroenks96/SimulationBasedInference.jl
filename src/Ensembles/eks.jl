@@ -29,7 +29,7 @@ function initialstate(
     return EKPState(ekp, 0, [], [])
 end
 
-function ensemble_step!(solver::EnsembleSolver{EKS})
+function ensemblestep!(solver::EnsembleSolver{EKS})
     sol = solver.sol
     state = solver.state
     alg = solver.alg
@@ -65,4 +65,20 @@ function ensemble_step!(solver::EnsembleSolver{EKS})
     err = ekp.err[end]
     Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing
     solver.verbose && @info "Finished iteration $(state.iter); err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
+end
+
+function finalize!(solver::EnsembleSolver{<:EKS})
+    enspred, _ = ensemble_solve(
+        solver.state,
+        solver.sol.prob.forward_prob,
+        solver.ensalg,
+        solver.sol.prob.forward_solver,
+        ParameterTransform(solver.sol.prob.prior.model);
+        prob_func=solver.prob_func,
+        output_func=solver.output_func,
+        pred_func=solver.pred_func,
+        solver.solve_kwargs...
+    )
+    push!(solver.sol.inputs, getensemble(solver.state))
+    push!(solver.sol.outputs, enspred)
 end

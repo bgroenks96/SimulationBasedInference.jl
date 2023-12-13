@@ -5,7 +5,7 @@ mutable struct EKPState{ekpType<:EnsembleKalmanProcess} <: EnsembleState
     logprior::Vector # log prior prob
 end
 
-get_ensemble(state::EKPState) = get_u_final(state.ekp)
+getensemble(state::EKPState) = get_u_final(state.ekp)
 
 get_obs_mean(state::EKPState) = state.ekp.obs_mean
 

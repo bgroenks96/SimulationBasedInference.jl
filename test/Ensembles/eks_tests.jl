@@ -9,8 +9,11 @@ using Test
 
 import Random
 
-@testset "EKS: interface" begin
-    
+@testset "EKS: solver inteface" begin
+    rng = Random.MersenneTwister(1234)
+    testprob = evensen_scalar_nonlinear(;rng)
+    solver = init(testprob, EKS())
+    test_ensemble_alg_interface(solver)
 end
 
 @testset "EKS: Linear ODE inversion" begin
@@ -23,7 +26,7 @@ end
     # solve inference problem with EKS
     eks_sol = solve(inference_prob, eks, EnsembleThreads(), n_ens=128, verbose=false, rng=rng)
     # check results
-    u_ens = get_u_final(eks_sol.inference_result.ekp)
+    u_ens = get_u_final(eks_sol.result.ekp)
     constrained_to_unconstrained = bijector(prior)
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)
@@ -44,7 +47,7 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     testsol = solve(testprob, EKS(), EnsembleThreads(); n_ens)
-    unconstrained_posterior = get_ensemble(testsol.inference_result)
+    unconstrained_posterior = getensemble(testsol.result)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]
     @show posterior_mean

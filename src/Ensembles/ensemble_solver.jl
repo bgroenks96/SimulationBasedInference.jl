@@ -26,12 +26,12 @@ end
 ################################
 
 """
-    get_ensemble(state::EnsembleState)
+    getensemble(state::EnsembleState)
 
 Retrieves the current ensemble matrix from the given `EnsembleState`. Must be implemented for
 each ensemble algorithm state type.
 """
-get_ensemble(state::EnsembleState) = error("get_ensemble not implemented for state type $(typeof(state))")
+getensemble(state::EnsembleState) = error("getensemble not implemented for state type $(typeof(state))")
 
 """
     isiterative(alg::EnsembleInferenceAlgorithm)
@@ -70,12 +70,19 @@ initialstate(
 ) = error("intialstate not implemented for $(typeof(alg))")
 
 """
-    ensemble_step!(solver::EnsembleSolver{algType})
+    ensemblestep!(solver::EnsembleSolver{algType})
 
 Executes a single ensemble step (forward solve + update) for the given algorithm type. Must be implemented
 by all ensemble algorithm implementations.
 """
-ensemble_step!(solver::EnsembleSolver{algType}) where {algType} = error("not implemented for alg of type $algType")
+ensemblestep!(solver::EnsembleSolver{algType}) where {algType} = error("not implemented for alg of type $algType")
+
+"""
+    finalize!(solver::EnsembleSolver)
+
+Finalizes the solver state after iteration has completed. Default implementation does nothing.
+"""
+finalize!(solver::EnsembleSolver) = nothing
 
 ################################
 
@@ -143,8 +150,9 @@ function CommonSolve.step!(solver::EnsembleSolver)
     state = solver.state
     state.iter += 1
     # ensemble step
-    ensemble_step!(solver)
-    sol.inference_result = state
+    ensemblestep!(solver)
+    # set result
+    sol.result = state
     # iteration callback
     callback_retval = solver.itercallback(state)
     # check convergence
@@ -166,6 +174,9 @@ end
 function CommonSolve.solve!(solver::EnsembleSolver)
     # step until convergence
     while CommonSolve.step!(solver) end
+    # finalize
+    finalize!(solver)
+    # return inference solution
     return solver.sol
 end
 
@@ -209,7 +220,7 @@ function ensemble_solve(
     pred = reduce(hcat, map((i,out) -> pred_func(out, i, iter), 1:N_ens, sol.u))
     return (; pred, sol)
 end
-ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(get_ensemble(state), args...; iter=state.iter, kwargs...)
+ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(getensemble(state), args...; iter=state.iter, kwargs...)
 
 function default_pred_func(prob::SimulatorForwardProblem)
     function predict_observables(sol::SimulatorForwardSolution, i, iter)

@@ -75,11 +75,11 @@ mutable struct Transient <: SimulatorOutput
     state::Union{Nothing,AbstractVector}
 end
 
-initialize!(obs::SimulatorObservable{Transient}, state) = nothing
+initialize!(obs::SimulatorObservable{Transient}, state) = observe!(obs, state)
 
 function observe!(obs::SimulatorObservable{Transient}, state)
     out = obs.obsfunc(state)
-    @assert length(out) == obs.ndims "Expected output of length $(obs.ndims) but got $(length(out))"
+    @assert ismissing(out) || length(out) == obs.ndims "Expected output of length $(obs.ndims) but got $(length(out))"
     obs.output.state = out
     return out
 end

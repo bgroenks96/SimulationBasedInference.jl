@@ -103,16 +103,11 @@ function SciMLBase.remaker_of(prob::SimpleForwardProblem)
     end
 end
 
-"""
-Solver for `SimpleForwardProblem` that lazily evaluates the forward map function when `solve!` is called.
-"""
-mutable struct LazyForwardMap
+mutable struct SimpleForwardEval{uType}
     prob::SimpleForwardProblem
-    u::Union{Missing,Any}
+    u::uType
 end
 
-eval!(solver::LazyForwardMap) = solver.u = solver.prob.f(solver.prob.p)
+CommonSolve.init(prob::SimpleForwardProblem, ::Nothing=nothing; p=prob.p) = SimpleForwardEval(SimpleForwardProblem(prob.f, p), prob.f(p))
 
-CommonSolve.init(prob::SimpleForwardProblem, ::Nothing=nothing; p=prob.p) = LazyForwardMap(SimpleForwardProblem(prob.f, p), missing)
-
-CommonSolve.solve!(solver::LazyForwardMap) = eval!(solver)
+CommonSolve.solve!(solver::SimpleForwardEval) = solver.u

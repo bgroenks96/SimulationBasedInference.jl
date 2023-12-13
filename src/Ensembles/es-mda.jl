@@ -23,7 +23,7 @@ end
 
 isiterative(alg::ESMDA) = true
 
-get_ensemble(state::ESMDAState) = state.ens[end]
+getensemble(state::ESMDAState) = state.ens[end]
 
 get_obs_mean(state::ESMDAState) = state.obs_mean
 
@@ -43,7 +43,7 @@ function initialstate(
     return ESMDAState([ens], obs, obs_cov, unconstrained_prior, [], [], 0, rng)
 end
 
-function ensemble_step!(solver::EnsembleSolver{<:ESMDA})
+function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     sol = solver.sol
     state = solver.state
     alg = solver.alg
@@ -87,6 +87,22 @@ function ensemble_step!(solver::EnsembleSolver{<:ESMDA})
     push!(state.logprior, logprior)
     push!(sol.inputs, Θ)
     push!(sol.outputs, enspred)
+end
+
+function finalize!(solver::EnsembleSolver{<:ESMDA})
+    enspred, _ = ensemble_solve(
+        solver.state,
+        solver.sol.prob.forward_prob,
+        solver.ensalg,
+        solver.sol.prob.forward_solver,
+        ParameterTransform(solver.sol.prob.prior.model);
+        prob_func=solver.prob_func,
+        output_func=solver.output_func,
+        pred_func=solver.pred_func,
+        solver.solve_kwargs...
+    )
+    push!(solver.sol.inputs, getensemble(solver.state))
+    push!(solver.sol.outputs, enspred)
 end
 
 """

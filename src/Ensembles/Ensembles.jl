@@ -16,7 +16,7 @@ using UnPack
 
 abstract type EnsembleInferenceAlgorithm <: SimulatorInferenceAlgorithm end
 
-export EnsembleSolver, get_ensemble
+export EnsembleSolver, getensemble
 include("ensemble_solver.jl")
 
 export obscov

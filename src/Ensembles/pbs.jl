@@ -18,7 +18,7 @@ mutable struct PBSState{ensType,meanType,covType} <: EnsembleState
     iter::Int  # iteration step
 end
 
-get_ensemble(state::PBSState) = state.ens
+getensemble(state::PBSState) = state.ens
 
 get_obs_mean(state::PBSState) = state.obs_mean
 
@@ -37,7 +37,7 @@ function initialstate(
     return PBSState(ens, obs, obs_cov, Float64[], Float64[], -1, 0)
 end
 
-function ensemble_step!(solver::EnsembleSolver{<:PBS})
+function ensemblestep!(solver::EnsembleSolver{<:PBS})
     sol = solver.sol
     state = solver.state
     # parameter mapping (model parameters only)
@@ -63,4 +63,23 @@ function ensemble_step!(solver::EnsembleSolver{<:PBS})
     state.loglik = loglik
     push!(sol.inputs, state.ens)
     push!(sol.outputs, enspred)
+end
+
+function ensemble_predict(solver::EnsembleSolver{<:PBS})
+    if solver.state.iter > 0
+        enspred = solver.sol.outputs[end]
+    else
+        enspred, _ = ensemble_solve(
+            solver.state,
+            solver.sol.prob.forward_prob,
+            solver.ensalg,
+            solver.sol.prob.forward_solver,
+            ParameterTransform(solver.sol.prob.prior.model);
+            prob_func=solver.prob_func,
+            output_func=solver.output_func,
+            pred_func=solver.pred_func,
+            solver.solve_kwargs...
+        )
+    end
+    return enspred
 end

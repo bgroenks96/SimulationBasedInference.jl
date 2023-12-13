@@ -12,8 +12,8 @@ using Test
     observed_state = SimulationBasedInference.retrieve(obs)
     @test observed_state === state
     # with observable mapping function
-    obs = SimulatorObservable(:obs, x -> x.^2)
     state = [-1.0,2.0]
+    obs = SimulatorObservable(:obs, x -> x.^2, ndims=2)
     SimulationBasedInference.initialize!(obs, state)
     SimulationBasedInference.observe!(obs, state)
     observed_state = SimulationBasedInference.retrieve(obs)

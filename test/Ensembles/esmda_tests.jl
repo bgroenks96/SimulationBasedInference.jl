@@ -51,6 +51,13 @@ end
     @test mean(abs.(posterior .- [x_true, b_true])) < mean(abs.(prior .- [x_true, b_true]))
 end
 
+@testset "ES-MDA: solver inteface" begin
+    rng = Random.MersenneTwister(1234)
+    testprob = evensen_scalar_nonlinear(;rng)
+    solver = init(testprob, ESMDA())
+    test_ensemble_alg_interface(solver)
+end
+
 @testset "ES-MDA: evensen_scalar_nonlinear" begin
     x_true = 1.0
     b_true = 0.2
@@ -66,7 +73,7 @@ end
     inverse_transform = inverse(transform)
     alg = ESMDA(maxiters=10)
     testsol = solve(testprob, alg, EnsembleThreads(); n_ens, rng)
-    unconstrained_posterior = get_ensemble(testsol.inference_result)
+    unconstrained_posterior = getensemble(testsol.result)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]
     @show posterior_mean
@@ -84,7 +91,7 @@ end
     # solve inference problem with EKS
     eks_sol = solve(inference_prob, eks, EnsembleThreads(), n_ens=128, verbose=false, rng=rng)
     # check results
-    u_ens = get_ensemble(eks_sol.inference_result)
+    u_ens = getensemble(eks_sol.result)
     constrained_to_unconstrained = bijector(prior)
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)
