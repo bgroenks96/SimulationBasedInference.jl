@@ -46,7 +46,7 @@ end
     testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
-    testsol = solve(testprob, EKS(), EnsembleThreads(); n_ens)
+    testsol = solve(testprob, EKS(), EnsembleThreads(); n_ens, verbose=false)
     unconstrained_posterior = getensemble(testsol.result)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]

@@ -15,12 +15,14 @@ using DiffEqBase, SciMLBase
 
 # Stats
 using Bijectors
-@reexport using Distributions
 using LogDensityProblems
 using MCMCChains
 using Random
-using StatsBase
-using Statistics
+
+# Re-exported packages
+@reexport using Distributions
+@reexport using StatsBase
+@reexport using Statistics
 
 import LogDensityProblems: logdensity
 

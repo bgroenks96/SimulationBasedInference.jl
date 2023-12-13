@@ -8,7 +8,7 @@ end
     include("prior_tests.jl")
 end
 
-@testset "Problems" begin
+@testset "Problem interface" begin
     include("problem_tests.jl")
 end
 

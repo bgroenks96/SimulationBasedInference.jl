@@ -20,6 +20,4 @@ include("turing_prior.jl")
 export TuringMCMC, joint_model, likelihood_model
 include("turing_models.jl")
 
-include("gaussian_approx.jl")
-
 end
