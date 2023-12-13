@@ -73,7 +73,7 @@ end
     inverse_transform = inverse(transform)
     alg = ESMDA(maxiters=10)
     testsol = solve(testprob, alg, EnsembleThreads(); n_ens, rng)
-    unconstrained_posterior = getensemble(testsol.result)
+    unconstrained_posterior = get_ensemble(testsol.result)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]
     @show posterior_mean
@@ -91,7 +91,7 @@ end
     # solve inference problem with EKS
     eks_sol = solve(inference_prob, eks, EnsembleThreads(), n_ens=128, verbose=false, rng=rng)
     # check results
-    u_ens = getensemble(eks_sol.result)
+    u_ens = get_ensemble(eks_sol.result)
     constrained_to_unconstrained = bijector(prior)
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)

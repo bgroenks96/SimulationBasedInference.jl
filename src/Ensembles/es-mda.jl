@@ -23,7 +23,7 @@ end
 
 isiterative(alg::ESMDA) = true
 
-getensemble(state::ESMDAState) = state.ens[end]
+get_ensemble(state::ESMDAState) = state.ens[end]
 
 get_obs_mean(state::ESMDAState) = state.obs_mean
 
@@ -101,7 +101,7 @@ function finalize!(solver::EnsembleSolver{<:ESMDA})
         pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
-    push!(solver.sol.inputs, getensemble(solver.state))
+    push!(solver.sol.inputs, get_ensemble(solver.state))
     push!(solver.sol.outputs, enspred)
 end
 

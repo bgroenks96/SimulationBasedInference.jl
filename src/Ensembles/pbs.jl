@@ -18,7 +18,7 @@ mutable struct PBSState{ensType,meanType,covType} <: EnsembleState
     iter::Int  # iteration step
 end
 
-getensemble(state::PBSState) = state.ens
+get_ensemble(state::PBSState) = state.ens
 
 get_obs_mean(state::PBSState) = state.obs_mean
 

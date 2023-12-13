@@ -47,7 +47,7 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     testsol = solve(testprob, EKS(), EnsembleThreads(); n_ens, verbose=false)
-    unconstrained_posterior = getensemble(testsol.result)
+    unconstrained_posterior = get_ensemble(testsol.result)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]
     @show posterior_mean

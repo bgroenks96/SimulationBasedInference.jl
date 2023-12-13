@@ -5,7 +5,7 @@ using SimulationBasedInference.Ensembles
 
 function test_ensemble_alg_interface(solver::EnsembleSolver)
     prob = solver.sol.prob
-    ens = Ensembles.getensemble(solver.state)
+    ens = Ensembles.get_ensemble(solver.state)
     @test isa(ens, AbstractMatrix)
     obs_mean = Ensembles.get_obs_mean(solver.state)
     @test isa(obs_mean, AbstractVector)

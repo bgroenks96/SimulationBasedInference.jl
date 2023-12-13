@@ -79,6 +79,6 @@ function finalize!(solver::EnsembleSolver{<:EKS})
         pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
-    push!(solver.sol.inputs, getensemble(solver.state))
+    push!(solver.sol.inputs, get_ensemble(solver.state))
     push!(solver.sol.outputs, enspred)
 end

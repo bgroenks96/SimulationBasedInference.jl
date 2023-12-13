@@ -70,7 +70,7 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     testsol = solve(testprob, PBS(), EnsembleThreads(); n_ens, rng)
-    unconstrained_prior = getensemble(testsol.result)
+    unconstrained_prior = get_ensemble(testsol.result)
     prior_ens = reduce(hcat, map(inverse_transform, eachcol(unconstrained_prior)))
     w = get_weights(testsol.result)
     posterior_mean = prior_ens*w

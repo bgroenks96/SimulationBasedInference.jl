@@ -8,7 +8,7 @@ the SciML `EnsembleProblem` interface to automatically parallelize forward runs 
 the ensemble.
 """
 mutable struct EnsembleSolver{algType,probType,ensalgType,stateType<:EnsembleState,kwargTypes}
-    sol::SimulatorInferenceSolution{probType}
+    sol::SimulatorInferenceSolution{algType,probType}
     alg::algType
     ensalg::ensalgType
     state::stateType
@@ -26,12 +26,12 @@ end
 ################################
 
 """
-    getensemble(state::EnsembleState)
+    get_ensemble(state::EnsembleState)
 
 Retrieves the current ensemble matrix from the given `EnsembleState`. Must be implemented for
 each ensemble algorithm state type.
 """
-getensemble(state::EnsembleState) = error("getensemble not implemented for state type $(typeof(state))")
+get_ensemble(state::EnsembleState) = error("get_ensemble not implemented for state type $(typeof(state))")
 
 """
     isiterative(alg::EnsembleInferenceAlgorithm)
@@ -180,6 +180,17 @@ function CommonSolve.solve!(solver::EnsembleSolver)
     return solver.sol
 end
 
+function get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm})
+    return get_ensemble(sol.result)
+end
+
+function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm})
+    prob = sol.prob
+    inverse_transform = inverse(bijector(prob.prior.model))
+    ens = get_ensemble(sol.result)
+    return reduce(hcat, map(inverse_transform, eachcol(ens)))
+end
+
 """
     ensemble_solve(
         state::EnsembleState,
@@ -220,7 +231,7 @@ function ensemble_solve(
     pred = reduce(hcat, map((i,out) -> pred_func(out, i, iter), 1:N_ens, sol.u))
     return (; pred, sol)
 end
-ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(getensemble(state), args...; iter=state.iter, kwargs...)
+ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(get_ensemble(state), args...; iter=state.iter, kwargs...)
 
 function default_pred_func(prob::SimulatorForwardProblem)
     function predict_observables(sol::SimulatorForwardSolution, i, iter)

@@ -133,14 +133,14 @@ LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensit
 LogDensityProblems.dimension(inference_prob::SimulatorInferenceProblem) = length(inference_prob.u0)
 
 """
-    SimulatorInferenceSolution{probType,algType}
+    SimulatorInferenceSolution{algType,probType}
 
 Generic container for solutions to `SimulatorInferenceProblem`s. The type of `result` is method dependent
 and should generally correspond to the final state or product of the inference algorithm (e.g. posterior sampels).
 The vectors `inputs` and `outputs` should be populated with input parameters and their corresponding output solutions
 respectively.
 """
-mutable struct SimulatorInferenceSolution{probType,algType}
+mutable struct SimulatorInferenceSolution{algType,probType}
     prob::probType
     alg::algType
     inputs::Vector
