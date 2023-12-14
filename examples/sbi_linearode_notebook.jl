@@ -208,7 +208,13 @@ md"""
 pbs_sol = solve(inference_prob, PBS(), n_ens=256, rng=rng)
 
 # ╔═╡ 006fbbd2-fec1-489a-93c0-b047f7310588
-posterior_weights = get_weights(pbs_sol.result);
+posterior_weights = get_weights(pbs_sol.result)
+
+# ╔═╡ ab585b3f-5a93-4ae9-ad53-f1558654d6ef
+histogram(posterior_weights)
+
+# ╔═╡ 64705b6e-8de5-451f-99b2-f6e21c40b2f6
+pbs_sol.result
 
 # ╔═╡ 5ad22545-a42e-4415-a22a-1821979f9645
 posterior_mean_pbs = get_transformed_ensemble(pbs_sol)*posterior_weights
@@ -356,6 +362,8 @@ md"""
 # ╟─ba2d4dce-dae4-485f-b9ca-1cdc4c161cd3
 # ╠═bbd6aa72-e1c1-4eb7-b887-8937f758af2b
 # ╠═006fbbd2-fec1-489a-93c0-b047f7310588
+# ╠═ab585b3f-5a93-4ae9-ad53-f1558654d6ef
+# ╠═64705b6e-8de5-451f-99b2-f6e21c40b2f6
 # ╠═5ad22545-a42e-4415-a22a-1821979f9645
 # ╠═ff3f3a04-8240-4255-b7d7-d3ea91b035ed
 # ╠═eb00ac7f-f436-476b-8a3c-ceb6f6ed7999
