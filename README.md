@@ -29,8 +29,6 @@ $$
 
 is a dynamical model or physics-based *simulator*.
 
-In the numerical modeling literature, this is often referred to as *data assimilation*.
-
 There are two fundamental challenges with this problem:
 1. The model $\mathcal{M}$ is almost always *non-linear* and, in the case of dynamical models, *intractable* (i.e. we cannot write down the solution a priori).
 2. Evaluating the forward map $\mathcal{M}(\theta)$ is usually non-trivial, i.e. **computationally expensive** or at least inconvenient.
