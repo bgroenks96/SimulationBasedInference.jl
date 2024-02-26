@@ -47,7 +47,7 @@ Requires = "1"
 SciMLBase = "1,2"
 Statistics = "1"
 StatsBase = "0"
-julia = "1.6,1.7,1.8,1.9"
+julia = "1.6,1.7,1.8,1.9,1.10"
 
 [extras]
 DecisionTree = "7806a523-6efd-50cb-b5f6-3fa6f1930dbb"
