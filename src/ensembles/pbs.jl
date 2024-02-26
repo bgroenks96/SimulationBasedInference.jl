@@ -1,7 +1,7 @@
 """
     PBS
 
-Basic particle batch smoother that is effectively quivalent to
+Basic particle batch smoother that is effectively equivalent to
 naive importance sampling of the posterior.
 """
 Base.@kwdef struct PBS <: EnsembleInferenceAlgorithm

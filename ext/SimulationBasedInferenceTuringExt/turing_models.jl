@@ -1,12 +1,16 @@
-Base.@kwdef struct TuringMCMC{Talg,Tstrat} <: SimulatorInferenceAlgorithm
-    alg::Talg = MH()
-    strat::Tstrat = MCMCSerial()
-    num_samples::Int = 1000
-    num_chains::Int = 2
+using Turing.AbstractMCMC
+
+# additional MCMC constructor
+SimulationBasedInference.MCMC(alg::Turing.InferenceAlgorithm, strat; kwargs...) = error("invalid sampling strategy $(typeof(strat)) for Turing algorithm")
+function SimulationBasedInference.MCMC(
+    alg::Turing.InferenceAlgorithm,
+    strat::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
+    kwargs...
+)
+    return MCMC(alg, strat; kwargs...)
 end
 
 # model building functions.
-
 function joint_model(inference_prob::SimulatorInferenceProblem{<:TuringPrior}, ode_alg; solve_kwargs...)
     @model function joint_model(::Type{T}=Float64) where {T}
         p = @submodel inference_prob.prior.model
@@ -49,9 +53,9 @@ end
     return (; σ)
 end
 
-function CommonSolve.solve(prob::SimulatorInferenceProblem, mcmc::TuringMCMC, ode_alg; kwargs...)
+function CommonSolve.solve(prob::SimulatorInferenceProblem, mcmc::MCMC{<:Turing.InferenceAlgorithm}, ode_alg; kwargs...)
     m = joint_model(prob, ode_alg; kwargs...)
     m_cond = Turing.condition(m; prob.data...)
-    chain = Turing.sample(m_cond, mcmc.alg, mcmc.strat, mcmc.num_samples, mcmc.num_chains)
+    chain = Turing.sample(m_cond, mcmc.alg, mcmc.strat, mcmc.nsamples, mcmc.nchains)
     return chain
 end

@@ -66,10 +66,16 @@ include("forward_solve.jl")
 export SimulatorODEForwardSolver
 include("forward_solve_ode.jl")
 
-include("inference/algorithms.jl")
-
 include("Emulators/Emulators.jl")
 using .Emulators
+
+# Inference algorithms; these files should
+# already export all relevant types/methods
+include("ensembles/ensembles.jl")
+include("mcmc/mcmc.jl")
+
+export SBI # alias for base module
+const SBI = SimulationBasedInference
 
 function __init__()
     # Extension loading;
