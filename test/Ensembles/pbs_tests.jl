@@ -1,4 +1,4 @@
-using SimulationBasedInference.Ensembles
+using SimulationBasedInference
 using SciMLBase
 using Test
 
@@ -30,7 +30,7 @@ end
     # sample initial ensemble from model prior (excluding likelihood parameters)
     initial_ens = reduce(hcat, rand(rng, testprob.prior.model, n_ens))
     initial_ens_uconstrained = reduce(hcat, map(bij, eachcol(initial_ens)))
-    y_pred, _ = Ensembles.ensemble_solve(
+    y_pred, _ = SimulationBasedInference.ensemble_solve(
         initial_ens_uconstrained,
         testprob.forward_prob,
         EnsembleThreads(),

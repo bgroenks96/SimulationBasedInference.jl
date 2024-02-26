@@ -66,8 +66,7 @@ include("forward_solve.jl")
 export SimulatorODEForwardSolver
 include("forward_solve_ode.jl")
 
-include("Ensembles/Ensembles.jl")
-using .Ensembles
+include("inference/algorithms.jl")
 
 include("Emulators/Emulators.jl")
 using .Emulators

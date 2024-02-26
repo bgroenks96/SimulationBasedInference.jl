@@ -25,9 +25,6 @@ end
 # ╔═╡ 5fea4149-21e4-47d4-aed5-b1bc2dae7968
 using SimulationBasedInference
 
-# ╔═╡ 2d1a8391-695a-425d-9ebd-01557b10200d
-using SimulationBasedInference.Ensembles
-
 # ╔═╡ 4cce20ca-c370-4e5c-80d6-ff48091fe20b
 using OrdinaryDiffEq
 

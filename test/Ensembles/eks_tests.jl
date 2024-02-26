@@ -1,5 +1,4 @@
 using SimulationBasedInference
-using SimulationBasedInference.Ensembles
 
 using Bijectors
 using EnsembleKalmanProcesses

@@ -1,4 +1,4 @@
-using SimulationBasedInference.Ensembles
+using SimulationBasedInference
 
 using OrdinaryDiffEq
 using SciMLBase
@@ -34,7 +34,7 @@ end
     # sample initial ensemble from model prior (excluding likelihood parameters)
     prior = reduce(hcat, rand(rng, testprob.prior.model, n_ens))
     unconstrained_prior = reduce(hcat, map(transform, eachcol(prior)))
-    y_pred, _ = Ensembles.ensemble_solve(
+    y_pred, _ = SimulationBasedInference.ensemble_solve(
         unconstrained_prior,
         testprob.forward_prob,
         EnsembleThreads(),

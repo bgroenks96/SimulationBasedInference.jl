@@ -1,7 +1,3 @@
-module Ensembles
-
-using SimulationBasedInference
-
 using Bijectors
 using CommonSolve
 using DiffEqBase, SciMLBase
@@ -36,5 +32,3 @@ include("es-mda.jl")
 
 export PBS, get_weights
 include("pbs.jl")
-
-end
