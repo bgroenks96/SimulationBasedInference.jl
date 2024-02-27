@@ -18,8 +18,8 @@ include("ensemble_solver.jl")
 export obscov
 include("ensemble_utils.jl")
 
-export importance_weights
-include("importance_weights.jl")
+export EnIS, PBS, importance_weights, get_weights
+include("importance_sampling.jl")
 
 export fitekp!
 include("ekp.jl")
@@ -29,6 +29,3 @@ include("eks.jl")
 
 export ESMDA, ensemble_kalman_analysis
 include("es-mda.jl")
-
-export PBS, get_weights
-include("pbs.jl")

@@ -3,7 +3,6 @@ module SimulationBasedInference
 using Reexport
 
 # Utility
-@reexport using ComponentArrays
 using Dates
 using FileIO
 using LinearAlgebra
@@ -11,7 +10,7 @@ using Requires
 
 # SciML/DiffEq
 using CommonSolve
-using DiffEqBase, SciMLBase
+using DiffEqBase
 
 # Stats
 using Bijectors
@@ -20,8 +19,11 @@ using MCMCChains
 using Random
 
 # Re-exported packages
+@reexport using ComponentArrays
 @reexport using Distributions
+@reexport using SciMLBase
 @reexport using StatsBase
+@reexport using StatsFuns
 @reexport using Statistics
 
 import LogDensityProblems: logdensity

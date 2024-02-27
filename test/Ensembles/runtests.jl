@@ -24,7 +24,7 @@ end
 
 include("../testcases.jl")
 
-@testset "PBS" begin
+@testset "EnIS" begin
     include("pbs_tests.jl")
 end
 

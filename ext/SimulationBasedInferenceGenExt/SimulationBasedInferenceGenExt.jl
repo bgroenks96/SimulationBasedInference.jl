@@ -1,6 +1,7 @@
 module SimulationBasedInferenceGenExt
 
-using Gen
+# weak dependency
+using ..Gen
 
 using SimulationBasedInference
 

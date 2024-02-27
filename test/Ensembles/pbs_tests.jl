@@ -49,14 +49,14 @@ end
     # @test abs(posterior_mean[2] - b_true) < 0.01
 end
 
-@testset "PBS: solver inteface" begin
+@testset "EnIS: solver inteface" begin
     rng = Random.MersenneTwister(1234)
     testprob = evensen_scalar_nonlinear(;rng)
-    solver = init(testprob, PBS())
+    solver = init(testprob, EnIS())
     test_ensemble_alg_interface(solver)
 end
 
-@testset "PBS: evensen_scalar_nonlinear" begin
+@testset "EnIS: evensen_scalar_nonlinear" begin
     x_true = 1.0
     b_true = 0.2
     σ_y = 0.1
@@ -69,7 +69,7 @@ end
     testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
-    testsol = solve(testprob, PBS(), EnsembleThreads(); n_ens, rng)
+    testsol = solve(testprob, EnIS(), EnsembleThreads(); n_ens, rng)
     unconstrained_prior = get_ensemble(testsol.result)
     prior_ens = reduce(hcat, map(inverse_transform, eachcol(unconstrained_prior)))
     w = get_weights(testsol.result)
