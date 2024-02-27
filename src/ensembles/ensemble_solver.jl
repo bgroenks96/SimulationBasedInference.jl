@@ -26,12 +26,14 @@ end
 ################################
 
 """
-    get_ensemble(state::EnsembleState)
+    get_ensemble(state::EnsembleState, [iter])
 
 Retrieves the current ensemble matrix from the given `EnsembleState`. Must be implemented for
-each ensemble algorithm state type.
+each ensemble algorithm state type. The optional second argument `iter` retreives the ensemble
+at the given iteration. This need only be implemented by iterative algorithms.
 """
-get_ensemble(state::EnsembleState) = error("get_ensemble not implemented for state type $(typeof(state))")
+get_ensemble(state::EnsembleState) = error("get_ensemble(state) not implemented for $(typeof(state))")
+get_ensemble(state::EnsembleState, ::Integer) = error("get_ensemble(state, iter) not implemented for $(typeof(state))")
 
 """
     isiterative(alg::EnsembleInferenceAlgorithm)
@@ -180,14 +182,26 @@ function CommonSolve.solve!(solver::EnsembleSolver)
     return solver.sol
 end
 
-function get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm})
-    return get_ensemble(sol.result)
+"""
+    get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+
+Fetches the state of the ensemble from the given solution object. For iterative algorithms, the
+optinal argument `iter` may be provided, which then retrieves the ensemble at the given iteration.
+"""
+function get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+    return iter < 0 ? get_ensemble(sol.result) : get_ensemble(sol.result, iter)
 end
 
-function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm})
+"""
+    get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+    
+Fetches the transformed ensemble from the given solution object. For iterative algorithms, the
+optinal argument `iter` may be provided, which then retrieves the ensemble at the given iteration.
+"""
+function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
     prob = sol.prob
     inverse_transform = inverse(bijector(prob.prior.model))
-    ens = get_ensemble(sol.result)
+    ens = iter < 0 ? get_ensemble(sol.result) : get_ensemble(sol.result, iter)
     return reduce(hcat, map(inverse_transform, eachcol(ens)))
 end
 

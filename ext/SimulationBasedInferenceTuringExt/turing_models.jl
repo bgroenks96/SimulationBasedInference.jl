@@ -1,5 +1,3 @@
-using Turing.AbstractMCMC
-
 # additional MCMC constructor
 SimulationBasedInference.MCMC(alg::Turing.InferenceAlgorithm, strat; kwargs...) = error("invalid sampling strategy $(typeof(strat)) for Turing algorithm")
 function SimulationBasedInference.MCMC(

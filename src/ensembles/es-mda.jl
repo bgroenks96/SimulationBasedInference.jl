@@ -24,6 +24,7 @@ end
 isiterative(alg::ESMDA) = true
 
 get_ensemble(state::ESMDAState) = state.ens[end]
+get_ensemble(state::ESMDAState, iter::Integer) = state.ens[iter]
 
 get_obs_mean(state::ESMDAState) = state.obs_mean
 

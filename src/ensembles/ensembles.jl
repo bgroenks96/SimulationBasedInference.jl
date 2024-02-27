@@ -21,9 +21,6 @@ include("ensemble_utils.jl")
 export EnIS, PBS, importance_weights, get_weights
 include("importance_sampling.jl")
 
-export fitekp!
-include("ekp.jl")
-
 export EKS
 include("eks.jl")
 

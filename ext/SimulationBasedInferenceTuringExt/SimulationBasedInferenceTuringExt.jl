@@ -2,6 +2,7 @@ module SimulationBasedInferenceTuringExt
 
 # weak dependency
 using ..Turing
+using ..Turing.AbstractMCMC
 
 using SimulationBasedInference
 
