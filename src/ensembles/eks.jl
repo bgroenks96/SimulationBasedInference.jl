@@ -58,7 +58,7 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     # parameter mapping (model parameters only)
     param_map = ParameterTransform(sol.prob.prior.model)
     # generate ensemble predictions
-    enspred, _ = ensemble_solve(
+    out = ensemble_solve(
         state,
         sol.prob.forward_prob,
         solver.ensalg,
@@ -70,15 +70,15 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
         solver.solve_kwargs...
     )
     # update ensemble
-    update_ensemble!(ekp, enspred)
+    update_ensemble!(ekp, out.pred)
     # compute likelihoods and prior prob
-    loglik = map(y -> logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y), eachcol(enspred))
+    loglik = map(y -> logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y), eachcol(out.pred))
     logprior = map(θᵢ -> logdensity_prior(ekp, θᵢ), eachcol(Θ))
     # update ensemble solver state
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
     push!(sol.inputs, Θ)
-    push!(sol.outputs, enspred)
+    push!(sol.outputs, out)
     # postamble
     # calculate change in error
     err = ekp.err[end]
@@ -87,7 +87,7 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
 end
 
 function finalize!(solver::EnsembleSolver{<:EKS})
-    enspred, _ = ensemble_solve(
+    out = ensemble_solve(
         solver.state,
         solver.sol.prob.forward_prob,
         solver.ensalg,
@@ -99,7 +99,7 @@ function finalize!(solver::EnsembleSolver{<:EKS})
         solver.solve_kwargs...
     )
     push!(solver.sol.inputs, get_ensemble(solver.state))
-    push!(solver.sol.outputs, enspred)
+    push!(solver.sol.outputs, out)
 end
 
 """

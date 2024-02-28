@@ -52,7 +52,7 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     # parameter mapping (model parameters only)
     param_map = ParameterTransform(sol.prob.prior.model)
     # generate ensemble predictions
-    enspred, _ = ensemble_solve(
+    out = ensemble_solve(
         state,
         sol.prob.forward_prob,
         solver.ensalg,
@@ -69,7 +69,7 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     Θ_post = ensemble_kalman_analysis(
         Θ,
         state.obs_mean,
-        enspred,
+        out.pred,
         alg.alpha,
         state.obs_cov;
         rng,
@@ -80,18 +80,18 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
         svd_thresh
     )
     # compute likelihoods and prior prob
-    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(enspred))
+    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(out.pred))
     logprior = map(θᵢ -> logpdf(state.prior, θᵢ), eachcol(Θ))
     # update ensemble solver and solution state
     push!(state.ens, Θ_post)
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
     push!(sol.inputs, Θ)
-    push!(sol.outputs, enspred)
+    push!(sol.outputs, out)
 end
 
 function finalize!(solver::EnsembleSolver{<:ESMDA})
-    enspred, _ = ensemble_solve(
+    out = ensemble_solve(
         solver.state,
         solver.sol.prob.forward_prob,
         solver.ensalg,
@@ -103,7 +103,7 @@ function finalize!(solver::EnsembleSolver{<:ESMDA})
         solver.solve_kwargs...
     )
     push!(solver.sol.inputs, get_ensemble(solver.state))
-    push!(solver.sol.outputs, enspred)
+    push!(solver.sol.outputs, out)
 end
 
 """

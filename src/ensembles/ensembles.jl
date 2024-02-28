@@ -12,10 +12,10 @@ using UnPack
 
 abstract type EnsembleInferenceAlgorithm <: SimulatorInferenceAlgorithm end
 
-export EnsembleSolver, get_ensemble, get_transformed_ensemble
+export EnsembleSolver
 include("ensemble_solver.jl")
 
-export obscov
+export obscov, get_ensemble, get_transformed_ensemble, get_predictions, get_observables
 include("ensemble_utils.jl")
 
 export EnIS, PBS, importance_weights, get_weights

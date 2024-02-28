@@ -50,7 +50,7 @@ function ensemblestep!(solver::EnsembleSolver{<:EnIS})
     # parameter mapping (model parameters only)
     param_map = ParameterTransform(sol.prob.prior.model)
     # generate ensemble predictions
-    enspred, _ = ensemble_solve(
+    out = ensemble_solve(
         state,
         sol.prob.forward_prob,
         solver.ensalg,
@@ -62,33 +62,14 @@ function ensemblestep!(solver::EnsembleSolver{<:EnIS})
         solver.solve_kwargs...
     )
     # compute importance weights
-    w, Neff = importance_weights(state.obs_mean, enspred, state.obs_cov)
+    w, Neff = importance_weights(state.obs_mean, out.pred, state.obs_cov)
     # compute likelihoods
-    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(enspred))
+    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(out.pred))
     state.weights = w
     state.Neff = Neff
     state.loglik = loglik
     push!(sol.inputs, state.ens)
-    push!(sol.outputs, enspred)
-end
-
-function ensemble_predict(solver::EnsembleSolver{<:EnIS})
-    if solver.state.iter > 0
-        enspred = solver.sol.outputs[end]
-    else
-        enspred, _ = ensemble_solve(
-            solver.state,
-            solver.sol.prob.forward_prob,
-            solver.ensalg,
-            solver.sol.prob.forward_solver,
-            ParameterTransform(solver.sol.prob.prior.model);
-            prob_func=solver.prob_func,
-            output_func=solver.output_func,
-            pred_func=solver.pred_func,
-            solver.solve_kwargs...
-        )
-    end
-    return enspred
+    push!(sol.outputs, out)
 end
 
 """
