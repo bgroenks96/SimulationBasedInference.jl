@@ -82,9 +82,24 @@ ensemblestep!(solver::EnsembleSolver{algType}) where {algType} = error("not impl
 """
     finalize!(solver::EnsembleSolver)
 
-Finalizes the solver state after iteration has completed. Default implementation does nothing.
+Finalizes the solver state after iteration has completed. Default implementation runs `ensemble_solve`
+on the current ensemble state and pushes the results to `sol.outputs`.
 """
-finalize!(solver::EnsembleSolver) = nothing
+function finalize!(solver::EnsembleSolver)
+    out = ensemble_solve(
+        solver.state,
+        solver.sol.prob.forward_prob,
+        solver.ensalg,
+        solver.sol.prob.forward_solver,
+        ParameterTransform(solver.sol.prob.prior.model);
+        prob_func=solver.prob_func,
+        output_func=solver.output_func,
+        pred_func=solver.pred_func,
+        solver.solve_kwargs...
+    )
+    push!(solver.sol.inputs, get_ensemble(solver.state))
+    push!(solver.sol.outputs, out)
+end
 
 ################################
 

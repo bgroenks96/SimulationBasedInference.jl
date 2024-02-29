@@ -90,22 +90,6 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     push!(sol.outputs, out)
 end
 
-function finalize!(solver::EnsembleSolver{<:ESMDA})
-    out = ensemble_solve(
-        solver.state,
-        solver.sol.prob.forward_prob,
-        solver.ensalg,
-        solver.sol.prob.forward_solver,
-        ParameterTransform(solver.sol.prob.prior.model);
-        prob_func=solver.prob_func,
-        output_func=solver.output_func,
-        pred_func=solver.pred_func,
-        solver.solve_kwargs...
-    )
-    push!(solver.sol.inputs, get_ensemble(solver.state))
-    push!(solver.sol.outputs, out)
-end
-
 """
     ensemble_kalman_analysis(
         prior::AbstractVecOrMat,
