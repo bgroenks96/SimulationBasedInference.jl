@@ -1,6 +1,7 @@
 using Downloads: download
 using MAT
-using Plots
+
+import CairoMakie as Makie
 
 const download_url = "https://www.dropbox.com/scl/fi/fbxn7antmrchk39li44l6/daily_forcing.mat?rlkey=u1s2lu13f4grqnbxt4ediwlk2&dl=0"
 
@@ -28,7 +29,15 @@ b = [1.0,1.0,5.0]
 
 D = @time DDM(ts, precip, Tair, a, b)
 
-plot(D)
+Makie.lines(D[:,1])
+
+# taking gradients using forward-mode AD
+using ForwardDiff
+using Statistics
+
+loss(p) = mean(DDM(ts, precip, Tair, p[1], p[2]))
+
+ForwardDiff.gradient(loss, [3.0,1.0])
 
 # define the system as an ODE instead;
 # there probably isn't any real benefit to this since the simple DDM model
@@ -41,12 +50,4 @@ dudt, resid, u0, p, tspan = DDM_ode(ts, precip, Tair);
 prob = ODEProblem(dudt, u0, tspan, p, callback=PositiveDomain(u0))
 sol = @time solve(prob, Heun(), dtmax=24*3600.0)
 D_sol = reduce(vcat, sol.(tspan[1]:24*3600:tspan[end]))
-plot([D_sol D[:,1]])
-
-# taking gradients using forward-mode AD
-using ForwardDiff
-using Statistics
-
-loss(p) = mean(DDM(ts, precip, Tair, p[1], p[2]))
-
-ForwardDiff.gradient(loss, [3.0,1.0])
+Makie.series([D_sol D[:,1]]')

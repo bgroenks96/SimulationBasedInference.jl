@@ -1,10 +1,14 @@
 using Downloads: download
 using MAT
-using Plots, StatsPlots
 
+# inference/statistics packages
 using SimulationBasedInference
-using Turing
+using Turing, ArviZ
 
+# plotting
+import CairoMakie as Makie
+
+# RNG
 import Random
 
 const download_url = "https://www.dropbox.com/scl/fi/fbxn7antmrchk39li44l6/daily_forcing.mat?rlkey=u1s2lu13f4grqnbxt4ediwlk2&dl=0"
@@ -37,12 +41,18 @@ y_true = @time DDM(ts, precip, Tair, p_true...)
 # add noise ϵ ~ N(0,10) to get synthetic observation data
 N_obs = 100
 σ_true = 8.0
-idx = sample(rng, 1:length(ts), N_obs, replace=false)
+idx = sort(sample(rng, 1:length(ts), N_obs, replace=false))
 y_obs = max.(y_true[idx] .+ randn(rng, length(idx)).*σ_true, 0.0)
 
 # plot the data
-plot(ts, y_true, linewidth=3.0, label="True SWE")
-scatter!(ts[idx], y_obs, alpha=0.75, label="Observed SWE")
+let fig = Makie.Figure(),
+    ax = Makie.Axis(fig[1,1], xticks=(1:30:length(ts), Dates.format.(ts[1:30:end], "YYYY-mm")));
+    ax.xticklabelrotation = π/4
+    lines = Makie.lines!(ax, 1:length(ts), y_true[:,1], linewidth=2.0)
+    points = Makie.scatter!(ax, idx, y_obs, color=:black)
+    Makie.axislegend(ax, [lines, points], ["Ground truth", "Pseudo-obs"], position=:rt)
+    fig
+end
 
 # Define observables
 y_obs_pred = SimulatorObservable(:y_obs, state -> state.u[idx,1], ndims=length(idx))
@@ -66,28 +76,76 @@ forward_prob = SimulatorForwardProblem(
 )
 
 # Define isotropic normal likelihood
-σ_prior = PriorDistribution(:σ, Exponential(15.0))
+σ_prior = PriorDistribution(:σ, Exponential(20.0))
 lik = SimulatorLikelihood(IsoNormal, y_obs_pred, y_obs, σ_prior)
 
 # Construct inference problem
 inference_prob = SimulatorInferenceProblem(forward_prob, nothing, prior, lik)
 
+function summarize_results(inference_sol, observable=:y)
+    # prior/posterior stats
+    prior_ens = get_transformed_ensemble(inference_sol, 1)
+    posterior_ens = get_transformed_ensemble(inference_sol)
+    posterior_mean = mean(posterior_ens, dims=2)[:,1]
+    posterior_std = std(posterior_ens, dims=2)[:,1]
+    # predictions
+    obsv = get_observables(inference_sol)
+    pred_ens = obsv[observable]
+    pred_mean = mean(pred_ens, dims=2)
+    pred_std = std(pred_ens, dims=2)
+    return (; prior_ens, posterior_ens, posterior_mean, posterior_std, pred_ens, pred_mean, pred_std)
+end
+
+function plot_density!(ax, res, idx::Integer, color)
+    d = Makie.density!(ax, res.posterior_ens[idx,:], color=(color,0.5))
+    vl = Makie.vlines!(ax, [res.posterior_mean[idx]], color=(color,0.75), linewidth=2.0)
+    return (; d, vl)
+end
+
+function plot_predictions!(ax, res, ts, color; hdi_prob=0.90)
+    # compute highest density interval (HDI) using ArviZ
+    pred_hdi = mapslices(x -> hdi(x, prob=hdi_prob), res.pred_ens, dims=2)[:,1]
+    band = Makie.band!(ax, 1:length(ts), map(intrv -> intrv.lower, pred_hdi), map(intrv -> intrv.upper, pred_hdi), color=(color, 0.5))
+    lines = Makie.lines!(ax, 1:length(ts), res.pred_mean[:,1], linewidth=2.0, color=(color,0.75))
+    return (; band, lines)
+end
+
+# Solve with EnIS
+# enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), n_ens=256, verbose=false, rng=rng);
+# enis_res = summarize_results(enis_sol)
+
 # Solve inference problem with EKS
-eks_sol = solve(inference_prob, EKS(), EnsembleThreads(), n_ens=256, verbose=false, rng=rng);
-prior_ens = get_transformed_ensemble(eks_sol, 1)
-posterior_ens = get_transformed_ensemble(eks_sol)
-posterior_mean = mean(posterior_ens, dims=2)[:,1]
+eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
+eks_res = summarize_results(eks_sol)
 
-density(posterior_ens[1,:], label="a")
-vline!([posterior_mean[1]], c=:blue)
-vline!([p_true[1]], c=:black, linestyle=:dash)
+# Solve with ESMDA
+esmda_sol = @time solve(inference_prob, ESMDA(), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
+esmda_res = summarize_results(esmda_sol)
 
-density(posterior_ens[2,:], label="b")
-vline!([posterior_mean[2]], c=:blue)
-vline!([p_true[2]], c=:black, linestyle=:dash)
+let fig = Makie.Figure(),
+    ax = Makie.Axis(fig[1,1], xlabel="Degree-day melt factor");
+    d1, _ = plot_density!(ax, eks_res, 1, :blue)
+    d2, _ = plot_density!(ax, esmda_res, 1, :orange)
+    vt = Makie.vlines!([p_true[1]], color=:black, linestyle=:dash)
+    Makie.axislegend(ax, [d1,d2,vt], ["EKS", "ES-MDA", "True value"])
+    fig
+end
 
-eks_obsv = get_observables(eks_sol)
-pred_mean = mean(eks_obsv.y, dims=2)
-pred_std = std(eks_obsv.y, dims=2)
-plot(ts, y_true, linewidth=2.0, alpha=0.75)
-plot!(ts, pred_mean, linewidth=2.0, alpha=0.75, ribbon=pred_std)
+let fig = Makie.Figure(),
+    ax = Makie.Axis(fig[1,1], xlabel="Accumulation scale factor");
+    d1, _ = plot_density!(ax, eks_res, 2, :blue)
+    d2, _ = plot_density!(ax, esmda_res, 2, :orange)
+    vt = Makie.vlines!([p_true[2]], color=:black, linestyle=:dash)
+    Makie.axislegend(ax, [d1,d2,vt], ["EKS", "ES-MDA", "True value"])
+    fig
+end
+
+let fig = Makie.Figure(),
+    ax = Makie.Axis(fig[1,1], xlabel="Day of year", ylabel="SWE / mm");
+    yt = Makie.lines!(ax, 1:length(ts), y_true[:,1], linewidth=2.0, color=:black)
+    yo = Makie.scatter!(ax, idx, y_obs, color=:black)
+    plt1 = plot_predictions!(ax, eks_res, ts, :blue)
+    plt2 = plot_predictions!(ax, esmda_res, ts, :orange)
+    Makie.axislegend(ax, [collect(plt1), collect(plt2), yo, yt], ["EKS", "ES-MDA", "Observed", "Ground truth"])
+    fig
+end
