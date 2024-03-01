@@ -59,7 +59,7 @@ y_obs_pred = SimulatorObservable(:y_obs, state -> state.u[idx,1], ndims=length(i
 y_pred = SimulatorObservable(:y, state -> state.u[:,1], ndims=length(ts))
 
 # Define simple prior
-prior = PriorDistribution(
+prior = prior(
     a = LogNormal(0,1),
     b = LogitNormal(logit(0.5), 1.0)
 )
@@ -76,7 +76,7 @@ forward_prob = SimulatorForwardProblem(
 )
 
 # Define isotropic normal likelihood
-σ_prior = PriorDistribution(:σ, Exponential(20.0))
+σ_prior = prior(:σ, Exponential(20.0))
 lik = SimulatorLikelihood(IsoNormal, y_obs_pred, y_obs, σ_prior)
 
 # Construct inference problem

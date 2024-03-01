@@ -2,6 +2,14 @@ abstract type AbstractPrior end
 
 # prior interface methods
 
+"""
+    prior(args...; kwargs...)
+
+Generic constructor for prior distribution types that can be implemented
+by subtypes of `AbstractPrior`.
+"""
+function prior end
+
 logdensity(prior::AbstractPrior, x) = error("logdensity not implemented for prior of type $(typeof(prior))")
 
 Base.names(prior::AbstractPrior) = error("names not implemented")
@@ -33,18 +41,18 @@ const UnivariatePriorDistribution{T} = PriorDistribution{NamedTuple{x,Tuple{T}}}
 const MultivariatePriorDistribution = PriorDistribution{<:NamedTuple}
 
 """
-    PriorDistribution(name::Symbol, dist::Distribution)
+    prior(name::Symbol, dist::Distribution)
 
 Alias for `PriorDistribution((name = dist))`.
 """
-PriorDistribution(name::Symbol, dist::Distribution) = PriorDistribution((; name => dist))
+prior(name::Symbol, dist::Distribution) = PriorDistribution((; name => dist))
 
 """
-    PriorDistribution(; dists...)
+    prior(; dists...)
 
 Alias for `PriorDistribution((; dists...))`.
 """
-PriorDistribution(; dists...) = PriorDistribution((; dists...))
+prior(; dists...) = PriorDistribution((; dists...))
 
 logdensity(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
 

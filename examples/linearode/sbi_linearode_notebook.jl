@@ -180,10 +180,10 @@ noise_prior_dist = Exponential(noise_scale);
 
 # ╔═╡ 019fe7bd-c001-4fa6-bef3-0f67cb49569c
 # specify model prior
-model_prior = PriorDistribution(α=α_prior_dist);
+model_prior = prior(α=α_prior_dist);
 
 # ╔═╡ dc3e728f-4af4-42ec-9d67-0a09c125b826
-noise_scale_prior = PriorDistribution(σ=noise_prior_dist);
+noise_scale_prior = prior(σ=noise_prior_dist);
 
 # ╔═╡ 882edb35-5bd4-4248-bcfc-1b2dc899abb5
 # simple Gaussian likelihood; note that we're cheating a bit here since we know the noise level a priori

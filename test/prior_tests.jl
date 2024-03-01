@@ -7,15 +7,15 @@ using Test
 
 @testset "Sampling" begin
     rng = Random.MersenneTwister(1234)
-    priordist = PriorDistribution(:x, Normal(0,1))
+    priordist = prior(:x, Normal(0,1))
     @test isa(rand(rng, priordist).x, Float64)
     samples = sample(rng, priordist, 100)
     @test isa(samples, Vector{<:ComponentVector})
-    priordist = PriorDistribution(:X, MvNormal(zeros(2), I))
+    priordist = prior(:X, MvNormal(zeros(2), I))
     @test isa(rand(priordist).X, AbstractVector)
     samples = sample(rng, priordist, 100)
     @test isa(samples, Vector{<:ComponentVector})
-    priordists = PriorDistribution((x = Normal(0,1), p=Beta(1,1)))
+    priordists = prior(x = Normal(0,1), p=Beta(1,1))
     draw = rand(rng, priordists)
     @test hasproperty(draw, :x)
     @test hasproperty(draw, :p)
@@ -23,7 +23,7 @@ end
 
 @testset "logdensity" begin
     d = Normal(0,1)
-    priordist = PriorDistribution(:x, d)
+    priordist = prior(:x, d)
     lp = logdensity(priordist, 0.5)
     @test lp .≈ logpdf(d, 0.5)
     d = (x = Normal(0,1), p = Beta(1,1))
@@ -35,7 +35,7 @@ end
 @testset "bijector" begin
     rng = Random.MersenneTwister(1234)
     d = Normal(0,1)
-    priordist = PriorDistribution(:x, d)
+    priordist = prior(:x, d)
     d = (x = Normal(0,1), p = Beta(1,1))
     priordist = PriorDistribution(d)
     x = rand(rng, priordist)

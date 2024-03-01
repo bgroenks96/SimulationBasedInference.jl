@@ -47,6 +47,7 @@ export ParameterTransform
 include("param_map.jl")
 
 export AbstractPrior, PriorDistribution
+export prior
 include("priors.jl")
 
 export GaussianApproximationMethod, EmpiricalGaussian

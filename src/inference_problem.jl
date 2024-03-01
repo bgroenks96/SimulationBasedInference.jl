@@ -42,6 +42,13 @@ function SimulatorInferenceProblem(
     return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, with_names(likelihoods), metadata)
 end
 
+"""
+    prior(prob::SimulatorInferenceProblem)
+
+Retrieves the prior from the given `SimulatorInferenceProblem`.
+"""
+prior(prob::SimulatorInferenceProblem) = prob.prior
+
 SciMLBase.isinplace(prob::SimulatorInferenceProblem) = false
 
 function SciMLBase.remaker_of(prob::SimulatorInferenceProblem)
