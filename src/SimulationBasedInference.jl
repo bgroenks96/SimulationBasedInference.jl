@@ -101,8 +101,11 @@ include("mcmc/mcmc.jl")
 export SBI # alias for base module
 const SBI = SimulationBasedInference
 
+using PackageExtensionCompat
+
 function __init__()
-    # Extension loading
+    # Backwards comaptible extension loading
+    @require_extensions
 end
 
 end
