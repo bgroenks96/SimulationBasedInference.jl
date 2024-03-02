@@ -47,7 +47,15 @@ Requires = "1"
 SciMLBase = "1,2"
 Statistics = "1"
 StatsBase = "0"
-julia = "1.6,1.7,1.8,1.9,1.10"
+julia = "1.9,1.10"
+
+[weakdeps]
+Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+
+[extensions]
+SimulationBasedInferenceGenExt = ["Gen"]
+SimulationBasedInferenceTuringExt = ["Turing"]
 
 [extras]
 DecisionTree = "7806a523-6efd-50cb-b5f6-3fa6f1930dbb"

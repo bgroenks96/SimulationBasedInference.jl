@@ -36,6 +36,27 @@ Base type for all simulator-based inference algorithms.
 """
 abstract type SimulatorInferenceAlgorithm end
 
+# Probabilistic model constructors
+
+"""
+    likelihood_model(prob::SimulatorInferenceProblem, forward_alg; solve_kwargs...)
+
+Constructs a function or type which represents the forward map and/or likelihood
+component of the probailistic model. Can be implemented by extensions for specific
+probabilistic programming languages or modeling tools.
+"""
+function likelihood_model end
+
+"""
+    joint_model(prob::SimulatorInferenceProblem, forward_alg; solve_kwargs...)
+
+Constructs a function or type which represents the full joint model (prior + likelihood).
+Can be implemented by extensions for specific probabilistic programming languages or modeling tools.
+"""
+function joint_model end
+
+##################################
+
 export autoprior, from_moments
 include("utils.jl")
 
@@ -81,15 +102,7 @@ export SBI # alias for base module
 const SBI = SimulationBasedInference
 
 function __init__()
-    # Extension loading;
-    # We use Requires.jl instead of built-in extensions for now (v1.9.3).
-    # This is due to built-in extensions having the incredibly unfortunate limitation
-    # of not being loadable or exportable at precompile time... so there is no way to
-    # re-export types defined within them.
-    @require Turing="fce5fe82-541a-59a6-adf8-730c64b5f9a0" begin
-        include("../ext/SimulationBasedInferenceTuringExt/SimulationBasedInferenceTuringExt.jl")
-        @reexport using .SimulationBasedInferenceTuringExt
-    end
+    # Extension loading
 end
 
 end

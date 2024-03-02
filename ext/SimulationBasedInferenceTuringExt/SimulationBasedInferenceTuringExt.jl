@@ -1,10 +1,9 @@
 module SimulationBasedInferenceTuringExt
 
-# weak dependency
-using ..Turing
-using ..Turing.AbstractMCMC
-
 using SimulationBasedInference
+
+using Turing
+using Turing.AbstractMCMC
 
 # common dependencies
 using CommonSolve
