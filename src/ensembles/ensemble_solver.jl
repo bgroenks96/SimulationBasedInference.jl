@@ -223,7 +223,7 @@ function ensemble_solve(
     iter::Integer=1,
     prob_func=(prob,p) -> remake(prob, p=p),
     output_func=(sol,i,iter) -> (sol, false),
-    pred_func=(sol,i,iter) -> sol,
+    pred_func=default_pred_func(initial_prob),
     solve_kwargs...
 )
     Θ = ens
@@ -249,5 +249,16 @@ function default_pred_func(prob::SimulatorInferenceProblem)
         # retrieve observable for each likelihood and flatten the results into a vector
         observables = map(name -> sol.prob.observables[name], keys(prob.likelihoods))
         return reduce(vcat, map(obs -> vec(retrieve(obs)), observables))
+    end
+end
+
+function default_pred_func(::SimulatorForwardProblem)
+    function predict_likelihoods(sol::SimulatorForwardSolution, i, iter)
+        if isa(sol.sol, SciMLBase.AbstractSciMLSolution)
+            # check forward solver return code
+            @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
+        end
+        # retrieve observable for each likelihood and flatten the results into a vector
+        return reduce(vcat, map(obs -> vec(retrieve(obs)), sol.prob.observables))
     end
 end

@@ -57,9 +57,8 @@ MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
 MLJGaussianProcesses = "e2c51686-8c13-4540-892e-18cf079a7e1a"
 NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [targets]
-test = ["DecisionTree", "Gen", "KernelFunctions", "MLJ", "MLJGaussianProcesses", "NonlinearSolve", "OrdinaryDiffEq", "PythonCall", "Test", "Turing"]
+test = ["DecisionTree", "Gen", "KernelFunctions", "MLJ", "MLJGaussianProcesses", "NonlinearSolve", "OrdinaryDiffEq", "Test", "Turing"]

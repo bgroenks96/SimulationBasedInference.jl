@@ -8,13 +8,12 @@ struct TuringPrior{varnames,modelType<:Turing.Model,axesType} <: AbstractPrior
     model::modelType
     axes::axesType
     chain_names::Vector{Symbol}
-end
-
-function TuringPrior(model::Turing.Model)
-    varnames = keys(Turing.VarInfo(model).metadata)
-    axes = getaxes(ComponentArray(rand(model)))
-    chain_names = extract_parameter_names(model)
-    new{varnames,typeof(model),typeof(axes)}(model, axes, chain_names)
+    function TuringPrior(model::Turing.Model)
+        varnames = keys(Turing.VarInfo(model).metadata)
+        axes = getaxes(ComponentArray(rand(model)))
+        chain_names = extract_parameter_names(model)
+        new{varnames,typeof(model),typeof(axes)}(model, axes, chain_names)
+    end
 end
 
 function (prior::TuringPrior)(θ::AbstractVector{T}) where {T}

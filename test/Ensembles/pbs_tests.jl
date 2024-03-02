@@ -36,7 +36,7 @@ end
         EnsembleThreads(),
         nothing,
         param_map,
-        iter=1
+        iter=1,
     )
     y_obs = testprob.likelihoods.y.data
     y_lik = mean(testprob.prior.lik.y)

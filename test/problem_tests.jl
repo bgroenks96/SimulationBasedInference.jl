@@ -36,17 +36,17 @@ end
     odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), ode_p)
     observable = SimulatorObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
     forwardprob = SimulatorForwardProblem(odeprob, observable)
-    prior = prior(:α, LogNormal(0,1))
+    α_prior = prior(:α, LogNormal(0,1))
     noise_scale_prior = prior(:σ, Exponential(1.0))
     data = randn(10)
     lik = SimulatorLikelihood(IsoNormal, observable, data, noise_scale_prior)
-    inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), prior, lik)
+    inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), α_prior, lik)
     u = copy(inferenceprob.u0)
     @test hasproperty(u, :model) && hasproperty(u, :obs)
     u.model.α = 0.5
     u.obs.σ = 1.0
     lp = logdensity(inferenceprob, u)
-    lj = logpdf(MvNormal(retrieve(observable), I), data) + logdensity(prior, u.model) + logdensity(noise_scale_prior, u.obs)
+    lj = logpdf(MvNormal(retrieve(observable), I), data) + logdensity(α_prior, u.model) + logdensity(noise_scale_prior, u.obs)
     # check the logdensity is equal to the logjoint
     @test lp ≈ lj
     # check LogDensityProblems interface
