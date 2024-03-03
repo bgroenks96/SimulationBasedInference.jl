@@ -25,9 +25,9 @@ using Random
 @reexport using StatsFuns
 @reexport using Statistics
 
-import LogDensityProblems
+using LogDensityProblems
 
-export LogDensityProblems
+export LogDensityProblems, logdensity
 
 export SimulatorInferenceAlgorithm
 export logprob

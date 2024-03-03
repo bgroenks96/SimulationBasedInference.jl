@@ -2,8 +2,9 @@ using Downloads: download
 using MAT
 
 # inference/statistics packages
-using SimulationBasedInference
 using ArviZ
+using DynamicHMC
+using SimulationBasedInference
 
 # plotting
 import CairoMakie as Makie
@@ -82,18 +83,29 @@ lik = SimulatorLikelihood(IsoNormal, y_obs_pred, y_obs, σ_prior)
 # Construct inference problem
 inference_prob = SimulatorInferenceProblem(forward_prob, nothing, prior_dist, lik)
 
-function summarize_results(inference_sol, observable=:y)
+function summarize_ensemble(inference_sol, observable=:y)
     # prior/posterior stats
     prior_ens = get_transformed_ensemble(inference_sol, 1)
     posterior_ens = get_transformed_ensemble(inference_sol)
-    posterior_mean = mean(posterior_ens, dims=2)[:,1]
+    posterior_mean = median(posterior_ens, dims=2)[:,1]
     posterior_std = std(posterior_ens, dims=2)[:,1]
     # predictions
     obsv = get_observables(inference_sol)
     pred_ens = obsv[observable]
-    pred_mean = mean(pred_ens, dims=2)
+    pred_mean = median(pred_ens, dims=2)
     pred_std = std(pred_ens, dims=2)
     return (; prior_ens, posterior_ens, posterior_mean, posterior_std, pred_ens, pred_mean, pred_std)
+end
+
+function summarize_markov_chain(inference_sol, observable=:y)
+    stats, qs = describe(inference_sol.result)
+    posterior_ens = transpose(Array(inference_sol.result))
+    posterior_mean = qs[:,Symbol("50.0%")]
+    posterior_std = stats[:,:std]
+    pred_ens = reduce(hcat, map(out -> out[observable], inference_sol.outputs))
+    pred_mean = median(pred_ens, dims=2)[:,1]
+    pred_std = std(pred_ens, dims=2)[:,1]
+    return (; posterior_ens, posterior_mean, posterior_std, pred_ens, pred_mean, pred_std)
 end
 
 function plot_density!(ax, res, idx::Integer, color)
@@ -112,22 +124,28 @@ end
 
 # Solve with EnIS
 # enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), n_ens=256, verbose=false, rng=rng);
-# enis_res = summarize_results(enis_sol)
+# enis_res = summarize_ensemble(enis_sol)
 
 # Solve inference problem with EKS
 eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
-eks_res = summarize_results(eks_sol)
+eks_res = summarize_ensemble(eks_sol)
 
 # Solve with ESMDA
 esmda_sol = @time solve(inference_prob, ESMDA(), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
-esmda_res = summarize_results(esmda_sol)
+esmda_res = summarize_ensemble(esmda_sol)
 
+hmc_sol = @time solve(inference_prob, MCMC(NUTS(), nsamples=1000));
+hmc_res = summarize_markov_chain(hmc_sol)
+
+# densities
 let fig = Makie.Figure(),
     ax = Makie.Axis(fig[1,1], xlabel="Degree-day melt factor");
     d1, _ = plot_density!(ax, eks_res, 1, :blue)
     d2, _ = plot_density!(ax, esmda_res, 1, :orange)
+    d3, _ = plot_density!(ax, hmc_res, 1, :gray)
     vt = Makie.vlines!([p_true[1]], color=:black, linestyle=:dash)
-    Makie.axislegend(ax, [d1,d2,vt], ["EKS", "ES-MDA", "True value"])
+    Makie.axislegend(ax, [d1,d2,d3,vt], ["EKS", "ES-MDA", "HMC", "True value"])
+    Makie.xlims!(ax, 1.0, 4.0)
     fig
 end
 
@@ -135,17 +153,20 @@ let fig = Makie.Figure(),
     ax = Makie.Axis(fig[1,1], xlabel="Accumulation scale factor");
     d1, _ = plot_density!(ax, eks_res, 2, :blue)
     d2, _ = plot_density!(ax, esmda_res, 2, :orange)
+    d3, _ = plot_density!(ax, hmc_res, 2, :gray)
     vt = Makie.vlines!([p_true[2]], color=:black, linestyle=:dash)
-    Makie.axislegend(ax, [d1,d2,vt], ["EKS", "ES-MDA", "True value"])
+    Makie.axislegend(ax, [d1,d2,d3,vt], ["EKS", "ES-MDA", "HMC", "True value"])
     fig
 end
 
+# predictions
 let fig = Makie.Figure(),
     ax = Makie.Axis(fig[1,1], xlabel="Day of year", ylabel="SWE / mm");
     yt = Makie.lines!(ax, 1:length(ts), y_true[:,1], linewidth=2.0, color=:black)
     yo = Makie.scatter!(ax, idx, y_obs, color=:black)
     plt1 = plot_predictions!(ax, eks_res, ts, :blue)
     plt2 = plot_predictions!(ax, esmda_res, ts, :orange)
-    Makie.axislegend(ax, [collect(plt1), collect(plt2), yo, yt], ["EKS", "ES-MDA", "Observed", "Ground truth"])
+    plt3 = plot_predictions!(ax, hmc_res, ts, :gray)
+    Makie.axislegend(ax, [collect(plt1), collect(plt2), collect(plt3), yo, yt], ["EKS", "ES-MDA", "HMC", "Observed", "Ground truth"])
     fig
 end
