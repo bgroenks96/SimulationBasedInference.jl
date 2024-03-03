@@ -95,11 +95,11 @@ function logjoint(
     if transform
         ϕ = inference_prob.param_map(uvec)
         # add density change due to transform
-        logprior += logdensity(inference_prob.param_map, uvec)
+        logprior += logprob(inference_prob.param_map, uvec)
     else
         ϕ = uvec
     end
-    logprior += logdensity(inference_prob.prior, ϕ)
+    logprior += logprob(inference_prob.prior, ϕ)
     # solve forward problem;
     if forward_solve
         # we can discard the result of solve since the observables are already stored in the likelihoods.
@@ -129,9 +129,14 @@ end
 """
     logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
 
-Calls `logjoint` with the given arguments and sums the resulting likelihood and prior log-densities.
+Applies the inverse transformation defined by `bijector` and calculates the
+`logjoint` density. Note that this requires evaluating the likelihood/forward-map, which
+may involve running the simulator.
 """
-logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...) = sum(logjoint(inference_prob, x; kwargs...))
+function LogDensityProblems.logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
+    lp = sum(logjoint(inference_prob, u; transform=true, kwargs...))
+    return lp
+end
 
 # log density interface
 

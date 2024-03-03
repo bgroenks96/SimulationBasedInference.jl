@@ -28,8 +28,8 @@ end
 
 SimulationBasedInference.prior(model::Turing.Model) = TuringPrior(model)
 
-SimulationBasedInference.logdensity(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
-function SimulationBasedInference.logdensity(prior::TuringPrior, θ::AbstractVector)
+SimulationBasedInference.logprob(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
+function SimulationBasedInference.logprob(prior::TuringPrior, θ::AbstractVector)
     ϕ = ComponentVector(getdata(θ), prior.axes)
     # here we have to do some nasty Turing manipulation to make sure this function is
     # autodiff compatible; basically we have to reconstruct `varinfo` based on the type of ϕ.

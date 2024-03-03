@@ -34,10 +34,22 @@ getobservable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
 
 getprior(lik::SimulatorLikelihood)::AbstractPrior = lik.prior
 
+predictive_distribution(lik::SimulatorLikelihood, args...) = error("not implemented")
+predictive_distribution(lik::SimulatorLikelihood, p::NamedTuple) = predictive_distribution(lik, p...)
+
 function loglikelihood(lik::SimulatorLikelihood, args...)
     d = predictive_distribution(lik, args...)
-    return logdensity(d, lik.data)
+    return logprob(d, lik.data)
 end
+
+# implement SciML interface for reconstructing the type with new values
+function SciMLBase.remaker_of(lik::SimulatorLikelihood{distType}) where {distType}
+    # by default, just use the type name to reconstruct the likelihood with each parameter;
+    # additional dispatches can be added for special cases
+    remake(; name=lik.name, obs=lik.obs, data=lik.data, prior=lik.prior) = SimulatorLikelihood(distType, obs, data, prior, name)
+end
+
+# Implementations for Gaussian-type distributions
 
 function predictive_distribution(lik::SimulatorLikelihood{Normal}, σ)
     μ = retrieve(lik.obs)[1]
@@ -53,13 +65,6 @@ end
 Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::Number) = Diagonal(σ^2*ones(prod(size(lik.data))))
 Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::AbstractVector) = cov(lik, σ[1])
 Statistics.cov(lik::SimulatorLikelihood{DiagNormal}, σ::AbstractVector) = Diagonal(σ.^2)
-
-# implement SciML interface for reconstructing the type with new values
-function SciMLBase.remaker_of(lik::SimulatorLikelihood{distType}) where {distType}
-    # by default, just use the type name to reconstruct the likelihood with each parameter;
-    # additional dispatches can be added for special cases
-    remake(; name=lik.name, obs=lik.obs, data=lik.data, prior=lik.prior) = SimulatorLikelihood(distType, obs, data, prior, name)
-end
 
 # Joint prior
 
@@ -94,9 +99,9 @@ function Bijectors.bijector(jp::JointPrior)
     Stacked([bijector(jp.model), bs...])
 end
 
-function logdensity(jp::JointPrior, x::ComponentVector)
-    lp_model = logdensity(jp.model, x.model)
+function logprob(jp::JointPrior, x::ComponentVector)
+    lp_model = logprob(jp.model, x.model)
     liknames = keys(jp.lik)
-    lp_lik = sum(map((d,n) -> logdensity(d, getproperty(x, n)), jp.lik, liknames))
+    lp_lik = sum(map((d,n) -> logprob(d, getproperty(x, n)), jp.lik, liknames))
     return lp_model + lp_lik
 end

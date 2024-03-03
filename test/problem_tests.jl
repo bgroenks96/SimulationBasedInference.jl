@@ -45,13 +45,13 @@ end
     @test hasproperty(u, :model) && hasproperty(u, :obs)
     u.model.α = 0.5
     u.obs.σ = 1.0
-    lp = logdensity(inferenceprob, u)
-    lj = logpdf(MvNormal(retrieve(observable), I), data) + logdensity(α_prior, u.model) + logdensity(noise_scale_prior, u.obs)
+    lp = logprob(inferenceprob, u)
+    lj = logpdf(MvNormal(retrieve(observable), I), data) + logprob(α_prior, u.model) + logprob(noise_scale_prior, u.obs)
     # check the logdensity is equal to the logjoint
     @test lp ≈ lj
     # check LogDensityProblems interface
     ldpcheck = LogDensityProblems.capabilities(inferenceprob)
     @test isa(ldpcheck, LogDensityProblems.LogDensityOrder{0})
     @test LogDensityProblems.dimension(inferenceprob) == length(u)
-    @test LogDensityProblems.logdensity(inferenceprob, u) == lp
+    @test LogDensityProblems.logprob(inferenceprob, u) == lp
 end

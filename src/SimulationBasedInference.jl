@@ -14,7 +14,6 @@ using DiffEqBase
 
 # Stats
 using Bijectors
-using LogDensityProblems
 using MCMCChains
 using Random
 
@@ -26,10 +25,10 @@ using Random
 @reexport using StatsFuns
 @reexport using Statistics
 
-import LogDensityProblems: logdensity
+import LogDensityProblems
 
 export SimulatorInferenceAlgorithm
-export logdensity
+export logprob
 
 """
 Base type for all simulator-based inference algorithms.

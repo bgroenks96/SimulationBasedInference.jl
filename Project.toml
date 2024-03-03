@@ -31,10 +31,12 @@ StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [weakdeps]
+DynamicHMC = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [extensions]
+SimulationBasedInferenceDynamicHMCExt = ["DynamicHMC"]
 SimulationBasedInferenceGenExt = ["Gen"]
 SimulationBasedInferenceTuringExt = ["Turing"]
 
@@ -46,20 +48,24 @@ ComponentArrays = "0"
 CondaPkg = "0.2"
 DiffEqBase = "5,6"
 Distributions = "0"
+DynamicHMC = "3"
 EnsembleKalmanProcesses = "1"
 LogDensityProblems = "2"
 MCMCChains = "6"
 MLJBase = "1"
 MLJModelInterface = "1"
+PackageExtensionCompat = "1"
 Reexport = "1"
 Requires = "1"
 SciMLBase = "1,2"
 Statistics = "1"
 StatsBase = "0"
+Turing = "0"
 julia = "1.6,1.7,1.8,1.9,1.10"
 
 [extras]
 DecisionTree = "7806a523-6efd-50cb-b5f6-3fa6f1930dbb"
+DynamicHMC = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 KernelFunctions = "ec8451be-7e33-11e9-00cf-bbf324bd1392"
 MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"

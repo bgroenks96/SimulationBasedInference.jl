@@ -24,11 +24,11 @@ end
 @testset "logdensity" begin
     d = Normal(0,1)
     priordist = prior(:x, d)
-    lp = logdensity(priordist, 0.5)
+    lp = logprob(priordist, 0.5)
     @test lp .≈ logpdf(d, 0.5)
     d = (x = Normal(0,1), p = Beta(1,1))
     priordist = PriorDistribution(d)
-    lp = logdensity(priordist, [0.5,0.5])
+    lp = logprob(priordist, [0.5,0.5])
     @test lp .≈ sum(map(logpdf, d, [0.5,0.5]))
 end
 

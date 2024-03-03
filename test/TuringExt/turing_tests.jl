@@ -22,7 +22,7 @@ end
     draw = rand(prior)
     @test isa(draw, ComponentVector)
     @test haskey(draw, :x) && haskey(draw, :p)
-    lp = logdensity(prior, draw)
+    lp = logprob(prior, draw)
     @test lp == Turing.logprior(prior.model, (x=draw.x, p=draw.p))
     draws = sample(rng, prior, 100, progress=false, verbose=false)
     @test isa(draws, Vector{<:AbstractVector})

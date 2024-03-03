@@ -19,10 +19,22 @@ end
 
 # model building functions.
 function SimulationBasedInference.joint_model(inference_prob::SimulatorInferenceProblem{<:TuringPrior}, forward_alg; solve_kwargs...)
+    # construct likelihood model
+    lm = likelihood_model(inference_prob, forward_alg; solve_kwargs...)
+    # define Turing model
     @model function joint_model(::Type{T}=Float64) where {T}
-        p = @submodel inference_prob.prior.model
-        lik = likelihood_model(inference_prob, forward_alg; solve_kwargs...)
-        obs, sol = @submodel lik(p)
+        # sample parameters from prior model
+        p_model = @submodel inference_prob.prior.model
+        # sample parameters for each likelihood term
+        p_lik = map(names(inference_prob)) do name
+            lik = getproperty(prob.likelihoods, name)
+            p_i = @submodel prefix=$name likelihood_params(lik)
+            name => p_i
+        end
+        # collect parameters into named tuple
+        p = (model=p_model, p_lik...)
+        # invoke submodel and retrieve observables + forward solution
+        obs, sol = @submodel lm(p)
         return (; obs, sol, p)
     end
     m = joint_model()
@@ -30,7 +42,7 @@ function SimulationBasedInference.joint_model(inference_prob::SimulatorInference
 end
 
 function SimulationBasedInference.likelihood_model(inference_prob::SimulatorInferenceProblem{<:TuringPrior}, forward_alg; solve_kwargs...)
-    @model function likelihood_model(p::AbstractVector)
+    @model function likelihood_model(p_model, p_lik::NamedTuple)
         # deepcopy problem to insure that concurrent/parallel evaluations of the model use fully independent memory
         inference_prob = deepcopy(inference_prob)
         forward_prob = inference_prob.forward_prob
@@ -40,7 +52,7 @@ function SimulationBasedInference.likelihood_model(inference_prob::SimulatorInfe
         observables = merge(lik_observables, forward_prob.observables)
         forward_prob = SimulatorForwardProblem(forward_prob.prob, observables)
         # solve forward problem
-        forward_sol = solve(forward_prob, forward_alg; p=p, solve_kwargs...)
+        forward_sol = solve(forward_prob, forward_alg; p=p_model, solve_kwargs...)
         retcode = forward_sol.sol.retcode
         if retcode ∉ (ReturnCode.Default, ReturnCode.Success)
             # simulation failed, add -Inf logprob
@@ -49,8 +61,7 @@ function SimulationBasedInference.likelihood_model(inference_prob::SimulatorInfe
         end
         obs = map(names(inference_prob)) do name
             lik = getproperty(inference_prob.likelihoods, name)
-            lik_params = @submodel prefix=$name likelihood_params(lik)
-            d = predictive_distribution(lik, lik_params...)
+            d = predictive_distribution(lik, p_lik[name])
             x ~ NamedDist(d, name)
             name => mean(d)
         end

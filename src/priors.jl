@@ -10,7 +10,7 @@ by subtypes of `AbstractPrior`.
 """
 function prior end
 
-logdensity(prior::AbstractPrior, x) = error("logdensity not implemented for prior of type $(typeof(prior))")
+logprob(prior::AbstractPrior, x) = error("logdensity not implemented for prior of type $(typeof(prior))")
 
 Base.names(prior::AbstractPrior) = error("names not implemented")
 
@@ -54,7 +54,7 @@ Alias for `PriorDistribution((; dists...))`.
 """
 prior(; dists...) = PriorDistribution((; dists...))
 
-logdensity(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
+logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
 
 Base.names(prior::PriorDistribution) = keys(prior.dist)
 
