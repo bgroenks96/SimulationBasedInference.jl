@@ -10,7 +10,6 @@ struct SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType} <:
     forward_prob::SimulatorForwardProblem
     forward_solver::algType
     prior::priorType
-    param_map::ParameterTransform
     likelihoods::likType
     metadata::Dict
 end
@@ -21,25 +20,22 @@ end
         forward_solver::Union{Nothing,DEAlgorithm},
         prior::AbstractPrior,
         likelihoods::SimulatorLikelihood...;
-        param_map=ParameterTransform(prior),
         metadata::Dict=Dict(),
     )
 
 Constructs a `SimulatorInferenceProblem` from the given forward problem, prior, and likelihoods.
-The parameter mapping is by default auto-determined from the prior. Additional user-specified
-metadata may be included in the `metadata` dictionary.
+Additional user-specified metadata may be included in the `metadata` dictionary.
 """
 function SimulatorInferenceProblem(
     forward_prob::SimulatorForwardProblem,
     forward_solver::Union{Nothing,DEAlgorithm},
     prior::AbstractPrior,
     likelihoods::SimulatorLikelihood...;
-    param_map=ParameterTransform(prior),
     metadata::Dict=Dict(),
 )
     joint_prior = JointPrior(prior, likelihoods...)
     u0 = zero(rand(joint_prior))
-    return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, param_map, with_names(likelihoods), metadata)
+    return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, with_names(likelihoods), metadata)
 end
 
 """
@@ -57,11 +53,10 @@ function SciMLBase.remaker_of(prob::SimulatorInferenceProblem)
         forward_prob=prob.forward_prob,
         forward_solver=prob.forward_solver,
         prior=prob.prior,
-        param_map=prob.param_map,
         likelihoods=prob.likelihoods,
         metadata=prob.metadata,
     )
-        SimulatorInferenceProblem(u0, forward_prob, forward_solver, prior, param_map, likelihoods, metadata)
+        SimulatorInferenceProblem(u0, forward_prob, forward_solver, prior, likelihoods, metadata)
     end
 end
 
@@ -93,9 +88,10 @@ function logjoint(
     logprior = zero(eltype(u))
     # transform from unconstrained space if necessary
     if transform
-        ϕ = inference_prob.param_map(uvec)
+        b⁻¹ = inverse(bijector(inference_prob.prior))
+        ϕ = zero(uvec) + b⁻¹(uvec)
         # add density change due to transform
-        logprior += logprob(inference_prob.param_map, uvec)
+        logprior += logabsdetjac(b⁻¹, uvec)
     else
         ϕ = uvec
     end
@@ -126,6 +122,8 @@ function logjoint(
     return logjoint(new_inference_prob, u; transform, forward_solve=false, solve_kwargs...)
 end
 
+logprob(inference_prob::SimulatorInferenceProblem, u) = sum(logjoint(inference_prob, u, transform=false))
+
 """
     logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
 
@@ -134,7 +132,7 @@ Applies the inverse transformation defined by `bijector` and calculates the
 may involve running the simulator.
 """
 function LogDensityProblems.logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
-    lp = sum(logjoint(inference_prob, u; transform=true, kwargs...))
+    lp = sum(logjoint(inference_prob, x; transform=true, kwargs...))
     return lp
 end
 
@@ -143,6 +141,8 @@ end
 LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensityProblems.LogDensityOrder{0}()
 
 LogDensityProblems.dimension(inference_prob::SimulatorInferenceProblem) = length(inference_prob.u0)
+
+Bijectors.bijector(prob::SimulatorInferenceProblem) = bijector(prob.prior)
 
 """
     SimulatorInferenceSolution{algType,probType}

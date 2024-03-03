@@ -10,7 +10,7 @@ by subtypes of `AbstractPrior`.
 """
 function prior end
 
-logprob(prior::AbstractPrior, x) = error("logdensity not implemented for prior of type $(typeof(prior))")
+logprob(prior::AbstractPrior, x) = error("logprob not implemented for prior of type $(typeof(prior))")
 
 Base.names(prior::AbstractPrior) = error("names not implemented")
 

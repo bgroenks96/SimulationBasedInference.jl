@@ -95,8 +95,10 @@ function Base.rand(rng::AbstractRNG, jp::JointPrior)
 end
 
 function Bijectors.bijector(jp::JointPrior)
+    unstack(x) = [x]
+    unstack(x::Stacked) = x.bs
     bs = map(d -> bijector(d), jp.lik)
-    Stacked([bijector(jp.model), bs...])
+    return Stacked(unstack(bijector(jp.model))..., bs...)
 end
 
 function logprob(jp::JointPrior, x::ComponentVector)

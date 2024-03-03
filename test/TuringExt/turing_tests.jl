@@ -18,15 +18,15 @@ end
 @testset "Turing priors" begin
     rng = Random.MersenneTwister(1234)
     m = testmodel1()
-    prior = TuringPrior(m)
-    draw = rand(prior)
+    m_prior = prior(m)
+    draw = rand(m_prior)
     @test isa(draw, ComponentVector)
     @test haskey(draw, :x) && haskey(draw, :p)
-    lp = logprob(prior, draw)
-    @test lp == Turing.logprior(prior.model, (x=draw.x, p=draw.p))
-    draws = sample(rng, prior, 100, progress=false, verbose=false)
+    lp = logprob(m_prior, draw)
+    @test lp == Turing.logprior(m_prior.model, (x=draw.x, p=draw.p))
+    draws = sample(rng, m_prior, 100, progress=false, verbose=false)
     @test isa(draws, Vector{<:AbstractVector})
     # test bijectors
-    b = bijector(prior)
+    b = bijector(m_prior)
     @test length(b(draw)) == length(draw)
 end

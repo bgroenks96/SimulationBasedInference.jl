@@ -25,7 +25,7 @@ end
 include("../testcases.jl")
 
 @testset "EnIS" begin
-    include("pbs_tests.jl")
+    include("enis_tests.jl")
 end
 
 @testset "ES-MDA" begin

@@ -27,6 +27,8 @@ using Random
 
 import LogDensityProblems
 
+export LogDensityProblems
+
 export SimulatorInferenceAlgorithm
 export logprob
 
