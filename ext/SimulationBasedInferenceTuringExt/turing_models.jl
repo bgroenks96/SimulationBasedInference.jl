@@ -10,8 +10,8 @@ function SimulationBasedInference.MCMC(
     return MCMC(alg, strat; kwargs...)
 end
 
-function CommonSolve.solve(prob::SimulatorInferenceProblem, mcmc::MCMC{<:Turing.InferenceAlgorithm}, ode_alg; kwargs...)
-    m = joint_model(prob, ode_alg; kwargs...)
+function CommonSolve.solve(prob::SimulatorInferenceProblem, mcmc::MCMC{<:Turing.InferenceAlgorithm}; kwargs...)
+    m = joint_model(prob, prob.forward_solver; kwargs...)
     m_cond = Turing.condition(m; prob.data...)
     chain = Turing.sample(m_cond, mcmc.alg, mcmc.strat, mcmc.nsamples, mcmc.nchains)
     return chain

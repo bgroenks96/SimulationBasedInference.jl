@@ -3,7 +3,7 @@ using MAT
 
 # inference/statistics packages
 using SimulationBasedInference
-using Turing, ArviZ
+using ArviZ
 
 # plotting
 import CairoMakie as Makie
@@ -19,7 +19,7 @@ const rng = Random.MersenneTwister(1234)
 include("datenum.jl")
 include("ddm.jl")
 
-# Load or download forcing data
+# Download forcing data if not present
 datadir = mkpath(joinpath("examples", "data"))
 filepath = joinpath(datadir, "finse_tp.mat")
 if !isfile(filepath)
@@ -59,7 +59,7 @@ y_obs_pred = SimulatorObservable(:y_obs, state -> state.u[idx,1], ndims=length(i
 y_pred = SimulatorObservable(:y, state -> state.u[:,1], ndims=length(ts))
 
 # Define simple prior
-prior = prior(
+prior_dist = prior(
     a = LogNormal(0,1),
     b = LogitNormal(logit(0.5), 1.0)
 )
@@ -70,7 +70,7 @@ ddm_forward(θ) = DDM(ts, precip, Tair, θ...)
 
 forward_prob = SimulatorForwardProblem(
     ddm_forward,
-    rand(rng, prior), # initial parameters, can be anything
+    rand(rng, prior_dist), # initial parameters, can be anything
     y_obs_pred,
     y_pred,
 )
@@ -80,7 +80,7 @@ forward_prob = SimulatorForwardProblem(
 lik = SimulatorLikelihood(IsoNormal, y_obs_pred, y_obs, σ_prior)
 
 # Construct inference problem
-inference_prob = SimulatorInferenceProblem(forward_prob, nothing, prior, lik)
+inference_prob = SimulatorInferenceProblem(forward_prob, nothing, prior_dist, lik)
 
 function summarize_results(inference_sol, observable=:y)
     # prior/posterior stats

@@ -2,8 +2,8 @@ module SimulationBasedInferenceTuringExt
 
 using SimulationBasedInference
 
+using AbstractMCMC
 using Turing
-using Turing.AbstractMCMC
 
 # common dependencies
 using CommonSolve
