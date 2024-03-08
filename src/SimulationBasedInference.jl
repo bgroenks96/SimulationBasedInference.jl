@@ -91,7 +91,7 @@ include("forward_solve.jl")
 export SimulatorODEForwardSolver
 include("forward_solve_ode.jl")
 
-include("Emulators/Emulators.jl")
+include("emulators/Emulators.jl")
 using .Emulators
 
 # Inference algorithms; these files should
