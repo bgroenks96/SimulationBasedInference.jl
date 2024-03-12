@@ -24,6 +24,14 @@ Retreive the obsevable at all saved time points, assuming all sample times have 
 retrieve(obs::Observable, ::Type{T}=Any) where {T} = error("not implemented for observable of type $(typeof(obs))")
 
 """
+    setvalue!(obs::Observable, value)
+
+Overwrites the value of this observable. The type of `value` will depend on the type of the observable.
+This should generally only be used for testing and emulation purposes.
+"""
+setvalue!(obs::Observable, value) = error("not implemented for observable of type $(typeof(obs))")
+
+"""
     SimulatorObservable{outputType<:SimulatorOutput,funcType} <: Observable{outputType}
 
 Represents a named "observable" that stores output from a simulator. `obsfunc`
@@ -75,6 +83,8 @@ mutable struct Transient <: SimulatorOutput
     state::Union{Nothing,AbstractVector}
 end
 
+Base.size(obs::SimulatorObservable{Transient}) = size(obs.output.state)
+
 initialize!(obs::SimulatorObservable{Transient}, state) = observe!(obs, state)
 
 function observe!(obs::SimulatorObservable{Transient}, state)
@@ -86,6 +96,10 @@ end
 
 function retrieve(obs::SimulatorObservable{Transient}, ::Type{T}=Any) where {T}
     return obs.output.state
+end
+
+function setvalue!(obs::SimulatorObservable{Transient}, value)
+    obs.output.state = value
 end
 
 """
@@ -126,9 +140,9 @@ function TimeSampled(
     return TimeSampled(extrema(tsample), tsample, collect(tsave), reducer, nothing, nothing, 1)
 end
 
-const DynamicSimulatorObservable{T} = SimulatorObservable{T} where {T<:TimeSampled}
+const TimeSampledObservable{T} = SimulatorObservable{T} where {T<:TimeSampled}
 
-Base.size(obs::DynamicSimulatorObservable) = (obs.ndims, length(obs.output.tsave))
+Base.size(obs::TimeSampledObservable) = (obs.ndims, length(obs.output.tsave))
 
 """
     sampletimes(::DynamicSimulatorObservable)
@@ -139,16 +153,16 @@ e.g. mean annual ground temperature observations would require the simulator to 
 at appropriate intervals relative to the forcing. The implementation of `SimulatorObservable` is thus
 responsible for computing and storing the model state at each sample time.
 """
-sampletimes(obs::DynamicSimulatorObservable) = obs.output.tsample
+sampletimes(obs::TimeSampledObservable) = obs.output.tsample
 
 """
     savetimes(::DynamicSimulatorObservable)
 
 Return the time points at which simulator outputs will be saved.
 """
-savetimes(obs::DynamicSimulatorObservable) = obs.output.tsave
+savetimes(obs::TimeSampledObservable) = obs.output.tsave
 
-function initialize!(obs::DynamicSimulatorObservable, state)
+function initialize!(obs::TimeSampledObservable, state)
     Y = obs.obsfunc(state)
     @assert isa(Y, AbstractVector) || isa(Y, Number) "output of observable function must be a scalar or a vector!"
     @assert length(Y) == obs.ndims "Size of observable vector $(length(Y)) does not match declared size $(obs.ndims)"
@@ -158,7 +172,7 @@ function initialize!(obs::DynamicSimulatorObservable, state)
     return nothing
 end
 
-function observe!(obs::DynamicSimulatorObservable, state)
+function observe!(obs::TimeSampledObservable, state)
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
     t = obs.output.tsample[obs.output.sampleidx]
     # find index of time point
@@ -177,11 +191,19 @@ function observe!(obs::DynamicSimulatorObservable, state)
     return Y_t
 end
 
-function retrieve(obs::DynamicSimulatorObservable, ::Type{TT}=Float64) where {TT}
+function retrieve(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
     out = reduce(hcat, obs.output.output)
     # drop first dimension if it is of length 1
     return size(out,1) == 1 ? dropdims(out, dims=1) : out
 end
 
-unflatten(obs::DynamicSimulatorObservable, x::AbstractVector) = reshape(x, length(first(obs.output.output)), length(obs.output.output))
+function setvalue!(obs::TimeSampledObservable, values::AbstractMatrix)
+    obs.output.output = collect(eachcol(values))
+end
+
+function setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector})
+    obs.output.output = values
+end
+
+unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.output)), length(obs.output.output))

@@ -6,6 +6,7 @@ using LinearAlgebra
 using MLJBase
 using Statistics
 
+import CommonSolve
 import MLJModelInterface as MMI
 
 abstract type Emulator end
@@ -18,5 +19,8 @@ include("transforms.jl")
 
 export StackedMLEmulator
 include("stacked_emulator.jl")
+
+export EmulatedObservables
+include("solver_types.jl")
 
 end

@@ -25,6 +25,7 @@ function MLJBase.fit!(em::StackedMLEmulator; mapper=map, kwargs...)
     return StackedMLEmulator(em.data, em.transform, fitted_models)
 end
 
+MMI.predict(em::StackedMLEmulator, X_new::AbstractVector) = _predict(eltype(em.models), em, reshape(X_new, 1, :))
 MMI.predict(em::StackedMLEmulator, X_new::AbstractMatrix) = _predict(eltype(em.models), em, X_new)
 
 _fit!(m::MLJBase.Machine, kwargs) = MLJBase.fit!(m; kwargs...)
