@@ -158,3 +158,7 @@ mutable struct SimulatorInferenceSolution{algType,probType,cacheType}
     cache::cacheType
     result::Any
 end
+
+getinputs(sol::SimulatorInferenceSolution, args...) = getinputs(sol.cache, args...)
+
+getoutputs(sol::SimulatorInferenceSolution, args...) = getoutputs(sol.cache, args...)

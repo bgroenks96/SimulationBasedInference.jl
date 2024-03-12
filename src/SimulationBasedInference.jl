@@ -16,6 +16,7 @@ using DiffEqBase
 using Bijectors
 using MCMCChains
 using Random
+using UnPack
 
 # Re-exported packages
 @reexport using ComponentArrays
@@ -24,6 +25,9 @@ using Random
 @reexport using StatsBase
 @reexport using StatsFuns
 @reexport using Statistics
+
+# to suppress name collision warning
+using SciMLBase: islinear
 
 using LogDensityProblems
 

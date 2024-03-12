@@ -10,8 +10,8 @@ mutable struct StackedMLEmulator{TT,TM} <: Emulator
     models::TM
 end
 
-function StackedMLEmulator(model::MMI.Model, data::EmulatorData, transform=NoTransform())
-    X_tab = MMI.table(data.X)
+function StackedMLEmulator(model::Model, data::EmulatorData, transform=NoTransform())
+    X_tab = table(data.X)
     Yt = transform_target(transform, data.Y)
     machines = map(1:size(Yt,2)) do i
         yt_i = Yt[:,i]
@@ -20,19 +20,18 @@ function StackedMLEmulator(model::MMI.Model, data::EmulatorData, transform=NoTra
     return StackedMLEmulator(data, transform, machines)
 end
 
-function MLJBase.fit!(em::StackedMLEmulator; mapper=map, kwargs...)
-    fitted_models = mapper(_fit!, em.models, repeat([kwargs], length(em.models)))
-    return StackedMLEmulator(em.data, em.transform, fitted_models)
-end
+"""
+    stacked_emulator(::Type, data::EmulatorData; kwargs...)
 
-MMI.predict(em::StackedMLEmulator, X_new::AbstractVector) = _predict(eltype(em.models), em, reshape(X_new, 1, :))
-MMI.predict(em::StackedMLEmulator, X_new::AbstractMatrix) = _predict(eltype(em.models), em, X_new)
+Generic method that builds a stacked emulator pipeline and can be implemented for specific model types.
+"""
+function stacked_emulator end
 
 _fit!(m::MLJBase.Machine, kwargs) = MLJBase.fit!(m; kwargs...)
 
 function _predict(::Type{<:Machine{<:Deterministic}}, em::StackedMLEmulator, X_new::AbstractMatrix)
     preds = map(em.models) do m
-        MMI.predict(m, MMI.table(transpose(X_new)))
+        predict(m, table(transpose(X_new)))
     end
     # N x d, where d is the number of transformed output dimensions
     Z = reduce(hcat, preds)
@@ -43,7 +42,7 @@ end
 function _predict(::Type{<:Machine{<:Probabilistic}}, em::StackedMLEmulator, X_new::AbstractMatrix)
     # note that, for probabilistic predictors, predict returns distributions
     preds = map(em.models) do m
-        MMI.predict(m, MMI.table(X_new))
+        predict(m, table(X_new))
     end
     @assert eltype(preds) <: AbstractVector{<:Normal} "Currently only normally distributed predictands are supported (got $(eltype(preds)))"
     # N x d, where d is the number of transformed output dimensions
@@ -62,7 +61,7 @@ end
 function _predict(::Type{<:Machine{<:Probabilistic}}, em::StackedMLEmulator{DecorrelatedTarget}, X_new::AbstractMatrix)
     # note that, for probabilistic predictors, predict returns distributions
     preds = map(em.models) do m
-        MMI.predict(m, MMI.table(X_new))
+        predict(m, table(X_new))
     end
     @assert eltype(preds) <: AbstractVector{<:Normal} "Currently only normally distributed predictands are supported (got $(eltype(preds)))"
     # N x d, where d is the number of transformed output dimensions
@@ -78,4 +77,12 @@ function _predict(::Type{<:Machine{<:Probabilistic}}, em::StackedMLEmulator{Deco
         Symmetric(V*sqrt_S*Diagonal(σ²)*sqrt_S*V') + 1e-6*I
     end
     return map(MvNormal, μs, Σs)
+end
+
+predict(em::StackedMLEmulator, X_new::AbstractVector) = _predict(eltype(em.models), em, reshape(X_new, 1, :))
+predict(em::StackedMLEmulator, X_new::AbstractMatrix) = _predict(eltype(em.models), em, X_new)
+
+function MLJBase.fit!(em::StackedMLEmulator; mapfunc=map, kwargs...)
+    fitted_models = mapfunc(_fit!, em.models, repeat([kwargs], length(em.models)))
+    return StackedMLEmulator(em.data, em.transform, fitted_models)
 end

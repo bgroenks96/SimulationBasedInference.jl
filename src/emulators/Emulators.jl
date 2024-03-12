@@ -3,21 +3,25 @@ module Emulators
 using SimulationBasedInference
 
 using LinearAlgebra
-using MLJBase
-using Statistics
+using Statistics, StatsBase
 
+# MLJ
+using MLJBase, MLJModels
+import MLJModelInterface: Model, predict
+
+# common solve interface
 import CommonSolve
-import MLJModelInterface as MMI
 
 abstract type Emulator end
 
-abstract type EmulatorDataTransform end
+export EmulatorData
+include("emulator_data.jl")
 
-export EmulatorData, DecorrelatedTarget, CenteredTarget, NoTransform
+export DecorrelatedTarget, CenteredTarget, NoTransform
 export transform_target, inverse_transform_target
 include("transforms.jl")
 
-export StackedMLEmulator
+export StackedMLEmulator, stacked_emulator
 include("stacked_emulator.jl")
 
 export EmulatedObservables

@@ -1,19 +1,4 @@
-"""
-    EmulatorData
-
-Generic container for emulator data matrices `X` and `Y`.
-`X` should have shape `N x m` where `N` is the number of samples
-and `m` is the number of covariates. `Y` should have dimensions
-`N x d` where `d` is the number of ouptut covariates.
-"""
-struct EmulatorData
-    X::AbstractMatrix
-    Y::AbstractMatrix
-    function EmulatorData(X::AbstractMatrix, Y::AbstractMatrix)
-        @assert size(X,1) == size(Y,1) "X and Y must have the same number of rows; got $(size(X,2)) != $(size(Y,2))"
-        return new(X,Y)
-    end
-end
+abstract type EmulatorDataTransform end
 
 struct NoTransform <: EmulatorDataTransform end
 
