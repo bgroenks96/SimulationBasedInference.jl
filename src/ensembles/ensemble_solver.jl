@@ -26,14 +26,12 @@ end
 ################################
 
 """
-    get_ensemble(state::EnsembleState, [iter])
+    get_ensemble(state::EnsembleState)
 
 Retrieves the current ensemble matrix from the given `EnsembleState`. Must be implemented for
-each ensemble algorithm state type. The optional second argument `iter` retreives the ensemble
-at the given iteration. This need only be implemented by iterative algorithms.
+each ensemble algorithm state type.
 """
 get_ensemble(state::EnsembleState) = error("get_ensemble(state) not implemented for $(typeof(state))")
-get_ensemble(state::EnsembleState, ::Integer) = error("get_ensemble(state, iter) not implemented for $(typeof(state))")
 
 """
     isiterative(alg::EnsembleInferenceAlgorithm)
@@ -97,8 +95,7 @@ function finalize!(solver::EnsembleSolver)
         pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
-    push!(solver.sol.inputs, get_ensemble(solver.state))
-    push!(solver.sol.outputs, out)
+    store!(solver.sol.cache, get_ensemble(solver.state), out)
 end
 
 ################################
@@ -120,6 +117,7 @@ function CommonSolve.init(
     n_ens::Integer=128,
     initial_ens=nothing,
     itercallback=state -> true,
+    cache=SimpleForwardMapStorage(),
     verbose=true,
     rng=Random.default_rng(),
     solve_kwargs...
@@ -141,7 +139,7 @@ function CommonSolve.init(
     n_ens = size(initial_ens, 2)
     # construct initial state
     state = initialstate(alg, model_prior, initial_ens, obs_mean, obs_cov; rng)
-    inference_sol = SimulatorInferenceSolution(inference_prob, alg, [], [], nothing)
+    inference_sol = SimulatorInferenceSolution(inference_prob, alg, cache, nothing)
     return EnsembleSolver(
         inference_sol,
         alg,

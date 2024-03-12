@@ -11,7 +11,7 @@ Base.@kwdef struct ESMDA <: EnsembleInferenceAlgorithm
 end
 
 mutable struct ESMDAState{ensType,meanType,covType} <: EnsembleState
-    ens::Vector{ensType}
+    ens::ensType
     obs_mean::meanType
     obs_cov::covType
     prior::MvNormal
@@ -23,8 +23,7 @@ end
 
 isiterative(alg::ESMDA) = true
 
-get_ensemble(state::ESMDAState) = state.ens[end]
-get_ensemble(state::ESMDAState, iter::Integer) = state.ens[iter]
+get_ensemble(state::ESMDAState) = state.ens
 
 get_obs_mean(state::ESMDAState) = state.obs_mean
 
@@ -41,7 +40,7 @@ function initialstate(
     rng::AbstractRNG=Random.default_rng(),
 )
     unconstrained_prior = gaussian_approx(esmda.prior_approx, prior; rng)
-    return ESMDAState([ens], obs, obs_cov, unconstrained_prior, [], [], 0, rng)
+    return ESMDAState(ens, obs, obs_cov, unconstrained_prior, [], [], 0, rng)
 end
 
 function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
@@ -65,7 +64,7 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     )
     # Kalman update
     @unpack ρ_AB, ρ_BB, stochastic, dosvd, svd_thresh = alg
-    Θ = state.ens[end]
+    Θ = state.ens
     Θ_post = ensemble_kalman_analysis(
         Θ,
         state.obs_mean,
@@ -83,11 +82,10 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(out.pred))
     logprior = map(θᵢ -> logpdf(state.prior, θᵢ), eachcol(Θ))
     # update ensemble solver and solution state
-    push!(state.ens, Θ_post)
+    state.ens = Θ_post
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
-    push!(sol.inputs, Θ)
-    push!(sol.outputs, out)
+    store!(sol.cache, Θ, out)
 end
 
 """

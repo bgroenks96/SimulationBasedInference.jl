@@ -8,7 +8,6 @@ mutable struct EKPState{ekpType<:EnsembleKalmanProcess} <: EnsembleState
 end
 
 get_ensemble(state::EKPState) = get_u_final(state.ekp)
-get_ensemble(state::EKPState, iter::Integer) = get_u(state.ekp, iter)
 
 get_obs_mean(state::EKPState) = state.ekp.obs_mean
 
@@ -77,8 +76,7 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     # update ensemble solver state
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
-    push!(sol.inputs, Θ)
-    push!(sol.outputs, out)
+    store!(sol.cache, Θ, out)
     # postamble
     # calculate change in error
     err = ekp.err[end]

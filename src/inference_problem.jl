@@ -1,14 +1,14 @@
 #### Inverse/inference problems ####
 
 """
-    SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType} <: SciMLBase.AbstractSciMLProblem
+    SimulatorInferenceProblem{priorType<:JointPrior,uType,solverType,likType} <: SciMLBase.AbstractSciMLProblem
 
 Represents a generic simulation-based Bayesian inference problem for finding the posterior distribution over model parameters given some observed data.
 """
-struct SimulatorInferenceProblem{priorType<:JointPrior,uType,algType,likType} <: SciMLBase.AbstractSciMLProblem
+struct SimulatorInferenceProblem{priorType<:JointPrior,uType,solverType,likType} <: SciMLBase.AbstractSciMLProblem
     u0::uType
     forward_prob::SimulatorForwardProblem
-    forward_solver::algType
+    forward_solver::solverType
     prior::priorType
     likelihoods::likType
     metadata::Dict
@@ -17,7 +17,7 @@ end
 """
     SimulatorInferenceProblem(
         prob::SimulatorForwardProblem,
-        forward_solver::Union{Nothing,DEAlgorithm},
+        forward_solver,
         prior::AbstractPrior,
         likelihoods::SimulatorLikelihood...;
         metadata::Dict=Dict(),
@@ -28,7 +28,7 @@ Additional user-specified metadata may be included in the `metadata` dictionary.
 """
 function SimulatorInferenceProblem(
     forward_prob::SimulatorForwardProblem,
-    forward_solver::Union{Nothing,DEAlgorithm},
+    forward_solver,
     prior::AbstractPrior,
     likelihoods::SimulatorLikelihood...;
     metadata::Dict=Dict(),
@@ -145,17 +145,16 @@ LogDensityProblems.dimension(inference_prob::SimulatorInferenceProblem) = length
 Bijectors.bijector(prob::SimulatorInferenceProblem) = bijector(prob.prior)
 
 """
-    SimulatorInferenceSolution{algType,probType}
+    SimulatorInferenceSolution{algType,probType,cacheType}
 
 Generic container for solutions to `SimulatorInferenceProblem`s. The type of `result` is method dependent
 and should generally correspond to the final state or product of the inference algorithm (e.g. posterior sampels).
 The vectors `inputs` and `outputs` should be populated with input parameters and their corresponding output solutions
 respectively.
 """
-mutable struct SimulatorInferenceSolution{algType,probType}
+mutable struct SimulatorInferenceSolution{algType,probType,cacheType}
     prob::probType
     alg::algType
-    inputs::Vector
-    outputs::Vector
+    cache::cacheType
     result::Any
 end

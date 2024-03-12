@@ -61,6 +61,10 @@ function joint_model end
 export autoprior, from_moments
 include("utils.jl")
 
+export SimpleForwardMapStorage
+export store!, getinputs, getoutputs
+include("storage.jl")
+
 export SimulatorObservable
 export observe!, retrieve
 include("observables.jl")
