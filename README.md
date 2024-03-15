@@ -17,7 +17,7 @@ $$
 p(\theta | \mathbf{y}) = \frac{p(\mathbf{y}|\theta)p(\theta)}{p(\mathbf{y})}
 $$
 
-The **posterior distribution** $p(\theta | \mathbf{y})$ represents our **best estimate** (with uncertainty) of the unknown parameters $\theta$ after observing $\mathbf{y}$.
+The **posterior distribution** $p(\boldsymbol{\theta} | \mathbf{y})$ represents our **best estimate** (with uncertainty) of the unknown parameters $\theta$ after observing $\mathbf{y}$.
 
 ## Simulation-based inference
 
