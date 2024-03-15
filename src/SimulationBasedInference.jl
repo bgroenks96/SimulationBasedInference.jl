@@ -87,7 +87,7 @@ export gaussian_approx
 include("gaussian_approx.jl")
 
 export SimulatorLikelihood, JointPrior
-include("likelihoods.jl")
+include("likelihoods/likelihoods.jl")
 
 export SimulatorForwardProblem, SimulatorForwardSolution
 include("forward_problem.jl")
