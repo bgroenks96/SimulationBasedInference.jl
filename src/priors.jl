@@ -54,7 +54,7 @@ Alias for `PriorDistribution((; dists...))`.
 """
 prior(; dists...) = PriorDistribution((; dists...))
 
-logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), prior.dist, x))
+logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), collect(prior.dist), x))
 
 Base.names(prior::PriorDistribution) = keys(prior.dist)
 

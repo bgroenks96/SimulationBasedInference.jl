@@ -37,6 +37,8 @@ function SimulatorInferenceProblem(
     u0 = zero(rand(joint_prior))
     return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, with_names(likelihoods), metadata)
 end
+SimulatorInferenceProblem(forward_prob::SimulatorForwardProblem, prior::AbstractPrior, likelihoods::SimulatorLikelihood...; kwargs...) =
+    SimulatorInferenceProblem(forward_prob, nothing, likelihoods...; kwargs...)
 
 """
     prior(prob::SimulatorInferenceProblem)
@@ -70,6 +72,13 @@ function Base.getproperty(prob::SimulatorInferenceProblem, sym::Symbol)
     return getproperty(getfield(prob, :forward_prob), sym)
 end
 
+function forward_eval!(inference_prob::SimulatorInferenceProblem, p; solve_kwargs...)
+    solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=p.model, solve_kwargs...)
+    solve!(solver)
+    loglik = sum(map(l -> loglikelihood(l, getproperty(p, nameof(l))), inference_prob.likelihoods), init=0.0)
+    return loglik
+end
+
 """
     logjoint(inference_prob::SimulatorInferenceProblem, u::AbstractVector; transform=false, forward_solve=true, solve_kwargs...)
 
@@ -84,7 +93,7 @@ function logjoint(
     forward_solve=true,
     solve_kwargs...
 )
-    uvec = ComponentVector(getdata(u), getaxes(inference_prob.u0))
+    uvec = zero(inference_prob.u0) .+ u
     logprior = zero(eltype(u))
     # transform from unconstrained space if necessary
     if transform
@@ -97,15 +106,16 @@ function logjoint(
     end
     logprior += logprob(inference_prob.prior, ϕ)
     # solve forward problem;
-    if forward_solve
-        # we can discard the result of solve since the observables are already stored in the likelihoods.
-        _ = solve(inference_prob.forward_prob, inference_prob.forward_solver; p=ϕ.model, solve_kwargs...)
+    loglik = if forward_solve
+        forward_eval!(inference_prob, ϕ; solve_kwargs...)
     else
         # check that parameters match
         @assert all(ϕ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameter"
+        # evaluate log likelihood
+        sum(map(l -> loglikelihood(l, getproperty(ϕ, nameof(l))), inference_prob.likelihoods), init=0.0)
     end
     # compute the likelihood distributions from the observables and likelihood parameters
-    loglik = sum(map(l -> loglikelihood(l, getproperty(ϕ, nameof(l))), inference_prob.likelihoods))
+    
     return (; loglik, logprior)
 end
 
@@ -143,6 +153,17 @@ LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensit
 LogDensityProblems.dimension(inference_prob::SimulatorInferenceProblem) = length(inference_prob.u0)
 
 Bijectors.bijector(prob::SimulatorInferenceProblem) = bijector(prob.prior)
+
+function Base.show(io::IO, ::MIME"text/plain", prob::SimulatorInferenceProblem)
+    println(io, "SimulatorInferenceProblem with $(length(prob.u0)) parameters and $(length(prob.likelihoods)) likelihoods")
+    println(io, "    Parameters: $(labels(prob.u0))")
+    println(io, "    Likelihoods: $(keys(prob.likelihoods))")
+    println(io, "    Observables: $(keys(prob.observables))")
+    println(io, "    Forward problem type: $(typeof(prob.forward_prob.prob))")
+    println(io, "    Forward solver: $(isnothing(prob.forward_solver) ? "none" : typeof(prob.forward_solver))")
+    println(io, "    Prior type: $(typeof(prob.prior))")
+    println(io, "    Metadata: $(prob.metadata)")
+end
 
 """
     SimulatorInferenceSolution{algType,probType,cacheType}

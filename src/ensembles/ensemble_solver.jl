@@ -231,6 +231,7 @@ function ensemble_solve(
         prob_func=(prob,i,repeat) -> prob_func(prob, param_map(ens[:,i])),
         output_func=(sol,i) -> output_func(sol, i, iter)
     )
+
     enssol = solve(ensprob, dealg, ensalg; trajectories=N_ens, solve_kwargs...)
     pred = reduce(hcat, map((i,out) -> pred_func(out, i, iter), 1:N_ens, enssol.u))
     observables = map(sol -> map(retrieve, sol.prob.observables), enssol)

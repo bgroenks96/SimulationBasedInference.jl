@@ -103,7 +103,7 @@ end
 
 function logprob(jp::JointPrior, x::ComponentVector)
     lp_model = logprob(jp.model, x.model)
-    liknames = keys(jp.lik)
-    lp_lik = sum(map((d,n) -> logprob(d, getproperty(x, n)), jp.lik, liknames))
+    liknames = collect(keys(jp.lik))
+    lp_lik = sum(map((d,n) -> logprob(d, getproperty(x, n)), collect(jp.lik), liknames))
     return lp_model + lp_lik
 end

@@ -4,13 +4,14 @@ function CommonSolve.init(
     autodiff=:ForwardDiff,
     rng::Random.AbstractRNG=Random.default_rng(),
     cache::SBI.ForwardMapStorage=SimpleForwardMapStorage(),
+    warmup_reporter=DynamicHMC.NoProgressReport(),
 )
     b = SBI.bijector(prob)
     q = b(sample(prob.prior))
     ℓ = ADgradient(autodiff, prob)
     # stepwise sampling; see DynamicHMC docs!
     # initialization
-    results = DynamicHMC.mcmc_keep_warmup(rng, ℓ, 0; initialization=(; q), reporter = DynamicHMC.NoProgressReport())
+    results = DynamicHMC.mcmc_keep_warmup(rng, ℓ, 0; initialization=(; q), reporter = warmup_reporter)
     steps = DynamicHMC.mcmc_steps(results.sampling_logdensity, results.final_warmup_state)
     Q = results.final_warmup_state.Q
     sol = SimulatorInferenceSolution(prob, mcmc, cache, nothing)

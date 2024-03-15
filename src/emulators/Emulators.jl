@@ -2,29 +2,47 @@ module Emulators
 
 using SimulationBasedInference
 
+using Bijectors
 using LinearAlgebra
 using Statistics, StatsBase
-
-# MLJ
-using MLJBase, MLJModels
-import MLJModelInterface: Model, predict
 
 # common solve interface
 import CommonSolve
 
-abstract type Emulator end
+export Emulator
+
+"""
+    fit!(emulator::Emulator)
+    fit!(regressor, X, y)
+
+Fits the given emulator on the stored data or the given regressor to `X` and `y`.
+"""
+function fit! end
+
+"""
+    predict(emulator, X)
+
+Generate predictions from the given emulator for new inputs `X`.
+"""
+function predict end
 
 export EmulatorData
 include("emulator_data.jl")
 
-export DecorrelatedTarget, CenteredTarget, NoTransform
+export StackedRegressors
+include("stacked.jl")
+
+export Decorrelated, Centered, Standardized, NoTransform
 export transform_target, inverse_transform_target
 include("transforms.jl")
 
-export StackedMLEmulator, stacked_emulator
-include("stacked_emulator.jl")
+export GPRegressor
+include("gp_regression.jl")
+
+export Emulator, StackedEmulator
+include("emulator.jl")
 
 export EmulatedObservables
-include("solver_types.jl")
+include("emulated_forward_solver.jl")
 
 end

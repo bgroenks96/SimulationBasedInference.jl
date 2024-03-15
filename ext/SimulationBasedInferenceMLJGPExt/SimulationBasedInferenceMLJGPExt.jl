@@ -28,7 +28,7 @@ function initial_kernel_params(::typeof(rq_kernel))
     return θ_init
 end
 
-function SBI.stacked_emulator(
+function SBI.StackedEmulator(
     ::Type{GPR},
     data::EmulatorData;
     target_transform=CenteredTarget(data),
@@ -36,7 +36,7 @@ function SBI.stacked_emulator(
     θ_init=initial_kernel_params(kernel),
     σ²=1e-6,
     optimizer=NelderMead(),
-    pca_variance_ratio=pca_variance_ratio,
+    pca_variance_ratio=1.0,
 )
     # Gaussian process regressor
     emulator_algorithm = GPR(;μ=default_linear_mean, k=kernel, θ_init, σ², optimizer)
@@ -46,7 +46,7 @@ function SBI.stacked_emulator(
     # define emulator model pipeline
     emulator_model = Standardizer() |> pca |> emulator_algorithm
     # set up emulator
-    emulator = StackedMLEmulator(emulator_model, data, target_transform)
+    emulator = StackedEmulator(data, emulator_model, target_transform)
     return emulator
 end
 

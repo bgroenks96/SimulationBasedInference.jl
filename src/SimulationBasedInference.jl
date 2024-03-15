@@ -31,6 +31,8 @@ using SciMLBase: islinear
 
 using LogDensityProblems
 
+import LogDensityProblems: logdensity
+
 export LogDensityProblems, logdensity
 
 export SimulatorInferenceAlgorithm
