@@ -22,13 +22,13 @@ function fit!(em::Emulator; kwargs...)
     data = em.data
     Xt = apply(em.input_transform, data.X)
     Yt = apply(em.output_transform, data.Y)
-    em.model = fit!(em.model, Xt, Yt; kwargs...)
+    em.model = fit!(em.model, Xt, Yt, data.static_inputs...; kwargs...)
     return em
 end
 
 function predict(em::Emulator, X::AbstractMatrix)
     Xt = apply(em.input_transform, X)
-    Yp = predict(em.model, Xt)
+    Yp = predict(em.model, Xt, map(s -> repeat(s, 1, size(Xt, 2)), em.data.static_inputs)...)
     return apply_inverse(em.output_transform, Yp)
 end
 predict(em::Emulator, x::AbstractVector) = predict(em, reshape(x, :, 1))

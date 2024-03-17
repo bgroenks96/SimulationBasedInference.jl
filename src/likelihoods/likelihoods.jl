@@ -17,13 +17,13 @@ the computation of the likelihood from the simulator via the `SimulatorObservabl
 forward simulation. When the `SimulatorLikelihood` is evaluated, these outputs are obtained from `retrieve(obs)`
 and the only additional parameters needed are those specified by `prior`.
 """
-struct SimulatorLikelihood{distType,obsType,dataType,priorType}
+struct SimulatorLikelihood{distType,priorType,obsType,dataType}
     name::Symbol
     obs::obsType
     data::dataType
     prior::priorType
     function SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
-        return new{distType,typeof(obs),typeof(data),typeof(prior)}(name, obs, data, prior)
+        return new{distType,typeof(prior),typeof(obs),typeof(data)}(name, obs, data, prior)
     end
 end
 
@@ -31,11 +31,22 @@ Base.nameof(l::SimulatorLikelihood) = l.name
 
 getobservable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
 
-getprior(lik::SimulatorLikelihood)::AbstractPrior = lik.prior
+getprior(lik::SimulatorLikelihood) = lik.prior
 
+"""
+    predictive_distribution(lik::SimulatorLikelihood, args...)
+
+Builds the predictive distribution of `lik` given the parameters in `args`.
+"""
 predictive_distribution(lik::SimulatorLikelihood, args...) = error("not implemented")
 predictive_distribution(lik::SimulatorLikelihood, p::NamedTuple) = predictive_distribution(lik, p...)
 
+"""
+    loglikelihood(lik::SimulatorLikelihood, args...)
+
+Evaluates the log-lielihood of `lik` on the current observable state by
+constructing the `predictive_distribution` and evaluating the `logpdf` of the data.
+"""
 function loglikelihood(lik::SimulatorLikelihood, args...)
     d = predictive_distribution(lik, args...)
     return logprob(d, lik.data)
@@ -48,21 +59,6 @@ function SciMLBase.remaker_of(lik::SimulatorLikelihood{distType}) where {distTyp
     remake(; name=lik.name, obs=lik.obs, data=lik.data, prior=lik.prior) = SimulatorLikelihood(distType, obs, data, prior, name)
 end
 
-# Implementations for Gaussian-type distributions
-
-function predictive_distribution(lik::SimulatorLikelihood{Normal}, σ)
-    μ = retrieve(lik.obs)[1]
-    return Normal(μ, σ)
-end
-
-function predictive_distribution(lik::SimulatorLikelihood{<:MvNormal}, σ)
-    μ = vec(retrieve(lik.obs))
-    Σ = cov(lik, σ)
-    return MvNormal(μ, Σ)
-end
-
-Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::Number) = Diagonal(σ^2*ones(prod(size(lik.data))))
-Statistics.cov(lik::SimulatorLikelihood{IsoNormal}, σ::AbstractVector) = cov(lik, σ[1])
-Statistics.cov(lik::SimulatorLikelihood{DiagNormal}, σ::AbstractVector) = Diagonal(σ.^2)
-
+include("gaussian_likelihood.jl")
+include("gp_likelihood.jl")
 include("joint_prior.jl")

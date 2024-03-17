@@ -53,10 +53,10 @@ end
   
 # this is what the user should supply for MLJ instead of just a kernel
 function default_kernel(θ::NamedTuple)
-    return  θ.σf²  * (SqExponentialKernel() ∘ ScaleTransform(1/2(θ.ℓ)^2))
+    return  θ.σf²  * (SqExponentialKernel() ∘ ScaleTransform(1/2(θ.ℓ)^2) + WhiteKernel())
 end
 
-function fit!(gp::GPRegressor, X, y; verbosity=1, kwargs...)
+function fit!(gp::GPRegressor, X::AbstractMatrix, y::AbstractVector; verbosity=1, kwargs...)
     Xmatrix = ColVecs(X)
 
     # augment θ_init to include mean function params and σ²
@@ -140,7 +140,7 @@ end
 
 function mean_function_initializer(::typeof(default_linear_mean), rng::AbstractRNG)
     function init(X, y)
-        return (β = randn(rng, size(X,2)), μ = zero(eltype(y)))
+        return (β = randn(rng, size(X,1)), μ = zero(eltype(y)))
     end
 end
 

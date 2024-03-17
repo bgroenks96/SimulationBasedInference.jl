@@ -40,7 +40,7 @@ struct Decorrelated{bijType} <: DataTransform
 end
 
 function Decorrelated(X::AbstractMatrix; frac=1.0, bijection=identity)
-    bij = Base.Fix1(broadcast, bijection)
+    bij = bijection != identity ? Base.Fix1(broadcast, bijection) : identity
     Y = bij.(X)
     Y_mean = mean(Y, dims=2)
     Y_c = Y .- Y_mean
@@ -80,7 +80,7 @@ function apply_inverse(d::Decorrelated, dists::AbstractMatrix{<:Normal}; apply_b
     V = d.truncated_svd.V
     sqrt_S = Diagonal(sqrt.(d.truncated_svd.S))
     μs = map(eachcol(μ_pred)) do μ
-        apply_inverse(d, reshape(μ, 1, :), apply_bijection=false)[1,:]
+        apply_inverse(d, reshape(μ, :, 1), apply_bijection=false)[:,1]
     end
     Σs = map(eachcol(σ²_pred)) do σ²
         Symmetric(V*sqrt_S*Diagonal(σ²)*sqrt_S*V') + 1e-6*I
@@ -100,7 +100,7 @@ function apply_inverse(d::DataTransform, dists::AbstractMatrix{<:Normal}; kwargs
     μ_pred = mean.(dists)
     σ²_pred = var.(dists)
     μs = map(eachcol(μ_pred)) do μ
-        apply_inverse(em.transform, reshape(μ, 1, :); kwargs...)[1,:]
+        apply_inverse(em.transform, reshape(μ, :, 1); kwargs...)[:,1]
     end
     Σs = map(eachcol(σ²_pred)) do σ²
         Diagonal(σ²) + 1e-6*I

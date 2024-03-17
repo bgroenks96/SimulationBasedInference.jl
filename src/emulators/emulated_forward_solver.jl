@@ -38,7 +38,8 @@ function CommonSolve.step!(solver::EmulatedObservablesSolver)
     forward_prob = solver.forward_prob
     emulators = solver.emobs.emulators
     # evaluate emulator for each specified observable
-    preds = map(nm -> solver.emobs.predict_func(emulators[nm], forward_prob.prob.p), solver.names)
+    p = forward_prob.prob.p
+    preds = map(nm -> solver.emobs.predict_func(emulators[nm], p), solver.names)
     solver.preds = NamedTuple{solver.names}(preds)
     for name in solver.names
         obs = forward_prob.observables[name]

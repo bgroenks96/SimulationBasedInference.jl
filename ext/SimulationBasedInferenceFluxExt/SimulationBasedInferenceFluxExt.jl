@@ -9,8 +9,6 @@ mutable struct FluxModel{modelType,lossType,optType,paramsType,reType}
     model::modelType
     loss::lossType
     opt::optType
-    params::paramsType
-    re::reType
 end
 
 function Emulators.Emulator(
@@ -20,11 +18,11 @@ function Emulators.Emulator(
     loss=Flux.Losses.mse, kwargs...
 )
     p, re = Flux.destructure(model)
-    data_converted = EmulatorData(convert.(eltype(p), data.X), convert.(eltype(p), data.Y))
+    data_converted = EmulatorData(convert.(eltype(p), data.X), convert.(eltype(p), data.Y), data.static_inputs...)
     return Emulator(data_converted, FluxModel(model, loss, optimizer, p, re); kwargs...)
 end
 
-function Emulators.fit!(m::FluxModel, X, Y; epochs=10, verbose=false, kwargs...)
+function Emulators.fit!(m::FluxModel, X, Y, inputs...; epochs=10, verbose=false, kwargs...)
     # set up optimizer
     state = Flux.setup(m.opt, m.model)
     # construct data pairs
@@ -34,7 +32,8 @@ function Emulators.fit!(m::FluxModel, X, Y; epochs=10, verbose=false, kwargs...)
         ∑ℓ = 0.0
         for (xᵢ, yᵢ) in data
             ℓ, ∂ℓ∂p = Flux.withgradient(m.model, xᵢ, yᵢ) do f, xᵢ, yᵢ
-                predᵢ = f(xᵢ)
+                x_all = length(inputs) > 0 ? tuple(xᵢ, inputs...) : xᵢ
+                predᵢ = f(x_all)
                 m.loss(predᵢ, yᵢ)
             end
             Flux.update!(state, m.model, ∂ℓ∂p[1])
@@ -47,8 +46,8 @@ function Emulators.fit!(m::FluxModel, X, Y; epochs=10, verbose=false, kwargs...)
     return m
 end
 
-function Emulators.predict(m::FluxModel, X)
-    return m.model(X)
+function Emulators.predict(m::FluxModel, X, inputs...)
+    return m.model(tuple(X, inputs...))
 end
 
 end

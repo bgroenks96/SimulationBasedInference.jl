@@ -33,3 +33,4 @@ docs/site/
 .CondaPkg/
 .scratch/
 data/
+sbi-logs/
