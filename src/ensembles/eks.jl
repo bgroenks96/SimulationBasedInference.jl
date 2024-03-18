@@ -22,7 +22,7 @@ logdensity_prior(ekp::EnsembleKalmanProcess{<:Sampler}, θ) = logpdf(MvNormal(ek
 Represents a proxy for the Ensemble Kalman Sampler implementation provided by `EnsembleKalmanProcesses`.
 """
 Base.@kwdef struct EKS <: EnsembleInferenceAlgorithm
-    prior_approx::GaussianApproximationMethod = EmpiricalGaussian()
+    prior_approx::GaussianApproximationMethod = Laplace()
     obs_cov::Function = obscov # obs covariance function
     maxiters::Int = 30
     minΔt::Float64 = 2.0

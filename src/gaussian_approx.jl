@@ -23,3 +23,25 @@ function gaussian_approx(approx::EmpiricalGaussian, prior::AbstractPrior; rng::R
     end
     return MvNormal(unconstrained_mean[:,1], unconstrained_cov)
 end
+
+Base.@kwdef struct Laplace <: GaussianApproximationMethod
+    roundoff::Int = 8 # number of decimal places to round the mode
+end
+
+function gaussian_approx(approx::Laplace, prior::AbstractPrior; rng::Random.AbstractRNG=Random.default_rng())
+    function nll(z)
+        finv = inverse(bijector(prior))
+        x = finv(z)
+        -logprob(prior, x)
+    end
+    constrained_to_unconstrained = bijector(prior)
+    z0 = constrained_to_unconstrained(rand(rng, prior))
+    result = optimize(nll, z0, BFGS())
+    mode = result.minimizer
+    # compute Fisher information
+    Γ = ForwardDiff.hessian(nll, mode)
+    # get covariance
+    Σ = pinv(Γ)
+    # constructor MvNormal prior
+    return MvNormal(round.(mode, digits=approx.roundoff), Σ)
+end
