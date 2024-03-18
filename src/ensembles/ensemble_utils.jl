@@ -26,7 +26,7 @@ function obscov(likelihoods::SimulatorLikelihood{<:Union{IsoNormal,DiagNormal}}.
     return Diagonal(reduce(vcat, cov_diags))
 end
 
-function iterationindices(storage::SimulationData, alg::EnsembleInferenceAlgorithm)
+function iterationindices(storage::SimulationData, alg::EnsembleInferenceAlgorithm, iter::Int)
     if isiterative(alg)
         iters = map(m -> m.iter, getmetadata(storage))
         iter = iter > 0 ? iter : maximum(iters)
@@ -45,7 +45,7 @@ optinal argument `iter` may be provided, which then retrieves the ensemble at th
 """
 function get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
     # find indices matching for iteration
-    inds = iterationindices(sol.storage, sol.alg)
+    inds = iterationindices(sol.storage, sol.alg, iter)
     # retrieve ensemble from storage and concatenate
     return reduce(hcat, getinputs(sol.storage, inds))
 end
@@ -61,12 +61,19 @@ function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInfe
     prob = sol.prob
     inverse_transform = inverse(bijector(prob.prior.model))
     # find indices matching iteration
-    inds = iterationindices(sol.storage, sol.alg)
+    inds = iterationindices(sol.storage, sol.alg, iter)
     # retrieve ensemble from storage
     ens = getinputs(sol.storage, inds)
     return reduce(hcat, map(inverse_transform, ens))
 end
 
 function get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
-
+    # find indices matching iteration
+    inds = iterationindices(sol.storage, sol.alg, iter)
+    # retrieve ensemble from storage
+    out = getoutputs(sol.storage, inds)
+    # reduce over named tuples, concatenating each observable
+    return reduce(out) do acc, outᵢ
+        (; map(k -> k => hcat(acc[k], outᵢ[k]), keys(acc))...)
+    end
 end

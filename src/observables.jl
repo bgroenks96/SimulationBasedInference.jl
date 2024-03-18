@@ -44,14 +44,17 @@ coordinates(obs::Observable) = coordinates(size(obs))
     coordinates(dims...)
 
 Converts arguments `dims` to a tuple of coordinate `Dimensions` according to the following rules:
-- Integers are converted to 
+
+    - Integers `n` are converted to simple step indices `1:n`
+    - Vectors are converted to `Dim`s
 """
 function coordinates(dims...)
     coord(i::Int, n::Int) = Dim{Symbol(:dim,i)}(1:n)
-    coord(i::Int, v::AbstractVector) = Dim{Symbol(:dim,i)}(v)
-    coord(::Int, d::DimensionalData.Dimension) = d
-    return map(coord, dims)
+    coord(i::Int, v::AbstractVector) = Dim{Symbol(:dim,i)}(sort(v))
+    coord(::Int, d::Dimension) = d
+    return map(coord, Tuple(1:length(dims)), dims)
 end
+coordinates(dims::Tuple) = coordinates(dims...)
 
 """
     SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType} <: Observable{outputType}
@@ -62,16 +65,21 @@ and implementation of `output` determines how the samples are stored. The simple
 output type is `Transient` which simply maintains a pointer to the last observed
 output.
 """
-struct SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType<:Tuple{Vararg{AbstractVector,N}}} <: Observable{outputType}
+struct SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType<:Tuple{Vararg{Dimension,N}}} <: Observable{outputType}
     name::Symbol
     obsfunc::funcType
-    coords::coordsType
     output::outputType
+    coords::coordsType
 end
 
 Base.nameof(obs::SimulatorObservable) = obs.name
 
 Base.size(obs::SimulatorObservable) = map(length, obs.coords)
+
+function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,outputType}) where {N,outputType<:SimulatorOutput}
+    println(io, "$(nameof(outputType)) SimulatorOsbervable $(obs.name) with $N $(N > 1 ? "dimensions" : "dimension")")
+    show(io, mime, obs.coords)
+end
 
 coordinates(obs::SimulatorObservable) = obs.coords
 
@@ -80,12 +88,14 @@ mutable struct Transient <: SimulatorOutput
 end
 
 """
-    SimulatorObservable(name::Symbol, f::Function=identity, d::Dims=(1,))
-    SimulatorObservable(name::Symbol, f::Function=identity, coords::NTuple)
+    SimulatorObservable(name::Symbol, f::Function, coords::Tuple)
 
-Constructs a `Transient` observable with state mapping function `f`.
+Constructs a `Transient` observable with state mapping function `f` and coordinates `coords`.
 """
-SimulatorObservable(name::Symbol, f::Function=identity, d::Dims=(1,)) = SimulatorObservable(name, f, coordinates(d), Transient(zeros(d)))
+function SimulatorObservable(name::Symbol, f::Function, coords::Tuple)
+    ds = coordinates(coords)
+    return SimulatorObservable(name, f, Transient(missing), ds)
+end
 
 initialize!(obs::SimulatorObservable{N,Transient}, state) where {N} = observe!(obs, state)
 
@@ -161,15 +171,15 @@ function SimulatorObservable(
     obsfunc,
     t0::tType,
     tsave::AbstractVector{tType},
-    output_shape_or_coords::Tuple=(1:1,);
+    coords::Tuple;
     reducer=mean,
     samplerate=Hour(3),
 ) where {tType}
     return SimulatorObservable(
         name,
         obsfunc,
-        (coordinates(output_shape_or_coords)..., tsave),
-        TimeSampled(t0, tsave; reducer, samplerate)
+        TimeSampled(t0, tsave; reducer, samplerate),
+        (coordinates(coords)..., tsave),
     )
 end
 

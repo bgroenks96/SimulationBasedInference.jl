@@ -20,7 +20,7 @@ using UnPack
 
 # Re-exported packages
 @reexport using ComponentArrays
-@reexport using DimensionalData
+@reexport using DimensionalData: Dimension, Dim, DimArray, X, Y, Z, Ti
 @reexport using Distributions
 @reexport using SciMLBase
 @reexport using StatsBase

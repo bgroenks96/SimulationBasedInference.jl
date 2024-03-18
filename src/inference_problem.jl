@@ -38,7 +38,7 @@ function SimulatorInferenceProblem(
     return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, with_names(likelihoods), metadata)
 end
 SimulatorInferenceProblem(forward_prob::SimulatorForwardProblem, prior::AbstractPrior, likelihoods::SimulatorLikelihood...; kwargs...) =
-    SimulatorInferenceProblem(forward_prob, nothing, likelihoods...; kwargs...)
+    SimulatorInferenceProblem(forward_prob, nothing, prior, likelihoods...; kwargs...)
 
 """
     prior(prob::SimulatorInferenceProblem)
