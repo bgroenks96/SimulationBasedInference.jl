@@ -75,7 +75,7 @@ initialstate(
 Executes a single ensemble step (forward solve + update) for the given algorithm type. Must be implemented
 by all ensemble algorithm implementations.
 """
-ensemblestep!(solver::EnsembleSolver{algType}) where {algType} = error("not implemented for alg of type $algType")
+ensemblestep!(::EnsembleSolver{algType}) where {algType} = error("not implemented for alg of type $algType")
 
 """
     finalize!(solver::EnsembleSolver)
@@ -95,7 +95,12 @@ function finalize!(solver::EnsembleSolver)
         pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
-    store!(solver.sol.cache, get_ensemble(solver.state), out)
+
+    if isiterative(solver.alg)
+        store!(solver.sol.storage, get_ensemble(solver.state), out.observables, iter=solver.state.iter+1)
+    else
+        store!(solver.sol.storage, get_ensemble(solver.state), out.observables)
+    end
 end
 
 ################################
@@ -117,7 +122,7 @@ function CommonSolve.init(
     n_ens::Integer=128,
     initial_ens=nothing,
     itercallback=state -> true,
-    cache=SimpleForwardMapStorage(),
+    cache=SimulationArrayStorage(),
     verbose=true,
     rng=Random.default_rng(),
     solve_kwargs...
@@ -234,7 +239,10 @@ function ensemble_solve(
 
     enssol = solve(ensprob, dealg, ensalg; trajectories=N_ens, solve_kwargs...)
     pred = reduce(hcat, map((i,out) -> pred_func(out, i, iter), 1:N_ens, enssol.u))
-    observables = map(sol -> map(retrieve, sol.prob.observables), enssol)
+    observables = map(enssol) do sol
+        # extract observables data
+        map(retrieve, sol.prob.observables)
+    end
     return (; pred, observables)
 end
 ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(get_ensemble(state), args...; iter=state.iter, kwargs...)

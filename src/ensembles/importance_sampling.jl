@@ -68,7 +68,7 @@ function ensemblestep!(solver::EnsembleSolver{<:EnIS})
     state.weights = w
     state.Neff = Neff
     state.loglik = loglik
-    store!(sol.cache, state.ens, out)
+    store!(sol.storage, state.ens, out.observables, iter=state.iter)
 end
 
 """

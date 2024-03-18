@@ -85,7 +85,7 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     state.ens = Θ_post
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
-    store!(sol.cache, Θ, out)
+    store!(sol.storage, Θ, out.observables, iter=state.iter)
 end
 
 """

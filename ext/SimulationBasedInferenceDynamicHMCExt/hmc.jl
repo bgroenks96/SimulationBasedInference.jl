@@ -3,7 +3,7 @@ function CommonSolve.init(
     mcmc::MCMC{<:DynamicHMC.NUTS};
     autodiff=:ForwardDiff,
     rng::Random.AbstractRNG=Random.default_rng(),
-    cache::SBI.ForwardMapStorage=SimpleForwardMapStorage(),
+    cache::SBI.SimulationData=SimulationArrayStorage(),
     warmup_reporter=DynamicHMC.NoProgressReport(),
 )
     b = SBI.bijector(prob)
@@ -27,7 +27,7 @@ function CommonSolve.step!(solver::DynamicHMCSolver)
     q = solver.Q.q
     # extract observables
     obs = map(obs -> ForwardDiff.value.(retrieve(obs)), prob.forward_prob.observables)
-    store!(sol.cache, q, obs)
+    store!(sol.storage, q, obs)
     push!(solver.stats, stats)
     return nothing
 end
@@ -35,14 +35,14 @@ end
 function CommonSolve.solve!(solver::DynamicHMCSolver)
     sol = solver.sol
     # iterate for N samples
-    while length(sol.cache) < sol.alg.nsamples
+    while length(sol.storage) < sol.alg.nsamples
         step!(solver)
     end
     # construct transformed posterior chain
     prob = sol.prob
     b = SBI.bijector(prob)
     b⁻¹ = SBI.inverse(b)
-    samples = transpose(reduce(hcat, map(b⁻¹, getinputs(sol.cache))))
+    samples = transpose(reduce(hcat, map(b⁻¹, getinputs(sol.storage))))
     param_names = labels(prob.u0)
     solver.sol.result = Chains(reshape(samples, size(samples)..., 1), param_names)
     return solver.sol

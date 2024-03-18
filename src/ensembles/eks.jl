@@ -76,7 +76,7 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     # update ensemble solver state
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
-    store!(sol.cache, Θ, out)
+    store!(sol.storage, Θ, out.observables, iter=state.iter)
     # postamble
     # calculate change in error
     err = ekp.err[end]

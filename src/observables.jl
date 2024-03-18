@@ -41,15 +41,17 @@ is the size of dimension `i`.
 coordinates(obs::Observable) = coordinates(size(obs))
 
 """
-    coordinates(d::Dims)
-    coordinates(d::Tuple{Vararg{AbstractVector}})
+    coordinates(dims...)
 
-Returns default step-range (integer) coordinates for the given array shape. If `d` is already
-a tuple of vectors, returns `d` unmodified.
+Converts arguments `dims` to a tuple of coordinate `Dimensions` according to the following rules:
+- Integers are converted to 
 """
-coordinates(d::Dims) = map(N -> 1:N, d)
-coordinates(d::Tuple{Vararg{AbstractVector}}) = d
-
+function coordinates(dims...)
+    coord(i::Int, n::Int) = Dim{Symbol(:dim,i)}(1:n)
+    coord(i::Int, v::AbstractVector) = Dim{Symbol(:dim,i)}(v)
+    coord(::Int, d::DimensionalData.Dimension) = d
+    return map(coord, dims)
+end
 
 """
     SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType} <: Observable{outputType}
@@ -84,7 +86,6 @@ end
 Constructs a `Transient` observable with state mapping function `f`.
 """
 SimulatorObservable(name::Symbol, f::Function=identity, d::Dims=(1,)) = SimulatorObservable(name, f, coordinates(d), Transient(zeros(d)))
-SimulatorObservable(name::Symbol, f::Function, coords::NTuple{N,AbstractVector}) where {N} = SimulatorObservable(name, f, coords, Transient(zeros(d)))
 
 initialize!(obs::SimulatorObservable{N,Transient}, state) where {N} = observe!(obs, state)
 
@@ -148,7 +149,7 @@ const TimeSampledObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeSamp
         obsfunc,
         t0::tType,
         tsave::AbstractVector{tType},
-        output_shape_or_coords::NTuple;
+        output_shape_or_coords::Tuple;
         reducer=mean,
         samplerate=Hour(3),
     ) where {tType}
@@ -160,7 +161,7 @@ function SimulatorObservable(
     obsfunc,
     t0::tType,
     tsave::AbstractVector{tType},
-    output_shape_or_coords::NTuple=(1:1,);
+    output_shape_or_coords::Tuple=(1:1,);
     reducer=mean,
     samplerate=Hour(3),
 ) where {tType}

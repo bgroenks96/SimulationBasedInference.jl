@@ -20,6 +20,7 @@ using UnPack
 
 # Re-exported packages
 @reexport using ComponentArrays
+@reexport using DimensionalData
 @reexport using Distributions
 @reexport using SciMLBase
 @reexport using StatsBase
@@ -67,12 +68,12 @@ function joint_model end
 export autoprior, from_moments
 include("utils.jl")
 
-export SimpleForwardMapStorage
-export store!, getinputs, getoutputs
-include("storage.jl")
+export SimulationData, SimulationArrayStorage
+export store!, getinputs, getoutputs, getmetadata
+include("simulation_data.jl")
 
 export SimulatorObservable
-export observe!, retrieve
+export observe!, retrieve, coordinates
 include("observables.jl")
 
 export ParameterTransform
