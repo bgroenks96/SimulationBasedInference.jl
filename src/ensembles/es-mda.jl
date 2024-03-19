@@ -1,5 +1,5 @@
 Base.@kwdef struct ESMDA <: EnsembleInferenceAlgorithm
-    prior_approx::GaussianApproximationMethod = Laplace()
+    prior_approx::GaussianApproximationMethod = LaplaceMethod()
     obs_cov::Function = obscov # obs covariance function
     maxiters::Int = 4
     alpha::Float64 = maxiters

@@ -5,7 +5,7 @@ using Reexport
 # Utility
 using Dates
 using FileIO
-using ForwardDiffg
+using ForwardDiff
 using LinearAlgebra
 using Requires
 
@@ -14,13 +14,13 @@ using CommonSolve
 using DiffEqBase
 
 # Stats
-using Bijectors
 using MCMCChains
 using Optim
 using Random
 using UnPack
 
 # Re-exported packages
+@reexport using Bijectors
 @reexport using ComponentArrays
 @reexport using DimensionalData: Dimension, Dim, DimArray, X, Y, Z, Ti
 @reexport using Distributions
@@ -85,7 +85,7 @@ export AbstractPrior, PriorDistribution
 export prior
 include("priors.jl")
 
-export GaussianApproximationMethod, EmpiricalGaussian, Laplace
+export GaussianApproximationMethod, EmpiricalGaussian, LaplaceMethod
 export gaussian_approx
 include("gaussian_approx.jl")
 

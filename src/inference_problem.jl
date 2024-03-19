@@ -114,8 +114,6 @@ function logjoint(
         # evaluate log likelihood
         sum(map(l -> loglikelihood(l, getproperty(ϕ, nameof(l))), inference_prob.likelihoods), init=0.0)
     end
-    # compute the likelihood distributions from the observables and likelihood parameters
-    
     return (; loglik, logprior)
 end
 

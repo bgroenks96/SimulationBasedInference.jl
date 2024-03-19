@@ -38,7 +38,7 @@ SimulationArrayStorage() = SimulationArrayStorage([], [], [])
 Base.getindex(storage::SimulationArrayStorage, i) = (storage.inputs[i], storage.outputs[i], storage.metadata[i])
 
 Base.iterate(storage::SimulationArrayStorage) = (storage[1], 1)
-Base.iterate(storage::SimulationArrayStorage, state) = state < length(storage) ? (storage[state], state+1) : (storage[end], nothing)
+Base.iterate(storage::SimulationArrayStorage, state) = state <= length(storage) ? (storage[state], state+1) : nothing
 
 getinputs(storage::SimulationArrayStorage) = storage.inputs
 getinputs(storage::SimulationArrayStorage, i) = storage.inputs[i]
