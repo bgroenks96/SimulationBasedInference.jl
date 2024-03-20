@@ -26,13 +26,13 @@ simulation data, and inference algorithm.
 mutable struct PySBISolver{algType<:PySBIAlgorithm}
     prob::SimulatorInferenceProblem
     alg::algType
-    num_simulations::Int
+    simulate_kwargs::NamedTuple
     data::Union{Missing,SimulationData}
     prior::Py
     simulator::Py
     inference::Py
     estimator::Union{Missing,Py}
-    posterior::Union{Missing,Py}
+    result::Union{Missing,Any}
 end
 
 function pysimulator(inference_prob::SimulatorInferenceProblem, transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
@@ -61,22 +61,33 @@ function CommonSolve.init(
     inference_prob::SimulatorInferenceProblem,
     alg::PySBIAlgorithm,
     param_type::Type{T} = Vector;
-    num_simulations::Int = 1000,
     transform = inverse(bijector(inference_prob)),
     pyprior = torchprior(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
+    num_simulations::Int = 1000,
+    num_workers::Int = 1,
     solve_kwargs...
 ) where {T}
     pysim = pysimulator(inference_prob, transform, T; rng)
     prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, pyprior)
     inference_alg = alg()
     # append_simulations!(inference_alg, inference_prob, data)
-    return PySBISolver(inference_prob, alg, num_simulations, missing, prepared_prior, prepared_sim, inference_alg, missing, missing)
+    return PySBISolver(
+        inference_prob,
+        alg,
+        (; num_simulations, num_workers),
+        missing,
+        prepared_prior,
+        prepared_sim,
+        inference_alg,
+        missing,
+        missing
+    )
 end
 
 function CommonSolve.solve!(solver::PySBISolver)
     while step!(solver) end
-    return SimulatorInferenceSolution(solver.prob, solver.alg, solver.data, solver.posterior)
+    return SimulatorInferenceSolution(solver.prob, solver.alg, solver.data, solver.result)
 end
 
 export torchprior
