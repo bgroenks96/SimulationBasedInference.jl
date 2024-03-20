@@ -119,6 +119,7 @@ function CommonSolve.init(
     prob_func=(prob,p) -> remake(prob, p=p),
     output_func=(sol,i,iter) -> (sol, false),
     pred_func=default_pred_func(inference_prob),
+    obs_cov_func=obscov,
     n_ens::Integer=128,
     initial_ens=nothing,
     itercallback=state -> true,
@@ -140,7 +141,7 @@ function CommonSolve.init(
     # extract observations from likelihood terms
     likelihoods = values(inference_prob.likelihoods)
     obs_mean = reduce(vcat, map(l -> vec(l.data), likelihoods))
-    obs_cov = alg.obs_cov(likelihoods...)
+    obs_cov = obs_cov_func(likelihoods...)
     n_ens = size(initial_ens, 2)
     # construct initial state
     state = initialstate(alg, model_prior, initial_ens, obs_mean, obs_cov; rng)

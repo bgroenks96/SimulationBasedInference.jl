@@ -23,7 +23,6 @@ Represents a proxy for the Ensemble Kalman Sampler implementation provided by `E
 """
 Base.@kwdef struct EKS <: EnsembleInferenceAlgorithm
     prior_approx::GaussianApproximationMethod = LaplaceMethod()
-    obs_cov::Function = obscov # obs covariance function
     maxiters::Int = 30
     minΔt::Float64 = 2.0
 end

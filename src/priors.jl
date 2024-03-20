@@ -63,6 +63,8 @@ Base.rand(rng::AbstractRNG, prior::PriorDistribution) = ComponentVector(map(dᵢ
 # Statistics
 
 Statistics.mean(prior::PriorDistribution) = map(mean, prior.dist)
+Statistics.median(prior::PriorDistribution) = map(median, prior.dist)
+Statistics.quantile(prior::PriorDistribution, q) = map(Base.Fix2(quantile, q), prior.dist)
 Statistics.var(prior::PriorDistribution) = map(var, prior.dist)
 Statistics.cov(prior::PriorDistribution) = map(cov, prior.dist)
 

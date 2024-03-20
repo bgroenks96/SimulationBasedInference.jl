@@ -20,7 +20,8 @@ obscov(likelihoods::SimulatorLikelihood...) = error("obscov not implemented for 
 # currently only diagonal covariances are supported
 function obscov(likelihoods::SimulatorLikelihood{<:Union{IsoNormal,DiagNormal}}...)
     cov_diags = map(likelihoods) do lik
-        return diag(cov(lik, first(mean(lik.prior))))
+        # choose median of prior as standard deviation
+        return diag(cov(lik, first(median(lik.prior))))
     end
     # concatenate all covariance matrices 
     return Diagonal(reduce(vcat, cov_diags))

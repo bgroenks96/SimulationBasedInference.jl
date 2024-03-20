@@ -6,9 +6,7 @@ Also sometimes referred to as a "particle batch smoother" (PBS) or
 "generalized likelihood uncertainty estimation" (GLUE) depending on
 the context.
 """
-Base.@kwdef struct EnIS <: EnsembleInferenceAlgorithm
-    obs_cov::Function = obscov # obs covariance function
-end
+Base.@kwdef struct EnIS <: EnsembleInferenceAlgorithm end
 
 """
 Alias for EnIS.

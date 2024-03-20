@@ -19,7 +19,7 @@ function Emulators.Emulator(
 )
     p, re = Flux.destructure(model)
     data_converted = EmulatorData(convert.(eltype(p), data.X), convert.(eltype(p), data.Y), data.static_inputs...)
-    return Emulator(data_converted, FluxModel(model, loss, optimizer, p, re); kwargs...)
+    return Emulator(data_converted, FluxModel(model, loss, optimizer); kwargs...)
 end
 
 function Emulators.fit!(m::FluxModel, X, Y, inputs...; epochs=10, verbose=false, kwargs...)
