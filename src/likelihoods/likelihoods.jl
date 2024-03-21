@@ -59,6 +59,9 @@ function SciMLBase.remaker_of(lik::SimulatorLikelihood{distType}) where {distTyp
     remake(; name=lik.name, obs=lik.obs, data=lik.data, prior=lik.prior) = SimulatorLikelihood(distType, obs, data, prior, name)
 end
 
+export GaussianLikelihood, IsotropicGaussianLikelihood, DiagonalGaussianLikelihood
 include("gaussian_likelihood.jl")
+
 include("gp_likelihood.jl")
+
 include("joint_prior.jl")

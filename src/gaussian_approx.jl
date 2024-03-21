@@ -37,7 +37,7 @@ function gaussian_approx(
     function nll(z)
         finv = inverse(bijector(prior))
         x = zero(x0) + finv(z)
-        -logprob(prior, x)
+        -logprob(prior, x) - logabsdetjac(finv, z)
     end
     constrained_to_unconstrained = bijector(prior)
     x0 = isnothing(x0) ? rand(rng, prior) : x0

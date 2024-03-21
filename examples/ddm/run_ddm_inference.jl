@@ -23,26 +23,27 @@ include("ddm.jl")
 include("data.jl")
 
 # Arbitrarily select "true" parameters and run forward model
-# p_true = [2.5, 0.65]
-# N_obs = 100
-# σ_true = 10.0
-# σ_prior = prior(:σ, LogNormal(log(σ_true), 1.0))
-# data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
+p_true = ComponentVector(a=2.5, b=0.65)
+N_obs = 100
+σ_true = 10.0
+σ_prior = prior(σ=LogNormal(log(σ_true), 1.0))
+data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
 
-σ_prior = prior(:σ, LogNormal(log(20.0), 1.0))
-data = load_ny_alesund_dataset(Date(2020,9,1), Date(2021,9,1); datadir)
+# σ_prior = prior(:σ, LogNormal(log(20.0), 1.0))
+# data = load_ny_alesund_dataset(Date(2020,9,1), Date(2021,9,1); datadir)
 
 # plot the data
-let fig = Makie.Figure(size=(900,500)),
+let fig = Makie.Figure(size=(1200,600)),
     xticks = (1:30:length(data.ts), Dates.format.(data.ts[1:30:end], "YYYY-mm")),
     ax1 = Makie.Axis(fig[1,1], xticks=xticks, ylabel="Water equivalent / mm"),
     ax2 = Makie.Axis(fig[2,1], xticks=xticks, ylabel="Temperature / °C");
     Makie.hidexdecorations!(ax1, ticklabels=true, grid=false, ticks=false)
     ax2.xticklabelrotation = π/4
     if haskey(data, :y_true)
-        lines = Makie.lines!(ax1, 1:length(data.ts), data.y_true[:,1], linewidth=2.0)
+        lines = Makie.lines!(ax1, 1:length(data.ts), data.y_true[:,1], linewidth=2.0, color=:gray)
+        lines_pr = Makie.lines!(ax1, 1:length(data.precip), cumsum(data.precip)./10, color=:blue)
         points = Makie.scatter!(ax1, data.idx, data.y_obs, color=:black)
-        Makie.axislegend(ax1, [lines, points], ["Ground truth", "Pseudo-obs"], position=:lt)
+        Makie.axislegend(ax1, [lines_pr, lines, points], ["Cumulative precip. x 0.1", "Ground truth", "Pseudo-obs"], position=:lt)
     else
         lines = Makie.lines!(ax1, 1:length(data.precip), cumsum(data.precip), color=:blue)
         points = Makie.scatter!(ax1, data.idx, data.y_obs, color=:black)
@@ -66,17 +67,18 @@ prior_dist = prior(
 # first we need a function of *only* the parameters
 function ddm_forward(ts, precip, Tair)
     ddm(θ) = DDM(ts, precip, Tair, θ...)
+    return ddm
 end
 
 forward_prob = SimulatorForwardProblem(
     ddm_forward(data.ts, data.precip, data.Tair),
-    rand(rng, prior_dist), # initial parameters, can be anything
+    ComponentVector(mean(prior_dist)), # initial parameters, can be anything
     y_obs_pred,
     y_pred,
 )
 
 # Define isotropic normal likelihood
-lik = SimulatorLikelihood(IsoNormal, y_obs_pred, data.y_obs, σ_prior)
+lik = IsotropicGaussianLikelihood(y_obs_pred, data.y_obs, σ_prior)
 
 # Construct inference problem
 inference_prob = SimulatorInferenceProblem(forward_prob, prior_dist, lik)
@@ -137,8 +139,8 @@ function plot_predictions!(ax, res, ts, color; hdi_prob=0.90)
 end
 
 # Solve with EnIS
-# enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), n_ens=256, verbose=false, rng=rng);
-# enis_res = summarize_ensemble(enis_sol)
+enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
+enis_res = summarize_ensemble(enis_sol)
 
 # Solve inference problem with EKS
 eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
@@ -150,6 +152,7 @@ esmda_res = summarize_ensemble(esmda_sol)
 
 hmc_sol = @time solve(inference_prob, MCMC(NUTS(), nsamples=2000));
 hmc_res = summarize_markov_chain(hmc_sol)
+hmc_sol.result
 
 snpe_sol = @time solve(inference_prob, PySNPE(), num_simulations=5000);
 snpe_res = summarize_snpe(snpe_sol)
@@ -181,7 +184,7 @@ let fig = Makie.Figure(size=(800,600)),
     d3, _ = plot_density!(ax, snpe_res, 2, :green, offset=5.0)
     d4, _ = plot_density!(ax, hmc_res, 2, :gray)
     if haskey(data, :y_true)
-        vt = Makie.vlines!([p_true[1]], color=:black, linestyle=:dash)
+        vt = Makie.vlines!([p_true[2]], color=:black, linestyle=:dash)
         Makie.axislegend(ax, [d1,d2,d3,d4,vt], ["EKS", "ES-MDA", "SNPE", "HMC", "True value"])
     else
         Makie.axislegend(ax, [d1,d2,d3,d4], ["EKS", "ES-MDA", "SNPE", "HMC"])

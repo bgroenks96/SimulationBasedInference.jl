@@ -24,10 +24,11 @@ function generate_synthetic_dataset(N_obs::Int, σ_true::Real, p_true::AbstractV
     idx = sort(sample(rng, 1:length(ts), N_obs, replace=false))
     # add noise ϵ ~ N(0,10) to get synthetic observation data
     y_obs = max.(y_true[idx] .+ randn(rng, length(idx)).*σ_true, 0.0)
-    return (; ts, Tair, precip, y_obs, idx, y_true)
+    # y_obs = y_true[idx] .+ randn(rng, length(idx)).*σ_true
+    return (; ts, Tair, precip, y_obs, idx, y_true, name="synthetic")
 end
 
-function load_ny_alesund_dataset(t1::Date, t2::Date; precip=:pluvio, datadir="data/")
+function load_ny_alesund_dataset(t1::Date, t2::Date; precip_dataset=:pluvio, datadir="data/")
     @assert t2 > t1
     Tair_df = filter(
         row -> t1 <= row.date <= t2,
@@ -48,7 +49,7 @@ function load_ny_alesund_dataset(t1::Date, t2::Date; precip=:pluvio, datadir="da
     @assert length(precip) == length(ts)
     idx = findall(.!ismissing.(swe_df.SWE_K))
     y_obs = collect(skipmissing(swe_df.SWE_K[idx]))
-    return (; ts, Tair, precip, y_obs, idx)
+    return (; ts, Tair, precip, y_obs, idx, name="ny_alesund_$precip_dataset")
 end
 
 function load_bayelva_air_temp_daily(years=[2019,2020,2021,2022], var=:Tair_200; datadir="data/")
