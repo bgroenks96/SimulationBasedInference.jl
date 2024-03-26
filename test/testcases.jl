@@ -44,7 +44,7 @@ function linear_ode(
     ode_p = ComponentArray(α=α_true)
     odeprob = ODEProblem((u,p,t) -> -p[1]*u, [1.0], (0.0,1.0), ode_p)
     # observable extracts state from integrator
-    observable = SimulatorObservable(:obs, integrator -> integrator.u, 0.0, 0.1:0.1:1.0, samplerate=0.01)
+    observable = SimulatorObservable(:obs, integrator -> integrator.u, 0.0, 0.1:0.1:1.0, size(odeprob.u0), samplerate=0.01)
     # specify forward problem
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     # generate "true" solution

@@ -184,7 +184,7 @@ function SimulatorObservable(
 end
 
 """
-    sampletimes(::DynamicSimulatorObservable)
+    sampletimes(::TimeSampledObservable)
 
 Return the time points at which the simulator should be sampled in order to compare to
 observations. Note that this may not exactly correspond to the observation time points;
@@ -195,15 +195,22 @@ responsible for computing and storing the model state at each sample time.
 sampletimes(obs::TimeSampledObservable) = obs.output.tsample
 
 """
-    savetimes(::DynamicSimulatorObservable)
+    savetimes(::TimeSampledObservable)
 
 Return the time points at which simulator outputs will be saved.
 """
 savetimes(obs::TimeSampledObservable) = obs.output.tsave
 
+
+"""
+    initialize!(obs::TimeSampledObservable, state)
+
+Initialize the given time-sampled observable with the initial simulator state. Note that this method
+checks whether the output of `obsfunc` actually matches the declared size `size(obs)` and will error
+if they do not match.
+"""
 function initialize!(obs::TimeSampledObservable, state)
-    Y = reshape(collect(obs.obsfunc(state)), size(obs)[1:end-1])
-    @assert isa(Y, AbstractVector) || isa(Y, Number) "output of observable function must be a scalar or a vector!"
+    Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
     obs.output.buffer = typeof(Y)[]
     obs.output.output = Vector{typeof(Y)}(undef, length(obs.output.tsave))
     obs.output.sampleidx = 1
@@ -222,7 +229,7 @@ function observe!(obs::TimeSampledObservable, state)
         resize!(obs.output.buffer, 0)
     end
     # get observable vector at current state
-    Y_t = reshape(collect(obs.obsfunc(state)), size(obs)[1:end-1])
+    Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
     push!(obs.output.buffer, Y_t)
     # update cached time
     obs.output.sampleidx += 1
@@ -245,3 +252,7 @@ function setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:Abstract
 end
 
 unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.output)), length(obs.output.output))
+
+_coerce(output::AbstractVector, shape::Dims) = reshape(output, shape)
+_coerce(output::Number, ::Tuple{}) = [output] # lift to single element vector
+_coerce(output, shape) = error("output of observable function must be a scalar or a vector! expected: $(shape), got $(typeof(output)) with $(size(output))")

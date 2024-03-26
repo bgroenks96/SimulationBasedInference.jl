@@ -13,7 +13,7 @@ end
 end
 
 @testset "Ensembles" begin
-    include("Ensembles/runtests.jl")
+    include("ensembles/runtests.jl")
 end
 
 @testset "Emulators" begin

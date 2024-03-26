@@ -41,7 +41,7 @@ function initialstate(
     kwargs...
 )
     unconstrained_prior = gaussian_approx(eks.prior_approx, prior; rng)
-    sampler = Sampler(mean(unconstrained_prior), cov(unconstrained_prior))
+    sampler = Sampler(collect(mean(unconstrained_prior)), cov(unconstrained_prior))
     ekp = EnsembleKalmanProcess(ens, obs, Matrix(obs_cov), sampler; rng, kwargs...)
     return EKPState(ekp, 0, [], [])
 end

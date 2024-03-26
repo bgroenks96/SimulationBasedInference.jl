@@ -4,8 +4,8 @@ using Dates
 using Test
 
 @testset "Transient" begin
-    obs = SimulatorObservable(:obs)
     state = [0.0]
+    obs = SimulatorObservable(:obs, identity, size(state))
     SimulationBasedInference.initialize!(obs, state)
     @test obs.output.state == state
     SimulationBasedInference.observe!(obs, state)
@@ -26,7 +26,7 @@ end
     savepoints = t0+Day(1):Day(1):DateTime(2001,1,1)
     # case 1: scalar state
     state = (x = 0.0,)
-    buffered_observable = SimulatorObservable(:testobs, obsfunc, t0, savepoints; samplerate=Hour(1))
+    buffered_observable = SimulatorObservable(:testobs, obsfunc, t0, savepoints, size(state.x); samplerate=Hour(1))
     @test buffered_observable.output.tsave == collect(savepoints)
     @test all(diff(buffered_observable.output.tsample) .== Hour(1))
     SimulationBasedInference.initialize!(buffered_observable, state)
