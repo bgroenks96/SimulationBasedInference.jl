@@ -179,7 +179,7 @@ function SimulatorObservable(
         name,
         obsfunc,
         TimeSampled(t0, tsave; reducer, samplerate),
-        (coordinates(coords)..., tsave),
+        (coordinates(coords)..., Ti(tsave)),
     )
 end
 
