@@ -23,14 +23,14 @@ include("ddm.jl")
 include("data.jl")
 
 # Arbitrarily select "true" parameters and run forward model
-p_true = ComponentVector(a=2.5, b=0.65)
-N_obs = 100
-σ_true = 10.0
-σ_prior = prior(σ=LogNormal(log(σ_true), 1.0))
-data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
+# p_true = ComponentVector(a=2.5, b=0.65)
+# N_obs = 100
+# σ_true = 10.0
+# σ_prior = prior(σ=LogNormal(log(σ_true), 1.0))
+# data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
 
-# σ_prior = prior(:σ, LogNormal(log(20.0), 1.0))
-# data = load_ny_alesund_dataset(Date(2020,9,1), Date(2021,9,1); datadir)
+σ_prior = prior(:σ, LogNormal(log(20.0), 1.0))
+data = load_ny_alesund_dataset(Date(2020,9,1), Date(2021,9,1); datadir)
 
 # plot the data
 let fig = Makie.Figure(size=(1200,600)),
@@ -59,8 +59,8 @@ y_pred = SimulatorObservable(:y, state -> state.u[:,1], (Ti(data.ts),))
 
 # Define simple prior
 prior_dist = prior(
-    a = LogNormal(0,2),
-    b = LogNormal(0,2),
+    a = LogNormal(0,1.5),
+    b = LogNormal(0,1.5),
 )
 
 # Construct forward problem;
@@ -143,7 +143,7 @@ enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), n_ens=512, verbose=f
 enis_res = summarize_ensemble(enis_sol)
 
 # Solve inference problem with EKS
-eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
+eks_sol = @time solve(inference_prob, EKS(maxiters=10), EnsembleThreads(), n_ens=512, verbose=false, rng=rng);
 eks_res = summarize_ensemble(eks_sol)
 
 # Solve with ESMDA
@@ -154,7 +154,7 @@ hmc_sol = @time solve(inference_prob, MCMC(NUTS(), nsamples=2000));
 hmc_res = summarize_markov_chain(hmc_sol)
 hmc_sol.result
 
-snpe_sol = @time solve(inference_prob, PySNPE(), num_simulations=5000);
+snpe_sol = @time solve(inference_prob, PySNPE(), num_simulations=5120);
 snpe_res = summarize_snpe(snpe_sol)
 
 plotsdir = mkpath(joinpath(@__DIR__, "plots"))
