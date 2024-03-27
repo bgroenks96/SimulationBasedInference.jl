@@ -45,8 +45,8 @@ end
 function ensemblestep!(solver::EnsembleSolver{<:EnIS})
     sol = solver.sol
     state = solver.state
-    # parameter mapping (model parameters only)
-    param_map = ParameterTransform(sol.prob.prior.model)
+    # model parameter forward map
+    param_map = unconstrained_forward_map(sol.prob.prior.model)
     # generate ensemble predictions
     out = ensemble_solve(
         state,

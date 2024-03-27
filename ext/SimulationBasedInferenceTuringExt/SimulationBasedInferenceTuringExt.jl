@@ -12,8 +12,6 @@ using DiffEqBase
 using Random
 using StatsBase
 
-include("utils.jl")
-
 export TuringPrior
 include("turing_prior.jl")
 

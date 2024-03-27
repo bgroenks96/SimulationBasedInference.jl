@@ -20,13 +20,15 @@ function (prior::TuringPrior)(θ::AbstractVector{T}) where {T}
     varinfo = Turing.DynamicPPL.VarInfo(prior.model);
     context = prior.model.context;
     new_vi = Turing.DynamicPPL.unflatten(varinfo, context, θ);
-    p = first(Turing.DynamicPPL.evaluate!!(prior.model, new_vi, context))
-    ϕ = similar(p, T)
-    copyto!(ϕ, p)
-    return ϕ
+    pvec = first(Turing.DynamicPPL.evaluate!!(prior.model, new_vi, context))
+    p = similar(pvec, T)
+    copyto!(p, pvec)
+    return p
 end
 
 SimulationBasedInference.prior(model::Turing.Model) = TuringPrior(model)
+
+SimulationBasedInference.forward_map(prior::TuringPrior, θ::AbstractVector) = prior(θ)
 
 SimulationBasedInference.logprob(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
 function SimulationBasedInference.logprob(prior::TuringPrior, θ::AbstractVector)
@@ -40,11 +42,15 @@ function SimulationBasedInference.logprob(prior::TuringPrior, θ::AbstractVector
     return Turing.logprior(prior.model, new_vi)
 end
 
-SimulationBasedInference.ParameterTransform(prior::TuringPrior) = ParameterTransform(prior.model)
-
 # mandatory sampling dispatches
 Base.rand(rng::AbstractRNG, prior::TuringPrior) = ComponentArray(rand(rng, prior.model))
 
 StatsBase.sample(rng::AbstractRNG, prior::TuringPrior, n::Int, args...; kwargs...) = [rand(rng, prior) for i in 1:n]
 
 Bijectors.bijector(prior::TuringPrior) = bijector(prior.model)
+
+function extract_parameter_names(m::Turing.Model)
+    # sample chain to extract param names
+    chain = sample(m, Prior(), 1, progress=false, verbose=false)
+    return chain.name_map.parameters
+end

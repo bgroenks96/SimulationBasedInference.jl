@@ -84,12 +84,14 @@ Finalizes the solver state after iteration has completed. Default implementation
 on the current ensemble state and pushes the results to `sol.outputs`.
 """
 function finalize!(solver::EnsembleSolver)
+    # model parameter forward map
+    param_map = unconstrained_forward_map(solver.sol.prob.prior.model)
     out = ensemble_solve(
         solver.state,
         solver.sol.prob.forward_prob,
         solver.ensalg,
         solver.sol.prob.forward_solver,
-        ParameterTransform(solver.sol.prob.prior.model);
+        param_map;
         prob_func=solver.prob_func,
         output_func=solver.output_func,
         pred_func=solver.pred_func,
@@ -207,7 +209,7 @@ end
         initial_prob::SciMLBase.AbstractSciMLProblem,
         ensalg::SciMLBase.BasicEnsembleAlgorithm,
         dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
-        param_map::ParameterTransform,
+        param_map,
         prob_func,
         output_func,
         pred_func;
@@ -223,7 +225,7 @@ function ensemble_solve(
     initial_prob::SciMLBase.AbstractSciMLProblem,
     ensalg::SciMLBase.BasicEnsembleAlgorithm,
     dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
-    param_map::ParameterTransform;
+    param_map;
     iter::Integer=1,
     prob_func=(prob,p) -> remake(prob, p=p),
     output_func=(sol,i,iter) -> (sol, false),

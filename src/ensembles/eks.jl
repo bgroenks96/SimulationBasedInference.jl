@@ -53,8 +53,8 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     ekp = state.ekp
     solver.verbose && @info "Starting iteration $(state.iter) (maxiters=$(alg.maxiters))"
     Θ = get_u_final(ekp)
-    # parameter mapping (model parameters only)
-    param_map = ParameterTransform(sol.prob.prior.model)
+    # model parameter forward map
+    param_map = unconstrained_forward_map(sol.prob.prior.model)
     # generate ensemble predictions
     out = ensemble_solve(
         state,

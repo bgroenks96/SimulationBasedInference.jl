@@ -12,6 +12,43 @@ function prior end
 
 logprob(prior::AbstractPrior, x) = error("logprob not implemented for prior of type $(typeof(prior))")
 
+"""
+    forward_map(prior::AbstractPrior, x)
+
+Applies the forward map from the sample space of the prior to the parameter space of the
+forward model (simulator). Note that this mapping need not necessarily be bijective in the
+case of hierarchical or reparamterized formulations of the model parameter prior.
+Defaults to returning `identity(x)`.
+"""
+forward_map(::AbstractPrior, x) = identity(x)
+
+function forward_map(prior::AbstractPrior)
+    function(ζ)
+        forward_map(prior, ζ)
+    end
+end
+
+"""
+    unconstrained_forward_map(prior::AbstractPrior, ζ)
+
+Applies the forward map from unconstrained to forward model parameter `(g ∘ f): Ζ ↦ Θ ↦ Φ`
+where `f⁻¹` is the inverse bijector of `prior` (i.e. mapping from unconstrained Ζ to constrained Θ space)
+and `g` is defined by `forward_map` which maps from Θ to the parameter space of the forward model, Φ.
+"""
+function unconstrained_forward_map(prior::AbstractPrior, ζ)
+    f⁻¹ = inverse(bijector(prior))
+    g = forward_map(prior)
+    return g(f⁻¹(ζ))
+end
+
+function unconstrained_forward_map(prior::AbstractPrior)
+    function(ζ)
+        unconstrained_forward_map(prior, ζ)
+    end
+end
+
+# External dispatches
+
 Base.names(prior::AbstractPrior) = error("names not implemented")
 
 StatsBase.sample(prior::AbstractPrior, args...; kwargs...) = sample(Random.default_rng(), prior, args...; kwargs...)
@@ -22,9 +59,6 @@ Base.rand(rng::AbstractRNG, prior::AbstractPrior) = error("rand not implemented 
 Base.rand(rng::AbstractRNG, prior::AbstractPrior, n::Integer) = [rand(rng, prior) for i in 1:n]
 Base.rand(prior::AbstractPrior) = rand(Random.default_rng(), prior)
 Base.rand(prior::AbstractPrior, n::Integer) = rand(Random.default_rng(), prior, n)
-
-# note that Bijectors.jl maps constrained -> unconstrained, so we need to take the inverse here
-ParameterTransform(prior::AbstractPrior) = ParameterTransform(inverse(bijector(prior)))
 
 # Simple implementation for Distributions.jl types
 

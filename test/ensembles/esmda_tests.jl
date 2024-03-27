@@ -28,7 +28,8 @@ end
     b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
     rng = Random.MersenneTwister(1234)
     testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
-    param_map = ParameterTransform(testprob.prior.model)
+    # model parameter forward map
+    param_map = unconstrained_forward_map(testprob.prior.model)
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     # sample initial ensemble from model prior (excluding likelihood parameters)

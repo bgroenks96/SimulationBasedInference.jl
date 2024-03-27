@@ -39,7 +39,6 @@ import LogDensityProblems: logdensity
 export LogDensityProblems, logdensity
 
 export SimulatorInferenceAlgorithm
-export logprob
 
 """
 Base type for all simulator-based inference algorithms.
@@ -78,11 +77,8 @@ export SimulatorObservable
 export observe!, retrieve, coordinates
 include("observables.jl")
 
-export ParameterTransform
-include("param_map.jl")
-
 export AbstractPrior, PriorDistribution
-export prior
+export prior, logprob, forward_map, unconstrained_forward_map
 include("priors.jl")
 
 export GaussianApproximationMethod, EmpiricalGaussian, LaplaceMethod

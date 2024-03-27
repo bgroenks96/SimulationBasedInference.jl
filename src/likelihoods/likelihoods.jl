@@ -29,9 +29,9 @@ end
 
 Base.nameof(l::SimulatorLikelihood) = l.name
 
-getobservable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
+observable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
 
-getprior(lik::SimulatorLikelihood) = lik.prior
+prior(lik::SimulatorLikelihood) = lik.prior
 
 """
     predictive_distribution(lik::SimulatorLikelihood, args...)

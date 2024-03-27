@@ -72,10 +72,11 @@ function Base.getproperty(prob::SimulatorInferenceProblem, sym::Symbol)
     return getproperty(getfield(prob, :forward_prob), sym)
 end
 
-function forward_eval!(inference_prob::SimulatorInferenceProblem, p; solve_kwargs...)
-    solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=p.model, solve_kwargs...)
+function forward_eval!(inference_prob::SimulatorInferenceProblem, θ::ComponentVector; solve_kwargs...)
+    ζ = forward_map(inference_prob.prior, θ)
+    solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=ζ.model, solve_kwargs...)
     solve!(solver)
-    loglik = sum(map(l -> loglikelihood(l, getproperty(p, nameof(l))), inference_prob.likelihoods), init=0.0)
+    loglik = sum(map(l -> loglikelihood(l, getproperty(ζ, nameof(l))), inference_prob.likelihoods), init=0.0)
     return loglik
 end
 
@@ -97,22 +98,23 @@ function logjoint(
     logprior = zero(eltype(u))
     # transform from unconstrained space if necessary
     if transform
-        b⁻¹ = inverse(bijector(inference_prob.prior))
-        ϕ = zero(uvec) + b⁻¹(uvec)
+        f = inverse(bijector(inference_prob))
+        ϕvec = f(uvec)
+        θ = zero(uvec) + ϕvec
         # add density change due to transform
-        logprior += logabsdetjac(b⁻¹, uvec)
+        logprior += logabsdetjac(f, uvec)
     else
-        ϕ = uvec
+        θ = uvec
     end
-    logprior += logprob(inference_prob.prior, ϕ)
+    logprior += logprob(inference_prob.prior, θ)
     # solve forward problem;
     loglik = if forward_solve
-        forward_eval!(inference_prob, ϕ; solve_kwargs...)
+        forward_eval!(inference_prob, θ; solve_kwargs...)
     else
         # check that parameters match
-        @assert all(ϕ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameter"
+        @assert all(θ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameters"
         # evaluate log likelihood
-        sum(map(l -> loglikelihood(l, getproperty(ϕ, nameof(l))), inference_prob.likelihoods), init=0.0)
+        sum(map(l -> loglikelihood(l, getproperty(θ, nameof(l))), inference_prob.likelihoods), init=0.0)
     end
     return (; loglik, logprior)
 end
