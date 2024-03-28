@@ -1,16 +1,16 @@
 #### Inverse/inference problems ####
 
 """
-    SimulatorInferenceProblem{priorType<:JointPrior,uType,solverType,likType} <: SciMLBase.AbstractSciMLProblem
+    SimulatorInferenceProblem{modelPriorType<:AbstractPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
 
 Represents a generic simulation-based Bayesian inference problem for finding the posterior distribution over model parameters given some observed data.
 """
-struct SimulatorInferenceProblem{priorType<:JointPrior,uType,solverType,likType} <: SciMLBase.AbstractSciMLProblem
+struct SimulatorInferenceProblem{modelPriorType<:AbstractPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
     u0::uType
     forward_prob::SimulatorForwardProblem
     forward_solver::solverType
-    prior::priorType
-    likelihoods::likType
+    prior::JointPrior{modelPriorType}
+    likelihoods::NamedTuple
     metadata::Dict
 end
 
@@ -62,7 +62,7 @@ function SciMLBase.remaker_of(prob::SimulatorInferenceProblem)
     end
 end
 
-Base.names(::SimulatorInferenceProblem{TP,TL,TD,names}) where {TP,TL,TD,names} = names
+Base.names(prob::SimulatorInferenceProblem) = keys(prob.likelihoods)
 
 Base.propertynames(prob::SimulatorInferenceProblem) = (fieldnames(typeof(prob))..., propertynames(getfield(prob, :forward_prob))...)
 function Base.getproperty(prob::SimulatorInferenceProblem, sym::Symbol)

@@ -20,7 +20,7 @@ Specialized integrator type that wraps a SciML ODE integrator and controls the s
 mutable struct SimulatorODEForwardSolver{algType,uType,tType,iip,integratorType<:AbstractODEIntegrator{algType,iip,uType,tType}} <: AbstractODEIntegrator{algType,true,uType,tType}
     prob::SimulatorForwardProblem
     integrator::integratorType
-    tstops::Vector{tType}
+    tstops::Vector
     step_idx::Int
 end
 

@@ -83,6 +83,9 @@ function from_moments(::Type{Gamma}, mean, stddev)
     return Gamma(α, θ)
 end
 
+adstrip(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+adstrip(x::Number) = x
+
 # This is type piracy but nice to make Distributions implement log-density interface;
 # TODO: consider creating an issue on LogDensityProblems or Distributions?
 """
