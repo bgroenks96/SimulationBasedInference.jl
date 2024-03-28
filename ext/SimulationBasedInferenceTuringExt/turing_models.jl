@@ -5,9 +5,11 @@ SimulationBasedInference.MCMC(alg::Turing.InferenceAlgorithm, strat; kwargs...) 
 function SimulationBasedInference.MCMC(
     alg::Turing.InferenceAlgorithm,
     strat::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-    kwargs...
+    nsamples=1000,
+    nchains=2,
+    kwargs...,
 )
-    return MCMC(alg, strat; kwargs...)
+    return MCMC(alg, strat, nsamples, nchains, (; kwargs...))
 end
 
 function CommonSolve.solve(prob::SimulatorInferenceProblem, mcmc::MCMC{<:Turing.InferenceAlgorithm}; kwargs...)
