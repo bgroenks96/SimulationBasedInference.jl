@@ -211,8 +211,8 @@ if they do not match.
 """
 function initialize!(obs::TimeSampledObservable, state)
     Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    obs.output.buffer = typeof(Y)[]
-    obs.output.output = Vector{typeof(Y)}(undef, length(obs.output.tsave))
+    obs.output.buffer = []
+    obs.output.output = []
     obs.output.sampleidx = 1
     return nothing
 end
@@ -224,7 +224,7 @@ function observe!(obs::TimeSampledObservable, state)
     idx = searchsorted(obs.output.tsave, t)
     # if t ∈ save points, compute and store reduced output
     if first(idx) == last(idx) && length(obs.output.buffer) > 0
-        obs.output.output[first(idx)] = obs.output.reducer(obs.output.buffer)
+        push!(obs.output.output, obs.output.reducer(obs.output.buffer))
         # empty buffer
         resize!(obs.output.buffer, 0)
     end

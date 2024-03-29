@@ -1,19 +1,8 @@
+using Distributed
+
 # python interop
 using PythonCall
-
-# inference/statistics packages
-using ArviZ
-using DynamicHMC
-using SimulationBasedInference
 using SimulationBasedInference.PySBI
-using Statistics
-using Turing
-
-# utility
-using Dates
-using Impute
-using Rasters, NCDatasets
-using Unitful
 
 # plotting
 import CairoMakie as Makie
@@ -26,8 +15,29 @@ const rng = Random.MersenneTwister(1234)
 
 const datadir = joinpath("examples", "data", "Tsurf")
 
+addprocs(Int(length(Sys.cpu_info()) // 2))
+
+@everywhere begin
+
+# inference/statistics packages
+using ArviZ
+using SimulationBasedInference
+using Statistics
+using Turing
+
+# diffeq
+using OrdinaryDiffEq
+
+# utility
+using Dates
+using Impute
+using Rasters, NCDatasets
+using Unitful
+
 include("forward_model.jl")
 include("inverse_model.jl")
+
+end
 
 function load_borehole_dataset(filename::String)
     # load NetCDF file
@@ -71,19 +81,24 @@ forward_prob = set_up_Tsurf_forward_problem(
     tspan,
     t_knots,
     obs_depths,
+    saveat=[],
 );
 
 target_profile = collect(skipmissing(Ts_profile_target.data[:,1]))
 inference_prob = set_up_Tsurf_inference_problem(forward_prob, CGEuler(), t_knots, target_profile, obs_depths)
 
 θ₀ = sample(inference_prob.prior)
-p0 = SBI.forward_map(inference_prob.prior, θ₀)
-loglik = SBI.forward_eval!(inference_prob, p0)
-
+loglik = @time SBI.forward_eval!(inference_prob, θ₀)
 T_ub = retrieve(inference_prob.observables.T_ub)
+Ts_out = retrieve(inference_prob.observables.Ts)
 Makie.lines(T_ub)
+Makie.lines(Ts_out[2,:])
 
-integrator = init(remake(forward_prob.prob, p=inference_prob.prior.model(p0.model)), CGEuler())
-step!(integrator, 24*3600*365)
+# ζ = bijector(inference_prob)(θ₀)
+# ForwardDiff.gradient(x -> logdensity(inference_prob, x, dt=600.0), ζ)
+# hmc_solver = init(inference_prob, MCMC(NUTS(), nsamples=100))
+# step!(hmc_solver)
 
-# sol = @time solve(forward_prob, CGEuler());
+eks_sol = solve(inference_prob, EKS(), EnsembleDistributed(), n_ens=128)
+
+esmda_sol = solve(inference_prob, ESMDA(), EnsembleDistributed(), n_ens=128)

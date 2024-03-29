@@ -2,10 +2,12 @@ using Turing
 
 @model function priormodel_Tsurf_with_amplitude(
     ts::AbstractVector,
-    p::ComponentVector,
+    p0::ComponentVector,
     ::Type{T}=Float64;
     amp_scale=20.0,
 ) where {T}
+    p = similar(p0, T)
+    p .= zero(p) .+ p0
     N = length(ts) - 1
     μ₀ ~ Normal(-10.0, 2.0)
     T₀_offset ~ Normal(0.0, 1.0)

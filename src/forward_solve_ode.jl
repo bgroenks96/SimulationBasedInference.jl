@@ -76,7 +76,7 @@ function CommonSolve.init(
     for obs in newprob.observables
         initialize!(obs, integrator)
     end
-    return SimulatorODEForwardSolver(newprob, integrator, t_points, 1)
+    return SimulatorODEForwardSolver(newprob, integrator, adstrip.(t_points), 1)
 end
 
 function CommonSolve.step!(forward::SimulatorODEForwardSolver)
@@ -87,7 +87,7 @@ function CommonSolve.step!(forward::SimulatorODEForwardSolver)
     prob = forward.prob
     integrator = forward.integrator
     t = forward.tstops[forward.step_idx]
-    dt = t - integrator.t
+    dt = adstrip(t - integrator.t)
     if dt > 0
         # step to next t if dt > 0
         step!(integrator, dt, true)
