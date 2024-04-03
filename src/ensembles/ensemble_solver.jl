@@ -125,7 +125,7 @@ function CommonSolve.init(
     n_ens::Integer=128,
     initial_ens=nothing,
     itercallback=state -> true,
-    cache=SimulationArrayStorage(),
+    storage=SimulationArrayStorage(),
     verbose=true,
     rng=Random.default_rng(),
     solve_kwargs...
@@ -147,7 +147,7 @@ function CommonSolve.init(
     n_ens = size(initial_ens, 2)
     # construct initial state
     state = initialstate(alg, model_prior, initial_ens, obs_mean, obs_cov; rng)
-    inference_sol = SimulatorInferenceSolution(inference_prob, alg, cache, nothing)
+    inference_sol = SimulatorInferenceSolution(inference_prob, alg, storage, nothing)
     return EnsembleSolver(
         inference_sol,
         alg,
@@ -250,9 +250,9 @@ function ensemble_solve(
 end
 ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(get_ensemble(state), args...; iter=state.iter, kwargs...)
 
-function default_pred_func(prob::SimulatorInferenceProblem)
+function default_pred_func(prob::SimulatorInferenceProblem; verify_return_code=false)
     function predict_likelihoods(sol::SimulatorForwardSolution, i, iter)
-        if isa(sol.sol, SciMLBase.AbstractSciMLSolution)
+        if isa(sol.sol, SciMLBase.AbstractSciMLSolution) && verify_return_code
             # check forward solver return code
             @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
         end
@@ -262,9 +262,9 @@ function default_pred_func(prob::SimulatorInferenceProblem)
     end
 end
 
-function default_pred_func(::SimulatorForwardProblem)
+function default_pred_func(::SimulatorForwardProblem; verify_return_code=false)
     function predict_likelihoods(sol::SimulatorForwardSolution, i, iter)
-        if isa(sol.sol, SciMLBase.AbstractSciMLSolution)
+        if isa(sol.sol, SciMLBase.AbstractSciMLSolution) && verify_return_code
             # check forward solver return code
             @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
         end

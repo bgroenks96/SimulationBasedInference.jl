@@ -210,7 +210,7 @@ checks whether the output of `obsfunc` actually matches the declared size `size(
 if they do not match.
 """
 function initialize!(obs::TimeSampledObservable, state)
-    Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
+    # Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
     obs.output.buffer = []
     obs.output.output = []
     obs.output.sampleidx = 1
@@ -244,10 +244,12 @@ function retrieve(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
 end
 
 function setvalue!(obs::TimeSampledObservable, values::AbstractMatrix)
+    obs.output.buffer = []
     obs.output.output = collect(eachcol(values))
 end
 
 function setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector})
+    obs.output.buffer = []
     obs.output.output = values
 end
 

@@ -68,13 +68,57 @@ function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInfe
     return reduce(hcat, map(inverse_transform, ens))
 end
 
+"""
+    get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+
+Returns a `NamedTuple` of concatenated observables at iteration `iter`.
+"""
 function get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
     # find indices matching iteration
     inds = iterationindices(sol.storage, sol.alg, iter)
     # retrieve ensemble from storage
     out = getoutputs(sol.storage, inds)
     # reduce over named tuples, concatenating each observable
-    return reduce(out) do acc, outᵢ
-        (; map(k -> k => hcat(acc[k], outᵢ[k]), keys(acc))...)
+    return ntreduce(hcat, convert(Vector{NamedTuple}, out))
+end
+
+function sample_ensemble_predictive(
+    sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm},
+    new_storage::SimulationData=SimulationArrayStorage();
+    rng::Random.AbstractRNG=Random.default_rng(),
+)
+    likelihoods = sol.prob.likelihoods
+    prior = sol.prob.prior
+    for (x, y, meta) in sol.storage
+        x_lik = map(keys(prior.lik)) do nm
+            lik_prior = prior.lik[nm]
+            bij = bijector(lik_prior)
+            # sample from likelihood parameter prior in constrained space
+            x_lik = rand(rng, lik_prior)
+            # and map to unconstrained space
+            nm => bij(x_lik)
+        end
+        x_lik = (; x_lik...)
+        y_obs = map(keys(prior.lik)) do nm
+            lik_prior = prior.lik[nm]
+            # get inverse bijector to map back to constrained parameter space
+            bij = inverse(bijector(lik_prior))
+            lik = likelihoods[nm]
+            setvalue!(lik.obs, reshape(y[nm], size(lik.obs)))
+            y_dist = predictive_distribution(lik, bij(x_lik[nm])...)
+            nm => rand(rng, y_dist)
+        end
+        y_obs = (; y_obs...)
+        x_new = vcat(x, reduce(vcat, x_lik))
+        store!(new_storage, x_new, y_obs; meta...)
     end
+    return new_storage
+end
+
+function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, args...; iter=-1, kwargs...)
+    ens = get_transformed_ensemble(sol, iter)
+    # transpose to get N x k where N is the number of ensemble members (samples)
+    ens_transpose = transpose(ens)
+    # add extra "chain" dimension (here just set to one) and pass to summarize
+    return PosteriorStats.summarize(reshape(ens_transpose, size(ens_transpose, 1), 1, size(ens_transpose, 2)), args...; kwargs...)
 end

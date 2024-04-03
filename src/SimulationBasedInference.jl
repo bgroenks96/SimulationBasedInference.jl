@@ -24,6 +24,7 @@ using UnPack
 @reexport using ComponentArrays
 @reexport using DimensionalData: Dimension, Dim, DimArray, X, Y, Z, Ti
 @reexport using Distributions
+@reexport using PosteriorStats: PosteriorStats, summarize
 @reexport using SciMLBase
 @reexport using StatsBase
 @reexport using StatsFuns

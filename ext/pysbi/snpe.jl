@@ -52,7 +52,7 @@ function CommonSolve.step!(solver::PySBISolver{PySNPE})
         Θ, Y = sbi.inference.simulate_for_sbi(solver.simulator; proposal=solver.prior, solver.simulate_kwargs...)
         solver.inference.append_simulations(Θ, Y)
         solver.data = SimulationArrayStorage()
-        store!(solver.data, pyconvert(Matrix, Θ), collect(eachrow(pyconvert(Matrix, Y))))
+        store!(solver.data, transpose(pyconvert(Matrix, Θ)), collect(eachrow(pyconvert(Matrix, Y))))
         return true
     # step 2: train density estimator
     elseif ismissing(solver.estimator)

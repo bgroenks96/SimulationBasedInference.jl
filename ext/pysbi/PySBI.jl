@@ -36,14 +36,15 @@ mutable struct PySBISolver{algType<:PySBIAlgorithm}
 end
 
 function pysimulator(inference_prob::SimulatorInferenceProblem, transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
-    function simulator(θ)
-        p = zero(inference_prob.u0) + transform(pyconvert(T, θ))
-        solve(inference_prob.forward_prob, inference_prob.forward_solver, p=p.model)
+    function simulator(ζ)
+        θ = zero(inference_prob.u0) + transform(pyconvert(T, ζ))
+        ϕ = SBI.forward_map(inference_prob.prior, θ)
+        solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
         obs_vecs = map(inference_prob.likelihoods) do lik
-            dist = SBI.predictive_distribution(lik, p[nameof(lik)])
+            dist = SBI.predictive_distribution(lik, ϕ[nameof(lik)])
             rand(rng, dist)
         end
-        return reduce(vcat, obs_vecs)
+        return Py(reduce(vcat, obs_vecs)).to_numpy()
     end
 end
 
@@ -71,12 +72,38 @@ function CommonSolve.init(
     pysim = pysimulator(inference_prob, transform, T; rng)
     prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, pyprior)
     inference_alg = alg()
-    # append_simulations!(inference_alg, inference_prob, data)
     return PySBISolver(
         inference_prob,
         alg,
         (; num_simulations, num_workers),
         missing,
+        prepared_prior,
+        prepared_sim,
+        inference_alg,
+        missing,
+        missing
+    )
+end
+
+function CommonSolve.init(
+    inference_prob::SimulatorInferenceProblem,
+    alg::PySBIAlgorithm,
+    data::SimulationData,
+    param_type::Type{T} = Vector;
+    transform = inverse(bijector(inference_prob)),
+    pyprior = torchprior(inference_prob.prior),
+    rng::Random.AbstractRNG = Random.default_rng(),
+    solve_kwargs...
+) where {T}
+    pysim = pysimulator(inference_prob, transform, T; rng)
+    prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, pyprior)
+    inference_alg = alg()
+    append_simulations!(inference_alg, inference_prob, data)
+    return PySBISolver(
+        inference_prob,
+        alg,
+        (;),
+        data,
         prepared_prior,
         prepared_sim,
         inference_alg,

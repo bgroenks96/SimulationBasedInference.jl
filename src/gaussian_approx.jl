@@ -32,7 +32,8 @@ function gaussian_approx(
     approx::LaplaceMethod,
     prior::AbstractPrior,
     x0::Union{Nothing,AbstractVector}=nothing; 
-    rng::Random.AbstractRNG=Random.default_rng()
+    rng::Random.AbstractRNG=Random.default_rng(),
+    optimizer=BFGS(),
 )
     function nll(z)
         finv = inverse(bijector(prior))
@@ -42,7 +43,7 @@ function gaussian_approx(
     constrained_to_unconstrained = bijector(prior)
     x0 = isnothing(x0) ? rand(rng, prior) : x0
     z0 = constrained_to_unconstrained(x0)
-    result = optimize(nll, z0, BFGS())
+    result = optimize(nll, z0, optimizer)
     mode = result.minimizer
     # compute Fisher information
     Γ = ForwardDiff.hessian(nll, mode)

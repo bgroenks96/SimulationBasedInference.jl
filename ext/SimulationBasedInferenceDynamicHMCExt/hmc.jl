@@ -3,7 +3,7 @@ function CommonSolve.init(
     mcmc::MCMC{<:DynamicHMC.NUTS};
     autodiff=:ForwardDiff,
     rng::Random.AbstractRNG=Random.default_rng(),
-    cache::SBI.SimulationData=SimulationArrayStorage(),
+    storage::SBI.SimulationData=SimulationArrayStorage(),
     warmup_reporter=DynamicHMC.NoProgressReport(),
 )
     b = SBI.bijector(prob)
@@ -14,7 +14,7 @@ function CommonSolve.init(
     results = DynamicHMC.mcmc_keep_warmup(rng, ℓ, 0; initialization=(; q), reporter = warmup_reporter)
     steps = DynamicHMC.mcmc_steps(results.sampling_logdensity, results.final_warmup_state)
     Q = results.final_warmup_state.Q
-    sol = SimulatorInferenceSolution(prob, mcmc, cache, nothing)
+    sol = SimulatorInferenceSolution(prob, mcmc, storage, nothing)
     return DynamicHMCSolver(sol, steps, results.inference.tree_statistics, Q)
 end
 
