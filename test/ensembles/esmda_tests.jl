@@ -7,10 +7,10 @@ using Test
 @testset "ensemble_kalman_analysis: sanity check" begin
     n_par = 2
     n_obs = 10
-    n_ens = 32
+    ensemble_size = 32
     alpha = 1.0
     R_cov = 1.0
-    dummy_ens = randn(n_par, n_ens)
+    dummy_ens = randn(n_par, ensemble_size)
     dummy_obs = randn(n_obs)
     dummy_pred = randn(n_obs, n_par)*dummy_ens
     post_ens = ensemble_kalman_analysis(dummy_ens, dummy_obs, dummy_pred, alpha, R_cov)
@@ -22,7 +22,7 @@ end
     b_true = 0.2
     σ_y = 0.1
     alpha = 1.0
-    n_ens = 1000
+    ensemble_size = 1000
     x_prior = Normal(0,1)
     # log-normal with mean 0.1 and stddev 0.2
     b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
@@ -33,7 +33,7 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     # sample initial ensemble from model prior (excluding likelihood parameters)
-    prior = reduce(hcat, rand(rng, testprob.prior.model, n_ens))
+    prior = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
     unconstrained_prior = reduce(hcat, map(transform, eachcol(prior)))
     y_pred, _ = SimulationBasedInference.ensemble_solve(
         unconstrained_prior,
@@ -63,7 +63,7 @@ end
     x_true = 1.0
     b_true = 0.2
     σ_y = 0.1
-    n_ens = 128
+    ensemble_size = 128
     x_prior = Normal(0,1)
     # log-normal with mean 0.1 and stddev 0.2
     # b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
@@ -73,7 +73,7 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     alg = ESMDA(maxiters=10)
-    testsol = solve(testprob, alg, EnsembleThreads(); n_ens, rng)
+    testsol = solve(testprob, alg, EnsembleThreads(); ensemble_size, rng)
     unconstrained_posterior = get_ensemble(testsol.result)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]
@@ -90,7 +90,7 @@ end
     prior = inference_prob.prior.model
     eks = ESMDA()
     # solve inference problem with EKS
-    eks_sol = solve(inference_prob, eks, EnsembleThreads(), n_ens=128, verbose=false, rng=rng)
+    eks_sol = solve(inference_prob, eks, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
     # check results
     u_ens = get_ensemble(eks_sol.result)
     constrained_to_unconstrained = bijector(prior)

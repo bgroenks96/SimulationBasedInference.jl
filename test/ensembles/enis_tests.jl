@@ -5,10 +5,10 @@ using Test
 @testset "importance_weights: sanity check" begin
     n_par = 2
     n_obs = 10
-    n_ens = 32
+    ensemble_size = 32
     alpha = 1.0
     R_cov = 1.0
-    dummy_ens = randn(n_par, n_ens)
+    dummy_ens = randn(n_par, ensemble_size)
     dummy_obs = randn(n_obs)
     dummy_pred = randn(n_obs, n_par)*dummy_ens
     weights, Neff = importance_weights(dummy_obs, dummy_pred, R_cov)
@@ -19,7 +19,7 @@ end
 @testset "importance_weights: evensen_scalar_nonlinear" begin
     x_true = 1.0
     b_true = 0.2
-    n_ens = 1024
+    ensemble_size = 1024
     x_prior = Normal(0,1)
     # log-normal with mean 0.1 and stddev 0.2
     b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
@@ -29,7 +29,7 @@ end
     param_map = unconstrained_forward_map(testprob.prior.model)
     bij = bijector(testprob.prior.model)
     # sample initial ensemble from model prior (excluding likelihood parameters)
-    initial_ens = reduce(hcat, rand(rng, testprob.prior.model, n_ens))
+    initial_ens = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
     initial_ens_uconstrained = reduce(hcat, map(bij, eachcol(initial_ens)))
     y_pred, _ = SimulationBasedInference.ensemble_solve(
         initial_ens_uconstrained,
@@ -61,7 +61,7 @@ end
     x_true = 1.0
     b_true = 0.2
     σ_y = 0.1
-    n_ens = 1024
+    ensemble_size = 1024
     x_prior = Normal(0,1)
     # log-normal with mean 0.1 and stddev 0.2
     # b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
@@ -70,7 +70,7 @@ end
     testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
-    testsol = solve(testprob, EnIS(), EnsembleThreads(); n_ens, rng)
+    testsol = solve(testprob, EnIS(), EnsembleThreads(); ensemble_size, rng)
     unconstrained_prior = get_ensemble(testsol.result)
     prior_ens = reduce(hcat, map(inverse_transform, eachcol(unconstrained_prior)))
     w = get_weights(testsol.result)

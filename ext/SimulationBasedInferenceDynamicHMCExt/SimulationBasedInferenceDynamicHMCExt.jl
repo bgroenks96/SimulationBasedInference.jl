@@ -14,8 +14,8 @@ import Random
 
 mutable struct DynamicHMCSolver{algType<:MCMC,probType,statsType,QType}
     sol::SimulatorInferenceSolution{algType,probType}
-    nsamples::Int
-    nchains::Int
+    num_samples::Int
+    num_chains::Int
     steps::DynamicHMC.MCMCSteps
     stats::statsType
     Q::QType

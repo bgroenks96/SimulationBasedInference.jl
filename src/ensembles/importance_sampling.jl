@@ -116,7 +116,7 @@ function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R_cov)
 end
 
 function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::Diagonal)
-    n_obs, n_ens = size(pred)
+    n_obs, ensemble_size = size(pred)
     @assert n_obs == length(obs)
     residual = obs .- pred
     loglik = dropdims(-0.5*(1/diag(R))*residual.^2, dims=1)
@@ -127,7 +127,7 @@ function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::Diagon
     # Weights
     logw = loglik .- log_z
     weights = exp.(logw)
-    @assert length(weights) == n_ens && round(sum(weights), digits=10) == 1.0 "particle weights do not sum to unity!"
+    @assert length(weights) == ensemble_size && round(sum(weights), digits=10) == 1.0 "particle weights do not sum to unity!"
 
     Neff = round(1/sum(weights.^2))
 

@@ -14,12 +14,12 @@ function CommonSolve.solve(
     prob::SimulatorInferenceProblem,
     mcmc::MCMC{<:Turing.InferenceAlgorithm};
     storage=SimulationArrayStorage(),
-    nsamples=1000,
-    nchains=1,
+    num_samples=1000,
+    num_chains=1,
     kwargs...
 )
     m = SBI.joint_model(prob, prob.forward_solver; storage, kwargs...)
-    chain = Turing.sample(m, mcmc.alg, mcmc.strat, nsamples, nchains)
+    chain = Turing.sample(m, mcmc.alg, mcmc.strat, num_samples, num_chains)
     return SimulatorInferenceSolution(prob, mcmc, storage, chain)
 end
 

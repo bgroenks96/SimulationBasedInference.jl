@@ -6,8 +6,8 @@ function CommonSolve.solve(
     prob::SimulatorInferenceProblem,
     mcmc::MCMC{<:Emcee};
     storage::SimulationData=SimulatorArrayStorage(),
-    nsamples = 1000,
-    nchains = 100,
+    num_samples = 1000,
+    num_chains = 100,
     thinning = 1,
     solve_kwargs...
 )
@@ -23,10 +23,10 @@ function CommonSolve.solve(
         return lp
     end
     # sample prior and apply transform
-    prior_samples = sample(prob.prior, mcmc.nchains)
+    prior_samples = sample(prob.prior, mcmc.num_chains)
     b = SBI.bijector(prob)
     θ₀ = b(prior_samples)
-    samples, logprobs = AffineInvariantMCMC.sample(loglik, nchains, θ₀, nsamples, thinning)
+    samples, logprobs = AffineInvariantMCMC.sample(loglik, num_chains, θ₀, num_samples, thinning)
     param_names = labels(prob.u0)
     chains = Chains(transpose(samples), param_names)
     return SimulatorInferenceSolution(prob, mcmc, storage, chains)

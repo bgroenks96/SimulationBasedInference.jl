@@ -122,7 +122,7 @@ function CommonSolve.init(
     output_func=(sol,i,iter) -> (sol, false),
     pred_func=default_pred_func(inference_prob),
     obs_cov_func=obscov,
-    n_ens::Integer=128,
+    ensemble_size::Integer=128,
     initial_ens=nothing,
     itercallback=state -> true,
     storage=SimulationArrayStorage(),
@@ -136,7 +136,7 @@ function CommonSolve.init(
     if isnothing(initial_ens)
         # construct transform from model prior
         constrained_to_unconstrained = bijector(inference_prob.prior.model)
-        samples = sample(rng, model_prior, n_ens)
+        samples = sample(rng, model_prior, ensemble_size)
         # apply transform to samples and then concatenate on second axis
         initial_ens = reduce(hcat, map(constrained_to_unconstrained, samples))
     end
@@ -144,7 +144,7 @@ function CommonSolve.init(
     likelihoods = values(inference_prob.likelihoods)
     obs_mean = reduce(vcat, map(l -> vec(l.data), likelihoods))
     obs_cov = obs_cov_func(likelihoods...)
-    n_ens = size(initial_ens, 2)
+    ensemble_size = size(initial_ens, 2)
     # construct initial state
     state = initialstate(alg, model_prior, initial_ens, obs_mean, obs_cov; rng)
     inference_sol = SimulatorInferenceSolution(inference_prob, alg, storage, nothing)

@@ -120,9 +120,9 @@ function ensemble_kalman_analysis(
     svd_thresh=0.90,
     rng::AbstractRNG=Random.GLOBAL_RNG,
 )
-    n_obs, n_ens = size(pred)
+    n_obs, ensemble_size = size(pred)
     n_par = size(prior, 1)
-    prior = reshape(prior, n_par, n_ens)
+    prior = reshape(prior, n_par, ensemble_size)
     # n_obs x n_obs
     R = obscov(R_cov)*Diagonal(ones(n_obs))
 
@@ -136,7 +136,7 @@ function ensemble_kalman_analysis(
 
     C_AB = ρ_AB*A*Bt
     C_BB = ρ_BB*B*Bt
-    aR = n_ens*alpha*R
+    aR = ensemble_size*alpha*R
 
     if dosvd
         L = cholesky(aR).L
@@ -154,9 +154,9 @@ function ensemble_kalman_analysis(
     end
 
     if stochastic
-        ϵ = randn(rng, n_obs, n_ens)
+        ϵ = randn(rng, n_obs, ensemble_size)
         Rsqrt = sqrt(R)
-        Y = obs*ones(n_ens)' + sqrt(alpha)*Rsqrt*ϵ
+        Y = obs*ones(ensemble_size)' + sqrt(alpha)*Rsqrt*ϵ
         # Kalman gain
         K = C_AB*Cinv
         # innovation
