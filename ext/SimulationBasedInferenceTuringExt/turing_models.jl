@@ -5,21 +5,21 @@ SimulationBasedInference.MCMC(alg::Turing.InferenceAlgorithm, strat; kwargs...) 
 function SimulationBasedInference.MCMC(
     alg::Turing.InferenceAlgorithm,
     strat::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
-    nsamples=1000,
-    nchains=2,
     kwargs...,
 )
-    return MCMC(alg, strat, nsamples, nchains, (; kwargs...))
+    return MCMC(alg, strat, (; kwargs...))
 end
 
 function CommonSolve.solve(
     prob::SimulatorInferenceProblem,
     mcmc::MCMC{<:Turing.InferenceAlgorithm};
     storage=SimulationArrayStorage(),
+    nsamples=1000,
+    nchains=1,
     kwargs...
 )
     m = SBI.joint_model(prob, prob.forward_solver; storage, kwargs...)
-    chain = Turing.sample(m, mcmc.alg, mcmc.strat, mcmc.nsamples, mcmc.nchains)
+    chain = Turing.sample(m, mcmc.alg, mcmc.strat, nsamples, nchains)
     return SimulatorInferenceSolution(prob, mcmc, storage, chain)
 end
 

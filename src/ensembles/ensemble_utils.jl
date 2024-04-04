@@ -115,10 +115,25 @@ function sample_ensemble_predictive(
     return new_storage
 end
 
+function PosteriorStats.summarize(samples::AbstractMatrix, args...; kwargs...)
+    return PosteriorStats.summarize(reshape(samples, size(samples, 1), 1, size(samples, 2)), args...; kwargs...)
+end
+
 function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, args...; iter=-1, kwargs...)
     ens = get_transformed_ensemble(sol, iter)
     # transpose to get N x k where N is the number of ensemble members (samples)
     ens_transpose = transpose(ens)
+    # get parameter names
+    param_names = Symbol.(labels(sol.prob.u0.model))
     # add extra "chain" dimension (here just set to one) and pass to summarize
-    return PosteriorStats.summarize(reshape(ens_transpose, size(ens_transpose, 1), 1, size(ens_transpose, 2)), args...; kwargs...)
+    return PosteriorStats.summarize(reshape(ens_transpose, size(ens_transpose, 1), 1, size(ens_transpose, 2)), args...; var_names=param_names, kwargs...)
+end
+
+function MCMCChains.Chains(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}; iter=-1)
+    ens = get_transformed_ensemble(sol, iter)
+    # transpose to get N x k where N is the number of ensemble members (samples)
+    ens_transpose = transpose(ens)
+    # get parameter names
+    param_names = Symbol.(labels(sol.prob.u0.model))
+    return Chains(ens_transpose, param_names)
 end

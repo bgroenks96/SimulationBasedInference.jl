@@ -82,16 +82,3 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing
     solver.verbose && @info "Finished iteration $(state.iter); err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
 end
-
-"""
-    Chains(ekp::EnsembleKalmanProcess, parameter_names::AbstractVector{Symbol}, iter=nothing)
-
-Constructs a `Chains` object from the given (fitted) EKP by mapping the unconstrained parameters
-at iteration `iter` (defaulting to the last iteration) back to constrained space.
-"""
-function MCMCChains.Chains(ekp::EnsembleKalmanProcess, parameter_names::AbstractVector{Symbol}, iter=nothing)
-    # N_p x N_ens
-    Θ = isnothing(iter) ? get_u_final(ekp) : get_u(ekp, iter)
-    Φ = transpose(reduce(hcat, map(inverse(bijector(prior.model)), eachcol(Θ))))
-    return MCMCChains.Chains(Φ, parameter_names)
-end

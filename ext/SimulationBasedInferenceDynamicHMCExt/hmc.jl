@@ -1,6 +1,8 @@
 function CommonSolve.init(
     prob::SimulatorInferenceProblem,
     mcmc::MCMC{<:DynamicHMC.NUTS};
+    nsamples=1000,
+    nchains=1,
     autodiff=:ForwardDiff,
     rng::Random.AbstractRNG=Random.default_rng(),
     storage::SBI.SimulationData=SimulationArrayStorage(),
@@ -15,7 +17,7 @@ function CommonSolve.init(
     steps = DynamicHMC.mcmc_steps(results.sampling_logdensity, results.final_warmup_state)
     Q = results.final_warmup_state.Q
     sol = SimulatorInferenceSolution(prob, mcmc, storage, nothing)
-    return DynamicHMCSolver(sol, steps, results.inference.tree_statistics, Q)
+    return DynamicHMCSolver(sol, nsamples, nchains, steps, results.inference.tree_statistics, Q)
 end
 
 function CommonSolve.step!(solver::DynamicHMCSolver)
@@ -35,7 +37,7 @@ end
 function CommonSolve.solve!(solver::DynamicHMCSolver)
     sol = solver.sol
     # iterate for N samples
-    while length(sol.storage) < sol.alg.nsamples
+    while length(sol.storage) < solver.nsamples
         step!(solver)
     end
     # construct transformed posterior chain
