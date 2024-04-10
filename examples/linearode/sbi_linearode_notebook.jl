@@ -202,7 +202,7 @@ md"""
 """
 
 # ╔═╡ bbd6aa72-e1c1-4eb7-b887-8937f758af2b
-pbs_sol = solve(inference_prob, PBS(), n_ens=256, rng=rng)
+pbs_sol = solve(inference_prob, PBS(), ensemble_size=256, rng=rng)
 
 # ╔═╡ 006fbbd2-fec1-489a-93c0-b047f7310588
 posterior_weights = get_weights(pbs_sol.result)
@@ -235,7 +235,7 @@ md"""
 """
 
 # ╔═╡ c957e3cc-bfc4-4d0c-b0cf-fad1dee38bba
-esmda_sol = solve(inference_prob, ESMDA(), n_ens=256, rng=rng)
+esmda_sol = solve(inference_prob, ESMDA(), ensemble_size=256, rng=rng)
 
 # ╔═╡ 08e115c3-96a8-413a-85ec-6d62bfd4783a
 posterior_esmda = get_transformed_ensemble(esmda_sol)
@@ -261,7 +261,7 @@ md"""
 """
 
 # ╔═╡ 87d62425-2d14-4643-b039-b2f1258a1b0a
-eks_sol = solve(inference_prob, EKS(), n_ens=256, rng=rng, verbose=false)
+eks_sol = solve(inference_prob, EKS(), ensemble_size=256, rng=rng, verbose=false)
 
 # ╔═╡ 7f98c3fd-1841-4d39-8ad4-2446bee6285f
 posterior_eks = get_transformed_ensemble(eks_sol)

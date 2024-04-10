@@ -85,32 +85,40 @@ end
 function sample_ensemble_predictive(
     sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm},
     new_storage::SimulationData=SimulationArrayStorage();
+    num_samples_per_sim::Int=10,
+    pred_transform=identity,
+    iterations=[],
     rng::Random.AbstractRNG=Random.default_rng(),
 )
     likelihoods = sol.prob.likelihoods
     prior = sol.prob.prior
     for (x, y, meta) in sol.storage
-        x_lik = map(keys(prior.lik)) do nm
-            lik_prior = prior.lik[nm]
-            bij = bijector(lik_prior)
-            # sample from likelihood parameter prior in constrained space
-            x_lik = rand(rng, lik_prior)
-            # and map to unconstrained space
-            nm => bij(x_lik)
+        if !isempty(iterations) && meta.iter ∉ iterations
+            continue
         end
-        x_lik = (; x_lik...)
-        y_obs = map(keys(prior.lik)) do nm
-            lik_prior = prior.lik[nm]
-            # get inverse bijector to map back to constrained parameter space
-            bij = inverse(bijector(lik_prior))
-            lik = likelihoods[nm]
-            setvalue!(lik.obs, reshape(y[nm], size(lik.obs)))
-            y_dist = predictive_distribution(lik, bij(x_lik[nm])...)
-            nm => rand(rng, y_dist)
+        for i in 1:num_samples_per_sim
+            x_lik = map(keys(prior.lik)) do nm
+                lik_prior = prior.lik[nm]
+                bij = bijector(lik_prior)
+                # sample from likelihood parameter prior in constrained space
+                x_lik = rand(rng, lik_prior)
+                # and map to unconstrained space
+                nm => bij(x_lik)
+            end
+            x_lik = (; x_lik...)
+            y_obs = map(keys(prior.lik)) do nm
+                lik_prior = prior.lik[nm]
+                # get inverse bijector to map back to constrained parameter space
+                bij = inverse(bijector(lik_prior))
+                lik = likelihoods[nm]
+                setvalue!(lik.obs, reshape(y[nm], size(lik.obs)))
+                y_dist = predictive_distribution(lik, bij(x_lik[nm])...)
+                nm => pred_transform(rand(rng, y_dist))
+            end
+            y_obs = (; y_obs...)
+            x_new = vcat(x, reduce(vcat, x_lik))
+            store!(new_storage, x_new, y_obs; meta...)
         end
-        y_obs = (; y_obs...)
-        x_new = vcat(x, reduce(vcat, x_lik))
-        store!(new_storage, x_new, y_obs; meta...)
     end
     return new_storage
 end

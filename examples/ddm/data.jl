@@ -5,7 +5,9 @@ using Impute
 using MAT
 using Statistics
 
-function generate_synthetic_dataset(N_obs::Int, σ_true::Real, p_true::AbstractVector; datadir="data/")
+import Random
+
+function generate_synthetic_dataset(N_obs::Int, σ_true::Real, p_true::AbstractVector; datadir="data/", rng=Random.default_rng())
     # Download forcing data if not present
     download_url = "https://www.dropbox.com/scl/fi/fbxn7antmrchk39li44l6/daily_forcing.mat?rlkey=u1s2lu13f4grqnbxt4ediwlk2&dl=0"
     datadir = mkpath(datadir)
@@ -23,7 +25,7 @@ function generate_synthetic_dataset(N_obs::Int, σ_true::Real, p_true::AbstractV
     y_true = DDM(ts, precip, Tair, p_true...)
     idx = sort(sample(rng, 1:length(ts), N_obs, replace=false))
     # add noise ϵ ~ N(0,10) to get synthetic observation data
-    y_obs = max.(y_true[idx] .+ randn(rng, length(idx)).*σ_true, 0.0)
+    y_obs = [ifelse(y > zero(y), y + σ_true*randn(rng), y + exp(randn(rng)-1)) for y in y_true[idx]]
     # y_obs = y_true[idx] .+ randn(rng, length(idx)).*σ_true
     return (; ts, Tair, precip, y_obs, idx, y_true, name="synthetic")
 end
@@ -47,8 +49,9 @@ function load_ny_alesund_dataset(t1::Date, t2::Date; precip_dataset=:pluvio, dat
     @assert length(Tair) == length(ts)
     precip = collect(skipmissing(filter(row -> row.date ∈ Date.(ts), precip_df).prec))
     @assert length(precip) == length(ts)
-    idx = findall(.!ismissing.(swe_df.SWE_K))
-    y_obs = collect(skipmissing(swe_df.SWE_K[idx]))
+    swe = Impute.interp(swe_df.SWE_K)
+    idx = findall(.!ismissing.(swe))
+    y_obs = collect(skipmissing(swe[idx]))
     return (; ts, Tair, precip, y_obs, idx, name="ny_alesund_$precip_dataset")
 end
 

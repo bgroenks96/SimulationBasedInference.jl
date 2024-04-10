@@ -4,23 +4,27 @@ using Turing
     ts::AbstractVector,
     p0::ComponentVector,
     ::Type{T}=Float64;
-    amp_scale=20.0,
+    T₀_mean=-9.0,
+    Tair_amp=28.0,
+    σ_Tsurf=0.5,
+    period=ustrip(u"s", 1.0u"yr"),
+    offset_mean=zeros(length(ts)-1),
 ) where {T}
     p = similar(p0, T)
     p .= zero(p) .+ p0
     N = length(ts) - 1
-    μ₀ ~ Normal(-10.0, 2.0)
-    T₀_offset ~ Normal(0.0, 1.0)
-    σ_Tsurf ~ Exponential(2.0)
-    σ_logamp ~ Exponential(0.1)
-    offset ~ MvNormal(zeros(N), 1.0)
-    logamp ~ MvNormal(zeros(N), 1.0)
-    T₀ = μ₀ .+ T₀_offset.*σ_Tsurf
+    T₀ ~ Normal(T₀_mean, σ_Tsurf)
+    phase_shift ~ Normal(0, π/4)
+    # period_offset ~ Normal(0, 1.0)
+    offset ~ MvNormal(offset_mean, 1.0)
+    amp_scale ~ arraydist(LogitNormal.(logit.(ones(N).*0.5), 0.2))
     Tsurf = T₀ .+ offset.*σ_Tsurf
     p.top["Tsurf.value"] .= Tsurf
     p.top["Tsurf.initialvalue"] .= T₀
-    p.top["amp.value"] .= amp_scale.*exp.(logamp.*σ_logamp)
-    p.top["amp.initialvalue"] .= amp_scale
+    p.top["amp.value"] .= Tair_amp.*amp_scale
+    p.top["amp.initialvalue"] .= Tair_amp*amp_scale[1]
+    p.top["phase_shift"] .= -5π/4 + phase_shift
+    p.top["period"] .= period
     return p
 end
 
@@ -30,13 +34,14 @@ function set_up_Tsurf_inference_problem(
     t_knots::AbstractVector,
     Ts_target,
     obs_depths;
-    noise_scale=0.1,
+    noise_scale=0.05,
+    model_kwargs...,
 )
     tile = Tile(forward_prob.prob.f)
     p0 = ustrip.(vec(CryoGrid.parameters(tile)))
     # use simple prior for exact Kneier '18 stratigraphy,
     # otherwise use "robust" method that includes soil parameters.
-    m_prior = priormodel_Tsurf_with_amplitude(t_knots, p0)
+    m_prior = priormodel_Tsurf_with_amplitude(t_knots, p0; model_kwargs...)
     prior = SBI.prior(m_prior)
     # set up inference problem
     Ts_pred_observable = forward_prob.observables.Ts_pred

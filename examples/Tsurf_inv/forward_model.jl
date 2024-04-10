@@ -1,6 +1,8 @@
 using CryoGrid
+using CryoGrid.LiteImplicit
 using CryoGridML
 using Interpolations
+using LinearAlgebra
 
 function piecewise_para(
     name::Symbol,
@@ -25,12 +27,22 @@ function piecewise_para(
 end
 
 
-function periodicbc(level, amplitude, t0)
-    period = ustrip(u"s", 1.0u"yr")
-    phase_shift = -2π*t0/period - π
+function periodicbc(level, amplitude, phase_shift, period, t0)
     function f(t)
-        s = sin(2π/period*(t - t0) - phase_shift)
-        T_ub = amplitude*s + level
+        z = sin(2π/period*(t - t0) + phase_shift)
+        T_ub = amplitude*z + level
+        return T_ub
+    end
+    return TemperatureBC(TimeVaryingForcing(f, :Tsurf, initial_value=0.0u"°C"))
+end
+
+function harmonicbc(level, amplitude, freqs, a, b)
+    function f(t)
+        z = sum(zip(a, b, freqs)) do args
+            aᵢ, bᵢ, ω = args
+            aᵢ*sin(2π*ω*t) + bᵢ*sin(2π*ω*t)
+        end
+        T_ub = amplitude*z + level
         return T_ub
     end
     return TemperatureBC(TimeVaryingForcing(f, :Tsurf, initial_value=0.0u"°C"))
@@ -76,13 +88,16 @@ function set_up_Tsurf_forward_problem(
     T₀=Param(-10.0, units=u"°C"),
     Qgeo=Param(0.053, units=u"W/m^2"),
     A₀=Param(20.0, units=u"K"),
+    phase_shift=Param(-π),
+    period=Param(ustrip(u"s", 1.0u"yr")),
+    heatop=Heat.Diffusion1D(:H),
     freezecurve=FreeWater(),
 )
     Tsurf_para = piecewise_para(:Tsurf, T₀, t_knots, tspan; interp)
     amp_para = piecewise_para(:amp, A₀, t_knots, tspan; interp)
-    upperbc = periodicbc(Tsurf_para, amp_para, convert_t(tspan[1]))
+    upperbc = periodicbc(Tsurf_para, amp_para, phase_shift, period, convert_t(tspan[1]))
     lowerbc = GeothermalHeatFlux(Qgeo)
-    tile, u0 = maketile(soilprofile, upperbc, lowerbc, tspan, discretization, initT; freezecurve)
+    tile, u0 = maketile(soilprofile, upperbc, lowerbc, tspan, discretization, initT; heatop, freezecurve)
     prob = CryoGridProblem(tile, u0, tspan, saveat=convert_t.(saveat), savevars=savevars)
     Ts_observable = TemperatureProfileObservable(:Ts, obs_depths, tspan, Month(1), samplerate=Day(1))
     Ts_pred_observable = TemperatureProfileObservable(:Ts_pred, obs_depths, (tspan[end]-obs_period, tspan[end]), obs_period, samplerate=Day(1))
