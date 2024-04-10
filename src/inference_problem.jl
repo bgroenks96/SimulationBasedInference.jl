@@ -134,6 +134,8 @@ end
 
 logprob(inference_prob::SimulatorInferenceProblem, u) = sum(logjoint(inference_prob, u, transform=false))
 
+# log density interface
+
 """
     logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
 
@@ -146,7 +148,18 @@ function LogDensityProblems.logdensity(inference_prob::SimulatorInferenceProblem
     return lp
 end
 
-# log density interface
+function logdensityfunc(prob::SimulatorInferenceProblem, storage::SimulationData)
+    function logprob(θ)
+        # deep copy inference problem to prevent memory
+        # collisions between walkers; hopefully this doesn't
+        # cause too much allocation...
+        probcopy = deepcopy(prob)
+        lp = logdensity(probcopy, θ)
+        observables = probcopy.forward_prob.observables
+        store!(storage, θ, observables)
+        return lp
+    end
+end
 
 LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensityProblems.LogDensityOrder{0}()
 

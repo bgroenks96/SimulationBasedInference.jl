@@ -35,14 +35,14 @@ mutable struct PySBISolver{algType<:PySBIAlgorithm}
     result::Union{Missing,Any}
 end
 
-function pysimulator(inference_prob::SimulatorInferenceProblem, transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
+function pysimulator(inference_prob::SimulatorInferenceProblem, transform, pred_transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
     function simulator(ζ)
         θ = zero(inference_prob.u0) + transform(pyconvert(T, ζ))
         ϕ = SBI.forward_map(inference_prob.prior, θ)
         solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
         obs_vecs = map(inference_prob.likelihoods) do lik
             dist = SBI.predictive_distribution(lik, ϕ[nameof(lik)])
-            rand(rng, dist)
+            pred_transform(rand(rng, dist))
         end
         return Py(reduce(vcat, obs_vecs)).to_numpy()
     end
@@ -63,13 +63,14 @@ function CommonSolve.init(
     alg::PySBIAlgorithm,
     param_type::Type{T} = Vector;
     transform = inverse(bijector(inference_prob)),
+    pred_transform = identity,
     pyprior = torchprior(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
     num_simulations::Int = 1000,
     num_workers::Int = 1,
     solve_kwargs...
 ) where {T}
-    pysim = pysimulator(inference_prob, transform, T; rng)
+    pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
     prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, pyprior)
     inference_alg = alg()
     return PySBISolver(
@@ -91,11 +92,12 @@ function CommonSolve.init(
     data::SimulationData,
     param_type::Type{T} = Vector;
     transform = inverse(bijector(inference_prob)),
+    pred_transform = identity,
     pyprior = torchprior(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
     solve_kwargs...
 ) where {T}
-    pysim = pysimulator(inference_prob, transform, T; rng)
+    pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
     prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, pyprior)
     inference_alg = alg()
     append_simulations!(inference_alg, inference_prob, data)
