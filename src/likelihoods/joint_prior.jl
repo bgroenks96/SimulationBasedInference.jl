@@ -8,9 +8,21 @@ distribution `p(x,θ)`. θₘ are the model (simulator) parameters and θₗ are
 struct JointPrior{modelPriorType<:AbstractPrior,likPriorTypes,lnames} <: AbstractPrior
     model::modelPriorType
     lik::NamedTuple{lnames,likPriorTypes}
+    ax::Tuple{Vararg{ComponentArrays.Axis}}
 end
 
-JointPrior(modelprior::AbstractPrior, liks::SimulatorLikelihood...) = JointPrior(modelprior, map(prior, with_names(liks)))
+"""
+Constructs a `JointPrior` from the given prior and likelihoods.
+"""
+function JointPrior(modelprior::AbstractPrior, liks::SimulatorLikelihood...)
+    lik_priors = map(prior, with_names(liks))
+    param_nt = merge(
+        (model=rand(jp.model),),
+        map(d -> rand(d), jp.lik),
+    )
+    proto = ComponentVector(param_nt)
+    return JointPrior(modelprior, lik_priors, getaxes(proto))
+end
 
 Base.names(jp::JointPrior) = merge(
     (model=names(jp.model),),
@@ -38,12 +50,14 @@ function logprob(jp::JointPrior, θ::ComponentVector)
     lp_lik = sum(map((d,n) -> logprob(d, getproperty(θ, n)), collect(jp.lik), liknames))
     return lp_model + lp_lik
 end
+logprob(jp::JointPrior, θ::AbstractVector) = logprob(jp, ComponentVector(θ, jp.ax))
 
 function forward_map(jp::JointPrior, θ::ComponentVector)
     ϕ_m = forward_map(jp.model, θ.model)
     ϕ_lik = map(n -> n => forward_map(jp.lik[n], θ[n]), keys(jp.lik))
     return ComponentVector(;model=ϕ_m, ϕ_lik...)
 end
+forward_map(jp::JointPrior, θ::AbstractVector) = forward_map(jp, ComponentVector(θ, jp.ax))
 
 function unconstrained_forward_map(jp::JointPrior, ζ::ComponentVector)
     # get inverse bijectors
@@ -57,6 +71,7 @@ function unconstrained_forward_map(jp::JointPrior, ζ::ComponentVector)
     ϕ_lik = map(n -> n => forward_map(jp.lik[n], θ_lik[n]), keys(jp.lik))
     return ComponentVector(;model=ϕ_m, ϕ_lik...)
 end
+unconstrained_forward_map(jp::JointPrior, θ::AbstractVector) = unconstrained_forward_map(jp, ComponentVector(θ, jp.ax))
 
 bstack(b1, b2) = Stacked(b1, b2)
 function bstack(b1::Stacked, b2)
