@@ -23,21 +23,13 @@ include("datenum.jl")
 include("ddm.jl")
 include("data.jl")
 
-# dataset = "synthetic"
-dataset = "ny_alesund"
 
 # Arbitrarily select "true" parameters and run forward model
-if dataset == "synthetic"
-    p_true = ComponentVector(a=2.5, b=0.65)
-    N_obs = 100
-    σ_true = 5.0
-    σ_prior = prior(σ=LogNormal(0,1))
-    data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
-else
-    σ_prior = prior(σ=LogNormal(log(10.0), 0.5))
-    data = load_ny_alesund_dataset(Date(2020,9,1), Date(2021,8,31); datadir)
-    data2 = load_ny_alesund_dataset(Date(2021,9,1), Date(2022,8,31); datadir)
-end
+p_true = ComponentVector(a=2.5, b=0.65)
+N_obs = 100
+σ_true = 10.0
+σ_prior = prior(σ=LogNormal(log(5.0),0.5))
+data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
 
 # plot the data
 let fig = Makie.Figure(size=(1200,600)),
@@ -66,8 +58,8 @@ y_pred = SimulatorObservable(:y, state -> state.u[:,1], (Ti(data.ts),))
 
 # Define simple prior
 prior_dist = prior(
-    a = LogNormal(0,1.5),
-    b = LogNormal(0,1.5),
+    a = LogNormal(0,2),
+    b = LogNormal(0,2),
 )
 
 # Construct forward problem;
@@ -125,15 +117,16 @@ function summarize_snpe(inference_sol, observable=:y; num_samples=10_000)
     posterior_ens = sample(inference_sol.result, num_samples)
     posterior_mean = mean(posterior_ens, dims=2)[:,1]
     posterior_std = std(posterior_ens, dims=2)[:,1]
+    p0 = zero(inference_sol.prob.u0)
     pred_ens = map(eachcol(posterior_ens)) do p
-        ϕ = zero(inference_sol.prob.u0) + p
-        sol = solve(forward_prob, p=ϕ.model)
+        ϕ = p0 + p
+        sol = solve(inference_sol.prob.forward_prob, p=ϕ.model)
         retrieve(sol.prob.observables[observable])
     end
     pred_ens = reduce(hcat, pred_ens)
     pred_mean = mean(pred_ens, dims=2)
     pred_std = std(pred_ens, dims=2)
-    return (; posterior_ens, posterior_mean, posterior_std, pred_ens, pred_mean, pred_std)
+    return (; posterior_ens, posterior_mean, posterior_std, pred_ens, pred_mean, pred_std, p0)
 end
 
 function plot_density!(ax, res, idx::Integer, color; offset=0.0)
@@ -143,32 +136,35 @@ function plot_density!(ax, res, idx::Integer, color; offset=0.0)
     return (; d, vl)
 end
 
-function plot_predictions!(ax, res, ts, color; hdi_prob=0.90)
+function plot_predictions!(ax, res, ts, color; hdi_prob=0.95)
     # compute highest density interval (HDI) using ArviZ
     pred_hdi = mapslices(x -> hdi(x, prob=hdi_prob), res.pred_ens, dims=2)[:,1]
-    band = Makie.band!(ax, 1:length(ts), map(intrv -> intrv.lower, pred_hdi), map(intrv -> intrv.upper, pred_hdi), color=(color, 0.5))
+    σ = length(res.posterior_mean) == 3 ? res.posterior_mean[end] : median(σ_prior).σ
+    ci_band = Makie.band!(ax, 1:length(ts), map(intrv -> intrv.lower, pred_hdi), map(intrv -> intrv.upper, pred_hdi), color=(color, 0.6))
+    pi_band = Makie.band!(ax, 1:length(ts), res.pred_mean[:,1] .- 2*σ, res.pred_mean[:,1] .+ 2*σ, color=(color, 0.3))
     lines = Makie.lines!(ax, 1:length(ts), res.pred_mean[:,1], linewidth=4.0, color=(color,0.75))
-    return (; band, lines)
+    return (; ci_band, lines)
 end
 
 # Solve with EnIS
-enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), ensemble_size=1024, verbose=false, rng=rng);
+enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), ensemble_size=512, verbose=false, rng=rng);
 enis_res = summarize_ensemble(enis_sol, :y)
 
 # Solve inference problem with EKS
-eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), ensemble_size=1024, verbose=false, rng=rng);
+eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), ensemble_size=512, verbose=false, rng=rng);
 eks_res = summarize_ensemble(eks_sol, :y)
 
 # Solve with ESMDA
-esmda_sol = @time solve(inference_prob, ESMDA(maxiters=10), EnsembleThreads(), ensemble_size=1024, verbose=false, rng=rng);
+esmda_sol = @time solve(inference_prob, ESMDA(maxiters=10), EnsembleThreads(), ensemble_size=512, verbose=false, rng=rng);
 esmda_res = summarize_ensemble(esmda_sol, :y)
 
 hmc_sol = @time solve(inference_prob, MCMC(NUTS(), num_samples=10_000));
 hmc_res = summarize_markov_chain(hmc_sol, :y)
 hmc_sol.result
 
-simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=1:5);
-snpe_sol = @time solve(inference_prob, PySNPE(), simdata);
+simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1], num_samples_per_sim=100);
+gaussian_prior = PySBI.pyprior(inference_prob.prior, LaplaceMethod())
+snpe_sol = @time solve(inference_prob, PySNE(), simdata);
 snpe_res = summarize_snpe(snpe_sol)
 
 # densities
@@ -211,10 +207,10 @@ let fig = Makie.Figure(size=(900,600)),
     if haskey(data, :y_true)
         yt = Makie.lines!(ax, 1:length(data.ts), data.y_true[:,1], linewidth=2.0, color=:black)
     end
+    plt4 = plot_predictions!(ax, hmc_res, data.ts, :orange)
     plt3 = plot_predictions!(ax, snpe_res, data.ts, :green)
     plt1 = plot_predictions!(ax, eks_res, data.ts, :blue)
-    plt2 = plot_predictions!(ax, esmda_res, data.ts, :orange)
-    plt4 = plot_predictions!(ax, hmc_res, data.ts, :gray)
+    plt2 = plot_predictions!(ax, esmda_res, data.ts, :gray)
     yo = Makie.scatter!(ax, data.idx, data.y_obs, color=:black)
     plots = [collect(plt1), collect(plt2), collect(plt3), collect(plt4), yo]
     names = ["EKS", "ES-MDA", "SNPE", "HMC", "Pseudo-obs"]
