@@ -255,6 +255,6 @@ let fig = Makie.Figure(size=(900,600)),
         push!(names, "Ground truth")
     end
     Makie.axislegend(ax3, plots, names)
-    Makie.save(joinpath(outdir, "posterior_densities_with_predictions_$(data.name).png"), fig)
+    # Makie.save(joinpath(outdir, "posterior_densities_with_predictions_$(data.name).png"), fig)
     fig
 end
