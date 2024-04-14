@@ -1,14 +1,22 @@
 function pysimulator(inference_prob::SimulatorInferenceProblem, transform, pred_transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
-    function simulator(ζ)
-        θ = zero(inference_prob.u0) + transform(pyconvert(T, ζ))
+    function simulator(ζ::AbstractVector, return_py::Bool=true)
+        θ = zero(inference_prob.u0) + ζ
         ϕ = SBI.forward_map(inference_prob.prior, θ)
         solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
         obs_vecs = map(inference_prob.likelihoods) do lik
             dist = SBI.predictive_distribution(lik, ϕ[nameof(lik)])
             pred_transform(rand(rng, dist))
+            # pred_transform(mean(dist))
         end
-        return Py(reduce(vcat, obs_vecs)).to_numpy()
+        if return_py
+            return Py(reduce(vcat, obs_vecs)).to_numpy()
+        else
+            return reduce(vcat, obs_vecs)
+        end
     end
+    simulator(ζ::PyIterable, return_py::Bool=true) = simulator(pyconvert(Vector, ζ), return_py)
+    simulator(ζ::PyMatrix) = Py(transpose(reduce(hcat, map(x -> simulator(x, false), eachrow(ζ))))).to_numpy()
+    return simulator
 end
 
 function append_simulations!(inference_alg::Py, inference_prob::SimulatorInferenceProblem, data::SimulationData)
@@ -19,20 +27,6 @@ function append_simulations!(inference_alg::Py, inference_prob::SimulatorInferen
     Θ = transpose(reduce(hcat, inputs))
     Y = transpose(reduce(hcat, outputs))
     inference_alg.append_simulations(torch.Tensor(Py(Θ).to_numpy()), torch.Tensor(Py(Y).to_numpy()))
-end
-
-struct WrappedPrior
-    prior::AbstractPrior
-    log_prob::Function
-    sample::Function
-end
-
-function WrappedPrior(prior::AbstractPrior)
-    return WrappedPrior(
-        prior,
-        x -> SBI.logprob(prior, pyconvert(Vector, x)),
-        shape -> SBI.sample(prior, pyconvert(Tuple, shape))
-    )
 end
 
 """

@@ -15,8 +15,8 @@ const sbi = pyimport("sbi")
 pyimport("sbi.inference")
 pyimport("sbi.utils")
 
-export torchprior
-include("torchpriors.jl")
+export pyprior
+include("pypriors.jl")
 
 include("common.jl")
 

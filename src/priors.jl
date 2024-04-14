@@ -11,6 +11,7 @@ by subtypes of `AbstractPrior`.
 function prior end
 
 logprob(prior::AbstractPrior, x) = error("logprob not implemented for prior of type $(typeof(prior))")
+logprob(prior::AbstractPrior, x::AbstractMatrix) = sum(map(xᵢ -> logprob(prior, xᵢ), eachcol(x)))
 
 """
     forward_map(prior::AbstractPrior, x)
@@ -52,8 +53,9 @@ end
 Base.names(prior::AbstractPrior) = error("names not implemented")
 
 StatsBase.sample(prior::AbstractPrior, args...; kwargs...) = sample(Random.default_rng(), prior, args...; kwargs...)
-StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, args...; kwargs...) = rand(rng, prior)
-StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, n::Integer, args...; kwargs...) = rand(rng, prior, n)
+StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior; kwargs...) = rand(rng, prior)
+StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, n::Integer; kwargs...) = rand(rng, prior, n)
+StatsBase.sample(rng::AbstractRNG, prior::AbstractPrior, d::Dims; kwargs...) = reshape(reduce(hcat, rand(rng, prior, prod(d))), :, d...)
 
 Base.rand(rng::AbstractRNG, prior::AbstractPrior) = error("rand not implemented for $(typeof(prior))")
 Base.rand(rng::AbstractRNG, prior::AbstractPrior, n::Integer) = [rand(rng, prior) for i in 1:n]
@@ -88,7 +90,7 @@ Alias for `PriorDistribution((; dists...))`.
 """
 prior(; dists...) = PriorDistribution((; dists...))
 
-logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), collect(prior.dist), x))
+logprob(prior::PriorDistribution, x::AbstractVector) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), collect(prior.dist), x))
 
 Base.names(prior::PriorDistribution) = keys(prior.dist)
 

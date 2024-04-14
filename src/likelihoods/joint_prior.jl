@@ -17,8 +17,8 @@ Constructs a `JointPrior` from the given prior and likelihoods.
 function JointPrior(modelprior::AbstractPrior, liks::SimulatorLikelihood...)
     lik_priors = map(prior, with_names(liks))
     param_nt = merge(
-        (model=rand(jp.model),),
-        map(d -> rand(d), jp.lik),
+        (model=rand(modelprior),),
+        map(d -> rand(d), lik_priors),
     )
     proto = ComponentVector(param_nt)
     return JointPrior(modelprior, lik_priors, getaxes(proto))

@@ -30,12 +30,12 @@ function build(alg::PySNE)
 end
 
 """
-    PySBISolver{algType<:PySBIAlgorithm,samplingType<:PySBISampling}
+    PySBISolver{algType,samplingType<:PySBISampling}
 
 Generic solver type for python sbi algorithms. Stores the prepared simulator,  prior,
 simulation data, and inference algorithm.
 """
-mutable struct PySBISolver{algType<:PySBIAlgorithm,samplingType<:PySBISampling}
+mutable struct PySBISolver{algType,samplingType<:PySBISampling}
     prob::SimulatorInferenceProblem
     alg::algType
     simulate_kwargs::NamedTuple
@@ -54,7 +54,7 @@ function CommonSolve.init(
     param_type::Type{T} = Vector;
     transform = inverse(bijector(inference_prob)),
     pred_transform = identity,
-    pyprior = torchprior(inference_prob.prior),
+    prior = pyprior(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
     # simulate kwargs
     num_simulations::Int = 1000,
@@ -65,8 +65,8 @@ function CommonSolve.init(
     solve_kwargs...
 ) where {T}
     pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
-    prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, pyprior)
-    inference_alg = alg()
+    prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
+    inference_alg = build(alg)
     return PySBISolver(
         inference_prob,
         alg,
@@ -88,7 +88,7 @@ function CommonSolve.init(
     param_type::Type{T} = Vector;
     transform = inverse(bijector(inference_prob)),
     pred_transform = identity,
-    pyprior = torchprior(inference_prob.prior),
+    prior = pyprior(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
     # sample kwargs
     sampling::PySBISampling = default_sampling(alg.algtype),
@@ -96,7 +96,7 @@ function CommonSolve.init(
     solve_kwargs...
 ) where {T}
     pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
-    prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, pyprior)
+    prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
     inference_alg = build(alg)
     append_simulations!(inference_alg, inference_prob, data)
     return PySBISolver(
@@ -146,7 +146,9 @@ function CommonSolve.solve!(solver::PySBISolver)
 end
 
 function default_sampling(algtype)
-    if algtype ∈ (sbi.inference.SNPE_A, sbi.inference.SNPE_B, sbi.inference.SNPE_C)
+    if pyconvert(Bool, algtype == sbi.inference.SNPE_A) ||
+       pyconvert(Bool, algtype == sbi.inference.SNPE_B) ||
+       pyconvert(Bool, algtype == sbi.inference.SNPE_C)
         DirectSampling()
     else
         MCMCSampling()
