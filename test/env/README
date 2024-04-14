@@ -1,0 +1,6 @@
+This is a temporary workaround for a bug in Julia Pkg.jl:
+https://github.com/JuliaLang/Pkg.jl/issues/3410
+
+which should be fixed in the next minor release.
+
+The test project environment can be moved there after that.

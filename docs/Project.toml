@@ -1,0 +1,5 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+SimulationBasedInference = "78927d98-f421-490e-8789-96b006983a5c"

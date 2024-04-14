@@ -1,0 +1,6 @@
+[deps]
+pip = ""
+python = "<=3.11"
+
+[pip.deps]
+sbi = ">=0.21.0"
