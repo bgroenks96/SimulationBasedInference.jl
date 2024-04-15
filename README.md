@@ -58,13 +58,13 @@ The following is a list of methods which are planned to be included in this pack
   - [ ] Particle flow filters [10] (PFF)
 
 #### Density estimation
-  - [ ] Sequential neural likelihood/posterior estimation (SNLE/SNPE) via [sbi](https://sbi-dev.github.io/sbi/)
+  - [x] Sequential neural likelihood/posterior estimation (SNLE/SNPE) via [sbi](https://sbi-dev.github.io/sbi/)
 
 #### Hybrid ensemble + emulator
-  - [ ] Calibrate, emulate, sample w/ Gaussian Processes [11] (CES-GP)
+  - [x] Calibrate, emulate, sample w/ Gaussian Processes [11] (CES-GP)
 
 #### Markov Chain Monte Carlo
-  - [ ] Affine Invariant MCMC [12] (a.k.a "emcee") via [AffineInvariantMCMC.jl](https://github.com/madsjulia/AffineInvariantMCMC.jl)
+  - [x] Affine Invariant MCMC [12] (a.k.a "emcee") via [AffineInvariantMCMC.jl](https://github.com/madsjulia/AffineInvariantMCMC.jl)
 
 ## References
 [1] Cranmer, Kyle, Johann Brehmer, and Gilles Louppe. "The frontier of simulation-based inference." Proceedings of the National Academy of Sciences 117.48 (2020): 30055-30062.
