@@ -7,7 +7,9 @@
 
 `SimulationBasedInference.jl` aims to bring together a variety of different methods for *simulation-based inference*, i.e. statistical inference with simulator-like models, in the Julia programming language.
 
-Please note that this package is currently under construction and is not yet ready for general use!
+Please note that this package is still very much under construction and things may break or change without prior notice.
+
+If you would like to use this package in your work, please let us know by creating an issue on GitHub or sending an email to [brian.groenke@awi.de](mailto:brian.groenke@awi.de).
 
 ## Introduction
 Simulator-type models are ubiquitous in science and engineering.
@@ -22,7 +24,7 @@ $$
 p(\boldsymbol{\theta} | \mathbf{y}) = \frac{p(\mathbf{y}|\boldsymbol{\theta})p(\boldsymbol{\theta})}{p(\mathbf{y})}
 $$
 
-The **posterior distribution** $p(\boldsymbol{\boldsymbol{\theta}} | \mathbf{y})$ represents our **best estimate** (with uncertainty) of the unknown parameters $\boldsymbol{\theta}$ after observing $\mathbf{y}$.
+The **posterior distribution** $p(\boldsymbol{\boldsymbol{\theta}} | \mathbf{y})$ represents our best estimate (with uncertainty) of the unknown parameters $\boldsymbol{\theta}$ after observing $\mathbf{y}$.
 
 ## Simulation-based inference
 
@@ -35,7 +37,7 @@ $$
 is a dynamical model or physics-based *simulator* mapping from parameters to noisy ($\epsilon$) observations.
 
 There are two fundamental challenges with this problem:
-1. The model $\mathcal{M}$ is almost always *non-linear* and, in the case of dynamical models, *intractable* (i.e. we cannot write down the analytical solution a priori).
+1. The forward model $\mathcal{M}$ is very often **nonlinear** and, in the case of dynamical models, **intractable** (i.e. we cannot write down the solution in analytical form).
 2. Evaluating the forward map $\mathcal{M}(\boldsymbol{\theta})$ is usually non-trivial, i.e. **computationally expensive** or at least inconvenient.
 
 Thus, classical statistical methods that rely on either analytical or numerical methods to derive the posterior distribution are generally difficult (or impossible) to apply.
