@@ -1,5 +1,10 @@
 # SimulationBasedInference.jl
 
+[![][docs-dev-img]][docs-dev-url]
+
+[docs-dev-img]: https://img.shields.io/badge/docs-latest-blue.svg
+[docs-dev-url]: https://bgroenks96.github.io/SimulationBasedInference.jl/dev/
+
 `SimulationBasedInference.jl` aims to bring together a variety of different methods for *simulation-based inference*, i.e. statistical inference with simulator-like models, in the Julia programming language.
 
 Please note that this package is currently under construction and is not yet ready for general use!
