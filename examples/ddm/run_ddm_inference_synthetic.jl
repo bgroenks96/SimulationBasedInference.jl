@@ -27,8 +27,8 @@ include("data.jl")
 # Arbitrarily select "true" parameters and run forward model
 p_true = ComponentVector(a=2.5, b=0.65)
 N_obs = 100
-σ_true = 10.0
-σ_prior = prior(σ=LogNormal(log(5.0),0.5))
+σ_true = 5.0
+σ_prior = prior(σ=LogNormal(log(10.0),0.5))
 data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
 
 # plot the data
@@ -136,13 +136,13 @@ function plot_density!(ax, res, idx::Integer, color; offset=0.0)
     return (; d, vl)
 end
 
-function plot_predictions!(ax, res, ts, color; hdi_prob=0.95)
+function plot_predictions!(ax, res, ts, color; hdi_prob=0.95, alpha1=0.6, alpha2=0.3)
     # compute highest density interval (HDI) using ArviZ
     pred_hdi = mapslices(x -> hdi(x, prob=hdi_prob), res.pred_ens, dims=2)[:,1]
     σ = length(res.posterior_mean) == 3 ? res.posterior_mean[end] : median(σ_prior).σ
-    ci_band = Makie.band!(ax, 1:length(ts), map(intrv -> intrv.lower, pred_hdi), map(intrv -> intrv.upper, pred_hdi), color=(color, 0.6))
-    pi_band = Makie.band!(ax, 1:length(ts), res.pred_mean[:,1] .- 2*σ, res.pred_mean[:,1] .+ 2*σ, color=(color, 0.3))
-    lines = Makie.lines!(ax, 1:length(ts), res.pred_mean[:,1], linewidth=4.0, color=(color,0.75))
+    ci_band = Makie.band!(ax, 1:length(ts), map(intrv -> intrv.lower, pred_hdi), map(intrv -> intrv.upper, pred_hdi), color=(color, alpha1))
+    pi_band = Makie.band!(ax, 1:length(ts), max.(0.0, res.pred_mean[:,1] .- 2*σ), res.pred_mean[:,1] .+ 2*σ, color=(color, alpha2))
+    lines = Makie.lines!(ax, 1:length(ts), res.pred_mean[:,1], linewidth=4.0, color=(color,alpha1))
     return (; ci_band, lines)
 end
 
@@ -162,8 +162,8 @@ hmc_sol = @time solve(inference_prob, MCMC(NUTS(), num_samples=10_000));
 hmc_res = summarize_markov_chain(hmc_sol, :y)
 hmc_sol.result
 
-simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1], num_samples_per_sim=100);
-gaussian_prior = PySBI.pyprior(inference_prob.prior, LaplaceMethod())
+simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1,2], num_samples_per_sim=10);
+# gaussian_prior = PySBI.pyprior(inference_prob.prior, LaplaceMethod())
 snpe_sol = @time solve(inference_prob, PySNE(), simdata);
 snpe_res = summarize_snpe(snpe_sol)
 
@@ -238,9 +238,9 @@ let fig = Makie.Figure(size=(900,600)),
     d23, _ = plot_density!(ax2, snpe_res, 2, :green)
     d21, _ = plot_density!(ax2, eks_res, 2, :blue)
     # d22, _ = plot_density!(ax2, esmda_res, 2, :orange)
-    plt4 = plot_predictions!(ax3, hmc_res, data.ts, :orange)
-    plt1 = plot_predictions!(ax3, eks_res, data.ts, :blue)
-    plt3 = plot_predictions!(ax3, snpe_res, data.ts, :green)
+    plt4 = plot_predictions!(ax3, hmc_res, data.ts, :orange, alpha1=0.7, alpha2=0.5)
+    plt1 = plot_predictions!(ax3, eks_res, data.ts, :blue, alpha1=0.4, alpha2=0.2)
+    plt3 = plot_predictions!(ax3, snpe_res, data.ts, :green, alpha1=0.4, alpha2=0.2)
     # plt2 = plot_predictions!(ax3, esmda_res, data.ts, :orange)
     if haskey(data, :y_true)
         vt1 = Makie.vlines!(ax1, [p_true[1]], color=:black, linestyle=:dash)
@@ -255,6 +255,6 @@ let fig = Makie.Figure(size=(900,600)),
         push!(names, "Ground truth")
     end
     Makie.axislegend(ax3, plots, names)
-    # Makie.save(joinpath(outdir, "posterior_densities_with_predictions_$(data.name).png"), fig)
+    Makie.save(joinpath(outdir, "posterior_densities_with_predictions_$(data.name).pdf"), fig)
     fig
 end

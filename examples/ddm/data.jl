@@ -25,7 +25,7 @@ function generate_synthetic_dataset(N_obs::Int, σ_true::Real, p_true::AbstractV
     y_true = DDM(ts, precip, Tair, p_true...)
     idx = sort(sample(rng, 1:length(ts), N_obs, replace=false))
     # add noise ϵ ~ N(0,10) to get synthetic observation data
-    y_obs = [ifelse(y > zero(y), y + σ_true*randn(rng), y + exp(randn(rng)-1)) for y in y_true[idx]]
+    y_obs = [max(zero(y), y + σ_true*randn(rng))  for y in y_true[idx]]
     # y_obs = y_true[idx] .+ randn(rng, length(idx)).*σ_true
     return (; ts, Tair, precip, y_obs, idx, y_true, name="synthetic")
 end

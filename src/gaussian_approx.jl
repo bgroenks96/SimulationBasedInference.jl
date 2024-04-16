@@ -1,5 +1,15 @@
+"""
+    GaussianApproximationMethod
+
+Base type for Gaussian approximations of arbitrary prior distributions.
+"""
 abstract type GaussianApproximationMethod end
 
+"""
+    EmpiricalGaussian <: GaussianApproximationMethod
+
+Represents a simple Gaussian approximation method which calculates a sample mean and covariance.
+"""
 Base.@kwdef struct EmpiricalGaussian <: GaussianApproximationMethod
     n_samples::Integer = 10_000
     full_cov::Bool = false
