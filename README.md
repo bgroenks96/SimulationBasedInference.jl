@@ -66,6 +66,11 @@ The following is a list of methods which are planned to be included in this pack
 #### Markov Chain Monte Carlo
   - [x] Affine Invariant MCMC [12] (a.k.a "emcee") via [AffineInvariantMCMC.jl](https://github.com/madsjulia/AffineInvariantMCMC.jl)
 
+#### Package integration
+  - [x] [Turing](https://github.com/TuringLang/Turing.jl)
+  - [x] [DynamicHMC](https://github.com/tpapp/DynamicHMC.jl)
+  - [ ] [Gen](https://github.com/probcomp/Gen.jl)
+
 ## References
 [1] Cranmer, Kyle, Johann Brehmer, and Gilles Louppe. "The frontier of simulation-based inference." Proceedings of the National Academy of Sciences 117.48 (2020): 30055-30062.
 

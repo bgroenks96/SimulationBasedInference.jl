@@ -30,8 +30,8 @@ end
     @test buffered_observable.output.tsave == collect(savepoints)
     @test all(diff(buffered_observable.output.tsample) .== Hour(1))
     SimulationBasedInference.initialize!(buffered_observable, state)
-    @test typeof(buffered_observable.output.output) <: Vector{Vector{Float64}}
-    @test typeof(buffered_observable.output.buffer) <: Vector{Vector{Float64}}
+    @test typeof(buffered_observable.output.output) <: Vector
+    @test typeof(buffered_observable.output.buffer) <: Vector
     # update observable at each sample point
     for t in t0:Hour(1):savepoints[end]
         state = (x = 1.0,)
@@ -44,6 +44,6 @@ end
     state = (x = ones(10),)
     buffered_observable = SimulatorObservable(:testobs, obsfunc, t0, savepoints, size(state.x); samplerate=Hour(1))
     SimulationBasedInference.initialize!(buffered_observable, state)
-    @test typeof(buffered_observable.output.output) <: Vector{Vector{Float64}}
-    @test typeof(buffered_observable.output.buffer) <: Vector{Vector{Float64}}
+    @test typeof(buffered_observable.output.output) <: Vector
+    @test typeof(buffered_observable.output.buffer) <: Vector
 end

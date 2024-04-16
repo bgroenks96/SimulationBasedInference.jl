@@ -8,8 +8,6 @@ If you would like to use this package in your work, please let us know by creati
 
 ## Installation
 
-## Installation
-
 `SimulationBasedInference` can be installed via the Julia package manager:
 
 ```
