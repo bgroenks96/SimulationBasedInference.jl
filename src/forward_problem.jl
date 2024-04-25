@@ -74,6 +74,10 @@ function Base.getproperty(prob::SimulatorSciMLForwardProblem, sym::Symbol)
     return getproperty(getfield(prob, :prob), sym)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", prob::SimulatorForwardProblem)
+    println(io, "SimulatorForwardProblem ($(nameof(typeof(prob.prob)))) with $(length(prob.observables)) observables $(keys(prob.observables))")
+end
+
 """
     SimulatorForwardSolution{TSol}
 
@@ -83,6 +87,10 @@ struct SimulatorForwardSolution{TSol}
     prob::SimulatorForwardProblem
     sol::TSol
 end
+
+get_observables(sol::SimulatorForwardSolution) = sol.prob.observables
+
+get_observable(sol::SimulatorForwardSolution, name::Symbol) = retrieve(getproperty(get_observables(sol), name))
 
 # Simple forward function wrapper
 

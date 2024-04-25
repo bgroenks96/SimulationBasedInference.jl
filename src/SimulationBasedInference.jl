@@ -74,7 +74,7 @@ export SimulationData, SimulationArrayStorage
 export store!, getinputs, getoutputs, getmetadata
 include("simulation_data.jl")
 
-export SimulatorObservable
+export SimulatorObservable, TimeSampledObservable, TransientObservable
 export observe!, retrieve, coordinates
 include("observables.jl")
 
@@ -90,6 +90,7 @@ export SimulatorLikelihood, JointPrior
 include("likelihoods/likelihoods.jl")
 
 export SimulatorForwardProblem, SimulatorForwardSolution
+export get_observable, get_observables
 include("forward_problem.jl")
 
 export SimulatorInferenceProblem, SimulatorInferenceSolution

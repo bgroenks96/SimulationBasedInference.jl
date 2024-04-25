@@ -33,7 +33,7 @@ end
 
 @testset "Inference problem" begin
     ode_p = ComponentArray(α=0.1)
-    odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), ode_p)
+    odeprob = ODEProblem((u,p,t) -> -p[1]*u, [1.0], (0.0,1.0), ode_p)
     observable = SimulatorObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, size(odeprob.u0), samplerate=0.01)
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     α_prior = prior(:α, LogNormal(0,1))

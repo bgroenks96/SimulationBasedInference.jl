@@ -31,6 +31,8 @@ get_obs_cov(state::EnISState) = state.obs_cov
 
 get_weights(state::EnISState) = state.weights
 
+get_weights(sol::SimulatorInferenceSolution{EnIS}) = get_weights(sol.result)
+
 function initialstate(
     pbs::EnIS,
     prior::AbstractPrior,
@@ -68,6 +70,8 @@ function ensemblestep!(solver::EnsembleSolver{<:EnIS})
     state.loglik = loglik
     store!(sol.storage, state.ens, out.observables, iter=state.iter)
 end
+
+finalize!(::EnsembleSolver{EnIS}) = nothing
 
 """
     importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::AbstractMatrix)
