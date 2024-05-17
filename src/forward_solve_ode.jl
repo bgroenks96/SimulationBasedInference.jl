@@ -81,14 +81,14 @@ end
 
 function CommonSolve.step!(forward::SimulatorODEForwardSolver)
     if forward.step_idx > length(forward.tstops)
-        return nothing
+        return step!(forward.integrator)
     end
     # extract fields from forward integrator and compute dt
     prob = forward.prob
     integrator = forward.integrator
     t = forward.tstops[forward.step_idx]
     dt = adstrip(t - integrator.t)
-    if dt > 0
+    retval = if dt > 0
         # step to next t if dt > 0
         step!(integrator, dt, true)
     end
@@ -100,7 +100,7 @@ function CommonSolve.step!(forward::SimulatorODEForwardSolver)
     end
     # increment step index
     forward.step_idx += 1
-    return nothing
+    return retval
 end
 
 """
