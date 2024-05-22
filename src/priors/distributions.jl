@@ -32,6 +32,14 @@ Base.names(prior::PriorDistribution) = keys(prior.dist)
 
 Base.rand(rng::AbstractRNG, prior::PriorDistribution) = ComponentVector(map(dᵢ -> rand(rng, dᵢ), prior.dist))
 
+function Base.getproperty(prior::PriorDistribution, name::Symbol)
+    if name == :dist
+        return getfield(prior, :dist)
+    else
+        return getproperty(getfield(prior, :dist), name)
+    end
+end
+
 # Statistics
 
 Statistics.mean(prior::PriorDistribution) = map(mean, prior.dist)
