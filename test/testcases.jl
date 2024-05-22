@@ -49,7 +49,7 @@ function linear_ode(
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     # generate "true" solution
     forward_sol = solve(forwardprob, Tsit5())
-    @assert forward_sol.sol.retcode == ReturnCode.Default
+    @assert forward_sol.sol.retcode == ReturnCode.Success
     true_obs = retrieve(observable)
     # specify priors
     α_prior = prior(α=α_prior)

@@ -11,7 +11,7 @@ struct SimulatorForwardProblem{probType,obsType,configType,names} <: SciMLBase.A
     config::configType
 end
 
-const SimulatorSciMLForwardProblem = SimulatorForwardProblem{<:SciMLBase.AbstractSciMLProblem}
+const SimulatorSciMLForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:SciMLBase.AbstractSciMLProblem}
 
 """
     SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
@@ -42,24 +42,31 @@ parameters `p0` and a default transient observable.
 SimulatorForwardProblem(f, p0::AbstractVector) = SimulatorForwardProblem(f, p0, SimulatorObservable(:y, state -> state.u))
 
 """
-    SciMLBase.remaker_of(forward_prob::SimulatorForwardProblem)
-
-Returns a function which will rebuild a `SimulatorForwardProblem` from its arguments.
-The remaker function additionally provides a keyword argument `copy_observables` which,
-if `true`, will `deepcopy` the observables to ensure independence. The default setting is `true`.
-"""
-function SciMLBase.remaker_of(forward_prob::SimulatorForwardProblem)
-    function remake_forward_prob(;
+    SciMLBase.remake(
+        forward_prob::SimulatorForwardProblem;
         prob=forward_prob.prob,
         observables=forward_prob.observables,
         config=forward_prob.config,
         copy_observables=true,
         kwargs...
     )
-        new_observables = copy_observables ? deepcopy(observables) : observables
-        return SimulatorForwardProblem(remake(prob; kwargs...), new_observables, config)
-    end
+
+Rebuilds a `SimulatorForwardProblem` from its individual components. If `copy_observables=true`,
+then `remake` will `deepcopy` the observables to ensure independence. The default setting is `true`.
+"""
+function SciMLBase.remake(
+    forward_prob::SimulatorForwardProblem;
+    prob=forward_prob.prob,
+    observables=forward_prob.observables,
+    config=forward_prob.config,
+    copy_observables=true,
+    kwargs...
+)
+    new_observables = copy_observables ? deepcopy(observables) : observables
+    return SimulatorForwardProblem(remake(prob; kwargs...), new_observables, config)
 end
+
+SciMLBase.remaker_of(forward_prob::SimulatorForwardProblem) = (;kwargs...) -> remake(forward_prob; kwargs...)
 
 # DiffEqBase dispatches to make solve/init interface work correctly
 DiffEqBase.check_prob_alg_pairing(prob::SimulatorSciMLForwardProblem, alg) = DiffEqBase.check_prob_alg_pairing(prob.prob, alg)

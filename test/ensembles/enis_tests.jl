@@ -59,13 +59,13 @@ end
 
 @testset "EnIS: evensen_scalar_nonlinear" begin
     x_true = 1.0
-    b_true = 0.2
+    b_true = 0.1
     σ_y = 0.1
     ensemble_size = 1024
     x_prior = Normal(0,1)
     # log-normal with mean 0.1 and stddev 0.2
     # b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
-    b_prior = Bijectors.TransformedDistribution(Normal(log(0.2), 1), Base.Fix1(broadcast, exp))
+    b_prior = Bijectors.TransformedDistribution(Normal(0.0, 1.0), Base.Fix1(broadcast, exp))
     rng = Random.MersenneTwister(1234)
     testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
     transform = bijector(testprob.prior.model)
