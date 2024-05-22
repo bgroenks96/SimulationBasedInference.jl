@@ -80,7 +80,7 @@ include("observables.jl")
 
 export AbstractPrior, PriorDistribution
 export prior, logprob, forward_map, unconstrained_forward_map
-include("priors.jl")
+include("priors/priors.jl")
 
 export GaussianApproximationMethod, EmpiricalGaussian, LaplaceMethod
 export gaussian_approx
