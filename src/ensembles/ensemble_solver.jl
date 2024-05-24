@@ -62,7 +62,7 @@ Constructs the initial ensemble state for the given algorithm and observations.
 """
 initialstate(
     alg::EnsembleInferenceAlgorithm,
-    prior::AbstractPrior,
+    prior::AbstractSimulatorPrior,
     ens::AbstractMatrix,
     obs::AbstractVector,
     obscov::AbstractMatrix;

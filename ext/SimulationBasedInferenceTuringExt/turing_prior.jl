@@ -1,14 +1,14 @@
 """
-    TuringPrior{varnames,TM<:Turing.Model,axesType} <: AbstractPrior
+    TuringSimulatorPrior{varnames,TM<:Turing.Model,axesType} <: AbstractSimulatorPrior
 
 Represents a prior distribution formulated as a `Turing` model. The Turing model
 can have any arbitrary structure, e.g. hierarchical or otherwise.
 """
-struct TuringPrior{varnames,modelType<:Turing.Model,axesType} <: AbstractPrior
+struct TuringSimulatorPrior{varnames,modelType<:Turing.Model,axesType} <: AbstractSimulatorPrior
     model::modelType
     axes::axesType
     chain_names::Vector{Symbol}
-    function TuringPrior(model::Turing.Model)
+    function TuringSimulatorPrior(model::Turing.Model)
         varnames = keys(Turing.VarInfo(model).metadata)
         axes = getaxes(ComponentArray(rand(model)))
         chain_names = extract_parameter_names(model)
@@ -16,7 +16,7 @@ struct TuringPrior{varnames,modelType<:Turing.Model,axesType} <: AbstractPrior
     end
 end
 
-function (prior::TuringPrior)(θ::AbstractVector{T}) where {T}
+function (prior::TuringSimulatorPrior)(θ::AbstractVector{T}) where {T}
     varinfo = Turing.DynamicPPL.VarInfo(prior.model);
     context = prior.model.context;
     new_vi = Turing.DynamicPPL.unflatten(varinfo, context, θ);
@@ -26,12 +26,12 @@ function (prior::TuringPrior)(θ::AbstractVector{T}) where {T}
     return p
 end
 
-SimulationBasedInference.prior(model::Turing.Model) = TuringPrior(model)
+SimulationBasedInference.prior(model::Turing.Model) = TuringSimulatorPrior(model)
 
-SimulationBasedInference.forward_map(prior::TuringPrior, θ::AbstractVector) = prior(θ)
+SimulationBasedInference.forward_map(prior::TuringSimulatorPrior, θ::AbstractVector) = prior(θ)
 
-SimulationBasedInference.logprob(prior::TuringPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
-function SimulationBasedInference.logprob(prior::TuringPrior, θ::AbstractVector)
+SimulationBasedInference.logprob(prior::TuringSimulatorPrior, θ::NamedTuple) = Turing.logprior(prior.model, θ)
+function SimulationBasedInference.logprob(prior::TuringSimulatorPrior, θ::AbstractVector)
     ϕ = ComponentVector(getdata(θ), prior.axes)
     # here we have to do some nasty Turing manipulation to make sure this function is
     # autodiff compatible; basically we have to reconstruct `varinfo` based on the type of ϕ.
@@ -43,11 +43,11 @@ function SimulationBasedInference.logprob(prior::TuringPrior, θ::AbstractVector
 end
 
 # mandatory sampling dispatches
-Base.rand(rng::AbstractRNG, prior::TuringPrior) = ComponentArray(rand(rng, prior.model))
+Base.rand(rng::AbstractRNG, prior::TuringSimulatorPrior) = ComponentArray(rand(rng, prior.model))
 
-StatsBase.sample(rng::AbstractRNG, prior::TuringPrior, n::Int, args...; kwargs...) = [rand(rng, prior) for i in 1:n]
+StatsBase.sample(rng::AbstractRNG, prior::TuringSimulatorPrior, n::Int, args...; kwargs...) = [rand(rng, prior) for i in 1:n]
 
-Bijectors.bijector(prior::TuringPrior) = bijector(prior.model)
+Bijectors.bijector(prior::TuringSimulatorPrior) = bijector(prior.model)
 
 function extract_parameter_names(m::Turing.Model)
     # sample chain to extract param names

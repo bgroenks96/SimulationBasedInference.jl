@@ -33,7 +33,7 @@ hasconverged(alg::EKS, state::EKPState) = length(state.ekp.Δt) > 1 ? sum(state.
 
 function initialstate(
     eks::EKS,
-    prior::AbstractPrior,
+    prior::AbstractSimulatorPrior,
     ens::AbstractMatrix,
     obs::AbstractVector,
     obs_cov::AbstractMatrix;

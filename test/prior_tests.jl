@@ -27,7 +27,7 @@ end
     lp = logprob(priordist, 0.5)
     @test lp .≈ logpdf(d, 0.5)
     d = (x = Normal(0,1), p = Beta(1,1))
-    priordist = PriorDistribution(d)
+    priordist = NamedProductPrior(d)
     lp = logprob(priordist, [0.5,0.5])
     @test lp .≈ sum(map(logpdf, d, [0.5,0.5]))
 end
@@ -37,7 +37,7 @@ end
     d = Normal(0,1)
     priordist = prior(:x, d)
     d = (x = Normal(0,1), p = Beta(1,1))
-    priordist = PriorDistribution(d)
+    priordist = NamedProductPrior(d)
     x = rand(rng, priordist)
     b = bijector(priordist)
     z = b(x)

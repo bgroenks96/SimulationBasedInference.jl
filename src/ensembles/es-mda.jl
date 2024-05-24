@@ -32,7 +32,7 @@ hasconverged(alg::ESMDA, state::ESMDAState) = state.iter >= alg.maxiters
 
 function initialstate(
     esmda::ESMDA,
-    prior::AbstractPrior,
+    prior::AbstractSimulatorPrior,
     ens::AbstractMatrix,
     obs::AbstractVector,
     obs_cov::AbstractMatrix;

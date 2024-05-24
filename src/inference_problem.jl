@@ -1,11 +1,11 @@
 #### Inverse/inference problems ####
 
 """
-    SimulatorInferenceProblem{modelPriorType<:AbstractPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
+    SimulatorInferenceProblem{modelPriorType<:AbstractSimulatorPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
 
 Represents a generic simulation-based Bayesian inference problem for finding the posterior distribution over model parameters given some observed data.
 """
-struct SimulatorInferenceProblem{modelPriorType<:AbstractPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
+struct SimulatorInferenceProblem{modelPriorType<:AbstractSimulatorPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
     u0::uType
     forward_prob::SimulatorForwardProblem
     forward_solver::solverType
@@ -18,7 +18,7 @@ end
     SimulatorInferenceProblem(
         prob::SimulatorForwardProblem,
         forward_solver,
-        prior::AbstractPrior,
+        prior::AbstractSimulatorPrior,
         likelihoods::SimulatorLikelihood...;
         metadata::Dict=Dict(),
     )
@@ -29,7 +29,7 @@ Additional user-specified metadata may be included in the `metadata` dictionary.
 function SimulatorInferenceProblem(
     forward_prob::SimulatorForwardProblem,
     forward_solver,
-    prior::AbstractPrior,
+    prior::AbstractSimulatorPrior,
     likelihoods::SimulatorLikelihood...;
     metadata::Dict=Dict(),
 )
@@ -37,7 +37,7 @@ function SimulatorInferenceProblem(
     u0 = zero(rand(joint_prior))
     return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, with_names(likelihoods), metadata)
 end
-SimulatorInferenceProblem(forward_prob::SimulatorForwardProblem, prior::AbstractPrior, likelihoods::SimulatorLikelihood...; kwargs...) =
+SimulatorInferenceProblem(forward_prob::SimulatorForwardProblem, prior::AbstractSimulatorPrior, likelihoods::SimulatorLikelihood...; kwargs...) =
     SimulatorInferenceProblem(forward_prob, nothing, prior, likelihoods...; kwargs...)
 
 """

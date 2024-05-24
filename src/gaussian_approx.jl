@@ -16,12 +16,12 @@ Base.@kwdef struct EmpiricalGaussian <: GaussianApproximationMethod
 end
 
 """
-    gaussian_gapprox(prior::AbstractPrior; num_prior_samples::Int=10_000, rng::Random.AbstractRNG=Random.default_rng())
+    gaussian_gapprox(prior::AbstractSimulatorPrior; num_prior_samples::Int=10_000, rng::Random.AbstractRNG=Random.default_rng())
 
 Builds an empirical multivariate Gaussian approximation of the given `prior` distribution by computing the moments
 of the transformed samples.
 """
-function gaussian_approx(approx::EmpiricalGaussian, prior::AbstractPrior; rng::Random.AbstractRNG=Random.default_rng())
+function gaussian_approx(approx::EmpiricalGaussian, prior::AbstractSimulatorPrior; rng::Random.AbstractRNG=Random.default_rng())
     constrained_to_unconstrained = bijector(prior)
     constrained_prior_samples = sample(rng, prior, approx.n_samples)
     unconstrained_prior_samples = reduce(hcat, map(constrained_to_unconstrained, constrained_prior_samples))
@@ -40,7 +40,7 @@ end
 
 function gaussian_approx(
     approx::LaplaceMethod,
-    prior::AbstractPrior,
+    prior::AbstractSimulatorPrior,
     x0::Union{Nothing,AbstractVector}=nothing; 
     rng::Random.AbstractRNG=Random.default_rng(),
     optimizer=BFGS(),

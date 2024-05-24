@@ -78,7 +78,7 @@ export SimulatorObservable, TimeSampledObservable, TransientObservable
 export observe!, retrieve, coordinates
 include("observables.jl")
 
-export AbstractPrior, PriorDistribution
+export AbstractSimulatorPrior, NamedProductPrior
 export prior, logprob, forward_map, unconstrained_forward_map
 include("priors/priors.jl")
 

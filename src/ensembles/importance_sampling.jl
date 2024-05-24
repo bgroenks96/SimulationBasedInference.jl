@@ -35,7 +35,7 @@ get_weights(sol::SimulatorInferenceSolution{EnIS}) = get_weights(sol.result)
 
 function initialstate(
     pbs::EnIS,
-    prior::AbstractPrior,
+    prior::AbstractSimulatorPrior,
     ens::AbstractMatrix,
     obs::AbstractVector,
     obs_cov::AbstractMatrix;

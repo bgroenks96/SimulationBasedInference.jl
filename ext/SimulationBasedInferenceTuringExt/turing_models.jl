@@ -25,7 +25,7 @@ end
 
 # model building functions.
 function SimulationBasedInference.joint_model(
-    inference_prob::SimulatorInferenceProblem{<:TuringPrior},
+    inference_prob::SimulatorInferenceProblem{<:TuringSimulatorPrior},
     forward_alg;
     storage=SimulationArrayStorage(),
     solve_kwargs...
@@ -53,7 +53,7 @@ function SimulationBasedInference.joint_model(
 end
 
 function SimulationBasedInference.likelihood_model(
-    inference_prob::SimulatorInferenceProblem{<:TuringPrior},
+    inference_prob::SimulatorInferenceProblem{<:TuringSimulatorPrior},
     forward_alg;
     storage=SimulationArrayStorage(),
     solve_kwargs...

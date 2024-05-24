@@ -1,11 +1,11 @@
 # Joint prior
 """
-    JointPrior{modelPriorType<:AbstractPrior,likPriorTypes} <: AbstractPrior
+    JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes} <: AbstractSimulatorPrior
 
 Represents the "joint" prior `p(θₘ,θₗ)` where `θ = [θₘ θₗ]` are the full set of parameters in the joint;
 distribution `p(x,θ)`. θₘ are the model (simulator) parameters and θₗ are the noise/error model parameters.
 """
-struct JointPrior{modelPriorType<:AbstractPrior,likPriorTypes,lnames} <: AbstractPrior
+struct JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes,lnames} <: AbstractSimulatorPrior
     model::modelPriorType
     lik::NamedTuple{lnames,likPriorTypes}
     ax::Tuple{Vararg{ComponentArrays.Axis}}
@@ -14,7 +14,7 @@ end
 """
 Constructs a `JointPrior` from the given prior and likelihoods.
 """
-function JointPrior(modelprior::AbstractPrior, liks::SimulatorLikelihood...)
+function JointPrior(modelprior::AbstractSimulatorPrior, liks::SimulatorLikelihood...)
     lik_priors = map(prior, with_names(liks))
     param_nt = merge(
         (model=rand(modelprior),),

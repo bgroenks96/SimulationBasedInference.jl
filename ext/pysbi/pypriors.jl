@@ -1,17 +1,17 @@
 """
     PyPrior
 
-Wraps an `AbstractPrior` for use in the `sbi` python package. 
+Wraps an `AbstractSimulatorPrior` for use in the `sbi` python package. 
 """
 struct PyPrior
-    prior::AbstractPrior
+    prior::AbstractSimulatorPrior
     log_prob::Function
     sample::Function
     mean::Py
     variance::Py
 end
 
-function PyPrior(prior::AbstractPrior)
+function PyPrior(prior::AbstractSimulatorPrior)
     function pylogprob(x)
         x = PyArray(x)
         binv = inverse(bijector(prior))
@@ -47,17 +47,17 @@ pyprior(d::LogitNormal) = torch.distributions.LogisticNormal(torch.Tensor([d.μ]
 pyprior(d::MvNormal) = torch.distributions.MultivariateNormal(torch.Tensor(d.μ), torch.Tensor(Py(d.Σ).to_numpy()))
 
 # wrapper for generic priors
-pyprior(prior::AbstractPrior) = PyPrior(prior)
+pyprior(prior::AbstractSimulatorPrior) = PyPrior(prior)
 
 """
-    torchprior(prior::AbstractPrior, approx::GaussianApproximationMethod)
+    torchprior(prior::AbstractSimulatorPrior, approx::GaussianApproximationMethod)
 
 Currently, it seems that `torch` does not provide a generic product distribution for combining
 univariate distributions into a higher dimensional multivariate distribution. As a cheap workaround,
 we follow here the same strategy as with the ensemble Kalman methods, and we use the `Bijector`s
-defined for each `AbstractPrior` to construct an empirical multivariate normal approximation.
+defined for each `AbstractSimulatorPrior` to construct an empirical multivariate normal approximation.
 """
-function pyprior(prior::AbstractPrior, approx::GaussianApproximationMethod; rng=Random.default_rng())
+function pyprior(prior::AbstractSimulatorPrior, approx::GaussianApproximationMethod; rng=Random.default_rng())
     normal_prior = gaussian_approx(approx, prior; rng)
     μ = mean(normal_prior)
     Σ = cov(normal_prior)

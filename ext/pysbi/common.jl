@@ -35,7 +35,7 @@ end
 Wraps the posterior object returned by `sbi` along with the original prior.
 """
 struct SurrogatePosterior
-    prior::AbstractPrior
+    prior::AbstractSimulatorPrior
     posterior::Py
 end
 

@@ -12,7 +12,7 @@ using DiffEqBase
 using Random
 using StatsBase
 
-export TuringPrior
+export TuringSimulatorPrior
 include("turing_prior.jl")
 
 export TuringMCMC, joint_model, likelihood_model

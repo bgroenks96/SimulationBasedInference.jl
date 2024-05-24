@@ -1,21 +1,21 @@
 GaussianLikelihood(
     obs,
     data,
-    prior=PriorDistribution(σ=Exponential(1.0)),
+    prior=NamedProductPrior(σ=Exponential(1.0)),
     name=nameof(obs)
 ) = SimulatorLikelihood(Normal, obs, data, prior, name)
 
 IsotropicGaussianLikelihood(
     obs,
     data,
-    prior=PriorDistribution(σ=Exponential(1.0)),
+    prior=NamedProductPrior(σ=Exponential(1.0)),
     name=nameof(obs)
 ) = SimulatorLikelihood(IsoNormal, obs, data, prior, name)
 
 DiagonalGaussianLikelihood(
     obs,
     data,
-    prior=PriorDistribution(σ=filldist(Exponential(1.0), prod(size(obs)))),
+    prior=NamedProductPrior(σ=filldist(Exponential(1.0), prod(size(obs)))),
     name=nameof(obs)
 ) = SimulatorLikelihood(DiagNormal, obs, data, prior, name)
 

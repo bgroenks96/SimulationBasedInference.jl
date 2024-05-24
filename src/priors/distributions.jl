@@ -1,38 +1,38 @@
 # Simple implementation for Distributions.jl types
 
 """
-    PriorDistribution{distTypes<:NamedTuple}
+    NamedProductPrior{distTypes<:NamedTuple}
 
 Simple diagonal prior that wraps a `NamedTuple` of distributions from the `Distributions` package.
 """
-struct PriorDistribution{distTypes<:NamedTuple} <: AbstractPrior
+struct NamedProductPrior{distTypes<:NamedTuple} <: AbstractSimulatorPrior
     dist::distTypes
 end
 
-const UnivariatePriorDistribution{T} = PriorDistribution{NamedTuple{x,Tuple{T}}} where {x,T<:UnivariateDistribution}
-const MultivariatePriorDistribution = PriorDistribution{<:NamedTuple}
+const UnivariatePriorDistribution{T} = NamedProductPrior{NamedTuple{x,Tuple{T}}} where {x,T<:UnivariateDistribution}
+const MultivariatePriorDistribution = NamedProductPrior{<:NamedTuple}
 
 """
     prior(name::Symbol, dist::Distribution)
 
-Alias for `PriorDistribution((name = dist))`.
+Alias for `NamedProductPrior((name = dist))`.
 """
-prior(name::Symbol, dist::Distribution) = PriorDistribution((; name => dist))
+prior(name::Symbol, dist::Distribution) = NamedProductPrior((; name => dist))
 
 """
     prior(; dists...)
 
-Alias for `PriorDistribution((; dists...))`.
+Alias for `NamedProductPrior((; dists...))`.
 """
-prior(; dists...) = PriorDistribution((; dists...))
+prior(; dists...) = NamedProductPrior((; dists...))
 
-logprob(prior::PriorDistribution, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), collect(prior.dist), x))
+logprob(prior::NamedProductPrior, x) = sum(map((dᵢ, xᵢ) -> logpdf(dᵢ, xᵢ), collect(prior.dist), x))
 
-Base.names(prior::PriorDistribution) = keys(prior.dist)
+Base.names(prior::NamedProductPrior) = keys(prior.dist)
 
-Base.rand(rng::AbstractRNG, prior::PriorDistribution) = ComponentVector(map(dᵢ -> rand(rng, dᵢ), prior.dist))
+Base.rand(rng::AbstractRNG, prior::NamedProductPrior) = ComponentVector(map(dᵢ -> rand(rng, dᵢ), prior.dist))
 
-function Base.getproperty(prior::PriorDistribution, name::Symbol)
+function Base.getproperty(prior::NamedProductPrior, name::Symbol)
     if name == :dist
         return getfield(prior, :dist)
     else
@@ -42,11 +42,11 @@ end
 
 # Statistics
 
-Statistics.mean(prior::PriorDistribution) = map(mean, prior.dist)
-Statistics.median(prior::PriorDistribution) = map(median, prior.dist)
-Statistics.quantile(prior::PriorDistribution, q) = map(Base.Fix2(quantile, q), prior.dist)
-Statistics.var(prior::PriorDistribution) = map(var, prior.dist)
-Statistics.cov(prior::PriorDistribution) = map(cov, prior.dist)
+Statistics.mean(prior::NamedProductPrior) = map(mean, prior.dist)
+Statistics.median(prior::NamedProductPrior) = map(median, prior.dist)
+Statistics.quantile(prior::NamedProductPrior, q) = map(Base.Fix2(quantile, q), prior.dist)
+Statistics.var(prior::NamedProductPrior) = map(var, prior.dist)
+Statistics.cov(prior::NamedProductPrior) = map(cov, prior.dist)
 
 # Bijectors
 
