@@ -86,7 +86,7 @@ export GaussianApproximationMethod, EmpiricalGaussian, LaplaceMethod
 export gaussian_approx
 include("gaussian_approx.jl")
 
-export SimulatorLikelihood, JointPrior
+export SimulatorLikelihood
 include("likelihoods/likelihoods.jl")
 
 export SimulatorForwardProblem, SimulatorForwardSolution
