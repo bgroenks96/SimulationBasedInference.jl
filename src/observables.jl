@@ -55,6 +55,7 @@ function coordinates(dims...)
     return map(coord, Tuple(1:length(dims)), dims)
 end
 coordinates(dims::Tuple) = coordinates(dims...)
+coordinates(::Tuple{}) = coordinates(1)
 
 """
     SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType} <: Observable{outputType}

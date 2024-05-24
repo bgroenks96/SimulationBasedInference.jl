@@ -37,9 +37,11 @@ end
     SimulatorForwardProblem(f, p0::AbstractVector)
 
 Creates a forward problem from the given function or callable type `f` with initial
-parameters `p0` and a default transient observable.
+parameters `p0` and a default transient observable. Note that this constructor calls `f(p0)`
+in order to determine the shape of the observable. If `f` is very costly and this is
+undesirable, it is recommended to use the explicit constructor.
 """
-SimulatorForwardProblem(f, p0::AbstractVector) = SimulatorForwardProblem(f, p0, SimulatorObservable(:y, state -> state.u))
+SimulatorForwardProblem(f, p0::AbstractVector) = SimulatorForwardProblem(f, p0, SimulatorObservable(:y, state -> state.u, size(f(p0))))
 
 """
     SciMLBase.remake(
