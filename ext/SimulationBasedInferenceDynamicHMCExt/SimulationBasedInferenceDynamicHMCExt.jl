@@ -12,15 +12,6 @@ import CommonSolve
 import DynamicHMC
 import Random
 
-mutable struct DynamicHMCSolver{algType<:MCMC,probType,statsType,QType}
-    sol::SimulatorInferenceSolution{algType,probType}
-    num_samples::Int
-    num_chains::Int
-    steps::DynamicHMC.MCMCSteps
-    stats::statsType
-    Q::QType
-end
-
 include("hmc.jl")
 
 end

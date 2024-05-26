@@ -1,18 +1,17 @@
 """
-    TuringSimulatorPrior{varnames,TM<:Turing.Model,axesType} <: AbstractSimulatorPrior
+    TuringSimulatorPrior{TM<:Turing.Model,axesType} <: AbstractSimulatorPrior
 
 Represents a prior distribution formulated as a `Turing` model. The Turing model
 can have any arbitrary structure, e.g. hierarchical or otherwise.
 """
-struct TuringSimulatorPrior{varnames,modelType<:Turing.Model,axesType} <: AbstractSimulatorPrior
+struct TuringSimulatorPrior{modelType<:Turing.Model,axesType} <: AbstractSimulatorPrior
     model::modelType
     axes::axesType
     chain_names::Vector{Symbol}
     function TuringSimulatorPrior(model::Turing.Model)
-        varnames = keys(Turing.VarInfo(model).metadata)
         axes = getaxes(ComponentArray(rand(model)))
         chain_names = extract_parameter_names(model)
-        new{varnames,typeof(model),typeof(axes)}(model, axes, chain_names)
+        new{typeof(model),typeof(axes)}(model, axes, chain_names)
     end
 end
 
