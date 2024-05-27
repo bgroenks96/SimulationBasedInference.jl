@@ -125,8 +125,8 @@ inference_prob = set_up_Tsurf_inference_problem(
 
 # θ₀ = sample(inference_prob.prior)
 # loglik = @time SBI.forward_eval!(inference_prob, θ₀)
-# T_ub = retrieve(inference_prob.observables.T_ub)
-# Ts_out = retrieve(inference_prob.observables.Ts)
+# T_ub = getvalue(inference_prob.observables.T_ub)
+# Ts_out = getvalue(inference_prob.observables.Ts)
 # Makie.lines(T_ub)
 # Makie.lines(Ts_out[2,:])
 

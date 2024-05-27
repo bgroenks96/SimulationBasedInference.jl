@@ -37,7 +37,7 @@ function CommonSolve.step!(solver::DynamicHMCSolver)
     # extract the position
     q = solver.Q.q
     # extract observables
-    obs = map(obs -> ForwardDiff.value.(retrieve(obs)), prob.forward_prob.observables)
+    obs = map(obs -> ForwardDiff.value.(getvalue(obs)), prob.forward_prob.observables)
     store!(sol.storage, q, obs)
     push!(solver.stats, stats)
     return nothing

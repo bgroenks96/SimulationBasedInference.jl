@@ -15,6 +15,6 @@ DiracLikelihood(
 ) = SimulatorLikelihood(Dirac, obs, data, nothing, name)
 
 function predictive_distribution(lik::SimulatorLikelihood{Dirac})
-    y = retrieve(lik.obs)[1]
+    y = getvalue(lik.obs)[1]
     return Dirac(y)
 end

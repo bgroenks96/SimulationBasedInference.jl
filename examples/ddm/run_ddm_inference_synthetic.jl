@@ -121,7 +121,7 @@ function summarize_snpe(inference_sol, observable=:y; num_samples=10_000)
     pred_ens = map(eachcol(posterior_ens)) do p
         ϕ = p0 + p
         sol = solve(inference_sol.prob.forward_prob, p=ϕ.model)
-        retrieve(sol.prob.observables[observable])
+        getvalue(sol.prob.observables[observable])
     end
     pred_ens = reduce(hcat, pred_ens)
     pred_mean = mean(pred_ens, dims=2)

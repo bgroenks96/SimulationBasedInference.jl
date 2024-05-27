@@ -18,4 +18,4 @@ ImplicitLikelihood(
 
 predictive_distribution(::SimulatorLikelihood{ImplicitDistribution}) = error("predictive distribution not defined for implicit likelihoods")
 
-sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood{ImplicitDistribution}, args...) = vec(retrieve(lik.obs))
+sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood{ImplicitDistribution}, args...) = vec(getvalue(lik.obs))

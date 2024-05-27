@@ -14,7 +14,7 @@ consists of four basic components:
 
 Due to the typically high cost of evaluating the parameter forward map, `SimulatorLikelihood` effectively decouples
 the computation of the likelihood from the simulator via the `SimulatorObservable`, which stores the result of a
-forward simulation. When the `SimulatorLikelihood` is evaluated, these outputs are obtained from `retrieve(obs)`
+forward simulation. When the `SimulatorLikelihood` is evaluated, these outputs are obtained from `getvalue(obs)`
 and the only additional parameters needed are those specified by `prior`.
 """
 struct SimulatorLikelihood{distType,priorType,obsType,dataType}

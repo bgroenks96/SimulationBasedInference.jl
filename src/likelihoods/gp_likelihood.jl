@@ -22,6 +22,6 @@ function predictive_distribution(lik::SimulatorLikelihood{GP}, args...)
     k = lik.prior.kernel(args...)
     x = vec(map(collect, Iterators.product(coordinates(lik.obs))))
     Σ = kernelmatrix(k, x)
-    μ = vec(retrieve(lik.obs))
+    μ = vec(getvalue(lik.obs))
     return MvNormal(μ, Σ)
 end

@@ -9,14 +9,14 @@ using Test
     SimulationBasedInference.initialize!(obs, state)
     @test obs.output.state == state
     SimulationBasedInference.observe!(obs, state)
-    observed_state = SimulationBasedInference.retrieve(obs)
+    observed_state = SimulationBasedInference.getvalue(obs)
     @test observed_state == state
     # with observable mapping function
     state = [-1.0,2.0]
     obs = SimulatorObservable(:obs, x -> x.^2, size(state))
     SimulationBasedInference.initialize!(obs, state)
     SimulationBasedInference.observe!(obs, state)
-    observed_state = SimulationBasedInference.retrieve(obs)
+    observed_state = SimulationBasedInference.getvalue(obs)
     @test observed_state == state.^2
 end
 
@@ -37,7 +37,7 @@ end
         state = (x = 1.0,)
         SimulationBasedInference.observe!(buffered_observable, state)
     end
-    obs_result = SimulationBasedInference.retrieve(buffered_observable)
+    obs_result = SimulationBasedInference.getvalue(buffered_observable)
     # we save 1.0 at each step, so average should always be 1
     @test all(obs_result .≈ 1.0)
     # case 2: vector state

@@ -17,11 +17,11 @@ Computes and stores the relevant state variables from the given simulator state.
 observe!(obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
 
 """
-    retrieve(::Observable, ::Type{T}=Any) where {T}
+    getvalue(::Observable, ::Type{T}=Any) where {T}
 
-Retreive the obsevable at all coordinates, assuming all sample times have been stored appropriately.
+Retreive the obsevable at all coordinates.
 """
-retrieve(obs::Observable, ::Type{T}=Any) where {T} = error("not implemented for observable of type $(typeof(obs))")
+getvalue(obs::Observable, ::Type{T}=Any) where {T} = error("not implemented for observable of type $(typeof(obs))")
 
 """
     setvalue!(obs::Observable, value)
@@ -106,7 +106,7 @@ function observe!(obs::SimulatorObservable{N,Transient}, state) where {N}
     return out
 end
 
-function retrieve(obs::SimulatorObservable{N,Transient}, ::Type{T}=Any) where {N,T}
+function getvalue(obs::SimulatorObservable{N,Transient}, ::Type{T}=Any) where {N,T}
     return obs.output.state
 end
 
@@ -237,7 +237,7 @@ function observe!(obs::TimeSampledObservable, state)
     return Y_t
 end
 
-function retrieve(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
+function getvalue(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
     out = reduce(hcat, obs.output.output)
     # drop first dimension if it is of length 1

@@ -258,7 +258,7 @@ function default_pred_func(prob::SimulatorInferenceProblem; verify_return_code=f
         end
         # retrieve observable for each likelihood and flatten the results into a vector
         observables = map(name -> sol.prob.observables[name], keys(prob.likelihoods))
-        return reduce(vcat, map(obs -> vec(retrieve(obs)), observables))
+        return reduce(vcat, map(obs -> vec(getvalue(obs)), observables))
     end
 end
 
@@ -269,6 +269,6 @@ function default_pred_func(::SimulatorForwardProblem; verify_return_code=false)
             @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
         end
         # retrieve observable for each likelihood and flatten the results into a vector
-        return reduce(vcat, map(obs -> vec(retrieve(obs)), sol.prob.observables))
+        return reduce(vcat, map(obs -> vec(getvalue(obs)), sol.prob.observables))
     end
 end

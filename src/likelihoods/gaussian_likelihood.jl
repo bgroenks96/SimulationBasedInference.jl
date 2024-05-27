@@ -21,12 +21,12 @@ DiagonalGaussianLikelihood(
 
 
 function predictive_distribution(lik::SimulatorLikelihood{Normal}, σ)
-    μ = retrieve(lik.obs)[1]
+    μ = getvalue(lik.obs)[1]
     return Normal(μ, σ)
 end
 
 function predictive_distribution(lik::SimulatorLikelihood{<:MvNormal}, σ)
-    μ = vec(retrieve(lik.obs))
+    μ = vec(getvalue(lik.obs))
     Σ = cov(lik, σ)
     return MvNormal(μ, Σ)
 end

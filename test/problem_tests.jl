@@ -13,7 +13,7 @@ using Test
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     forward_sol = solve(forwardprob, Tsit5())
     @test isa(forward_sol, SimulatorForwardSolution)
-    obs = retrieve(observable)
+    obs = getvalue(observable)
     @test size(obs) == (10,)
     @test all(diff(obs[1,:]) .< 0.0)
 end
@@ -26,7 +26,7 @@ end
     forwardprob = SimulatorForwardProblem(nlprob, observable)
     forward_sol = solve(forwardprob, NewtonRaphson(), abstol=1e-6, reltol=1e-8)
     @test isa(forward_sol, SimulatorForwardSolution)
-    obs = retrieve(observable)
+    obs = getvalue(observable)
     @test isa(obs, Vector{Float64})
     @test round(obs[1], digits=3) == -20.271
 end
@@ -46,7 +46,7 @@ end
     u.model.α = 0.5
     u.obs.σ = 1.0
     lp = logprob(inferenceprob, u)
-    lj = logpdf(MvNormal(retrieve(observable), I), data) + logprob(α_prior, u.model) + logprob(noise_scale_prior, u.obs)
+    lj = logpdf(MvNormal(getvalue(observable), I), data) + logprob(α_prior, u.model) + logprob(noise_scale_prior, u.obs)
     # check the logdensity is equal to the logjoint
     @test lp ≈ lj
     # apply bijection
