@@ -23,7 +23,7 @@ function GenSimulatorPrior(gf::Gen.GenerativeFunction, args::Tuple)
 end
 
 function (prior::GenSimulatorPrior)(θ::AbstractVector{T}) where {T}
-    choices = Gen.from_array(prior.choicemap_proto, θ)
+    choices = Gen.from_array(prior.choicemap_proto, Vector(θ))
     trace, _ = generate(prior.gf, prior.args, choices)
     return Gen.get_retval(trace)
 end
@@ -35,7 +35,6 @@ SimulationBasedInference.forward_map(prior::GenSimulatorPrior, θ::AbstractVecto
 SimulationBasedInference.logprob(prior::GenSimulatorPrior, θ::NamedTuple) = logprob(prior.model, ComponentVector(θ))
 function SimulationBasedInference.logprob(prior::GenSimulatorPrior, θ::AbstractVector)
     choices = Gen.from_array(prior.choicemap_proto, Vector(θ))
-    println(choices)
     weight, retval = assess(prior.gf, prior.args, choices)
     return weight
 end

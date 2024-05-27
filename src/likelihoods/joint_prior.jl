@@ -15,7 +15,7 @@ end
 Constructs a `JointPrior` from the given prior and likelihoods.
 """
 function JointPrior(modelprior::AbstractSimulatorPrior, liks::SimulatorLikelihood...)
-    lik_priors = map(prior, with_names(liks))
+    lik_priors = with_names(filter(!isnothing, map(prior, liks)))
     param_nt = merge(
         (model=rand(modelprior),),
         map(d -> rand(d), lik_priors),
@@ -47,8 +47,12 @@ end
 function logprob(jp::JointPrior, θ::ComponentVector)
     lp_model = logprob(jp.model, θ.model)
     liknames = collect(keys(jp.lik))
-    lp_lik = sum(map((d,n) -> logprob(d, getproperty(θ, n)), collect(jp.lik), liknames))
-    return lp_model + lp_lik
+    if length(liknames) > 0
+        lp_lik = sum(map((d,n) -> logprob(d, getproperty(θ, n)), collect(jp.lik), liknames))
+        return lp_model + lp_lik
+    else
+        return lp_model
+    end
 end
 logprob(jp::JointPrior, θ::AbstractVector) = logprob(jp, ComponentVector(θ, jp.ax))
 

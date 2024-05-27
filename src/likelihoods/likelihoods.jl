@@ -36,10 +36,21 @@ prior(lik::SimulatorLikelihood) = lik.prior
 """
     predictive_distribution(lik::SimulatorLikelihood, args...)
 
-Builds the predictive distribution of `lik` given the parameters in `args`.
+Builds the predictive distribution of `lik` given the parameters in `args`. This method is mandatory
+for all specializations of `SimulatorLikelihood`.
 """
 predictive_distribution(lik::SimulatorLikelihood, args...) = error("not implemented")
 predictive_distribution(lik::SimulatorLikelihood, p::NamedTuple) = predictive_distribution(lik, p...)
+
+"""
+    sample_prediction([rng::AbstractRNG], lik::SimulatorLikelihood, args...)
+
+Samples the conditional predictive distribution `p(y|u)` where `u` is the current value of the likelihood
+observable. This method is optional for specializations; the default implementation simply invokes `rand`
+on the `predictive_distribution(lik, args...)`.
+"""
+sample_prediction(lik::SimulatorLikelihood, args...) = sample_prediction(Random.default_rng(), lik, args...)
+sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood, args...) = rand(rng, predictive_distribution(lik, args...))
 
 """
     loglikelihood(lik::SimulatorLikelihood, args...)

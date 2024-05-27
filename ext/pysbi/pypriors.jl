@@ -13,16 +13,24 @@ end
 
 function PyPrior(prior::AbstractSimulatorPrior)
     function pylogprob(x)
-        x = PyArray(x)
+        x = collect(PyArray(x))
         binv = inverse(bijector(prior))
-        if length(size(x)) == 1
-            return SBI.logprob(prior, binv(x)) + SBI.logabsdetjac(binv, x)
-        elseif length(size(x)) == 2
-            xs = map(binv, eachrow(x))
-            lp = transpose(reduce(hcat, map(xᵢ -> [SBI.logprob(prior, xᵢ) + SBI.logabsdetjac(binv, xᵢ)], xs)))
-            return Py(lp).to_numpy()
-        else
-            error("invalid sample shape: $(size(x))")
+        try
+            if length(size(x)) == 1
+                return SBI.logprob(prior, binv(x)) + SBI.logabsdetjac(binv, x)
+            elseif length(size(x)) == 2
+                xs = map(binv, eachrow(x))
+                lp = transpose(reduce(hcat, map(xᵢ -> [SBI.logprob(prior, xᵢ) + SBI.logabsdetjac(binv, xᵢ)], xs)))
+                return Py(lp).to_numpy()
+            else
+                error("invalid sample shape: $(size(x))")
+            end
+        catch ex
+            st = stacktrace(catch_backtrace())
+            @error "$ex on input of type $(typeof(x)) with shape $(size(x))"
+            showerror(stderr, ex)
+            show(stderr, "text/plain", st)
+            rethrow(ex)
         end
     end
 

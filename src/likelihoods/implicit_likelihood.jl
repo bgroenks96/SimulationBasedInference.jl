@@ -1,3 +1,5 @@
+abstract type ImplicitDistribution end
+
 """
     ImplicitLikelihood(
         obs,
@@ -12,6 +14,8 @@ ImplicitLikelihood(
     obs,
     data,
     name=nameof(obs),
-) = SimulatorLikelihood(:Implicit, obs, data, nothing, name)
+) = SimulatorLikelihood(ImplicitDistribution, obs, data, nothing, name)
 
-predictive_distribution(::SimulatorLikelihood{:Implicit}) = error("predictive distribution not defined for implicit likelihoods")
+predictive_distribution(::SimulatorLikelihood{ImplicitDistribution}) = error("predictive distribution not defined for implicit likelihoods")
+
+sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood{ImplicitDistribution}, args...) = vec(retrieve(lik.obs))

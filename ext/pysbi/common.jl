@@ -4,9 +4,12 @@ function pysimulator(inference_prob::SimulatorInferenceProblem, transform, pred_
         ϕ = SBI.forward_map(inference_prob.prior, θ)
         solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
         obs_vecs = map(inference_prob.likelihoods) do lik
-            dist = SBI.predictive_distribution(lik, ϕ[nameof(lik)])
-            pred_transform(rand(rng, dist))
-            # pred_transform(mean(dist))
+            if hasproperty(ϕ, nameof(lik))
+                y_pred = SBI.sample_prediction(lik, ϕ[nameof(lik)])
+            else
+                y_pred = SBI.sample_prediction(lik)
+            end
+            pred_transform(y_pred)
         end
         if return_py
             return Py(reduce(vcat, obs_vecs)).to_numpy()

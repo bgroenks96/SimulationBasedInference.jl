@@ -2,13 +2,12 @@ function SimulationBasedInference.SimulatorForwardProblem(
     gen_fn::GenerativeFunction,
     gen_fn_args::Tuple,
     initial_params::ComponentVector,
-    observables::SimulatorObservable...;
-    retval_fn=trace -> Gen.get_retval(trace),
+    observables::SimulatorObservable...
 )
     f = function(θ)
         params = copyto!(similar(initial_params), θ)
         trace = simulate(gen_fn, (params, gen_fn_args...))
-        return retval_fn(trace)
+        return trace
     end
     
     return SimulatorForwardProblem(f, initial_params, observables...)
