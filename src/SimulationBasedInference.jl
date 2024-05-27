@@ -22,7 +22,7 @@ using UnPack
 # Re-exported packages
 @reexport using Bijectors
 @reexport using ComponentArrays
-@reexport using DimensionalData: Dimension, Dim, DimArray, X, Y, Z, Ti
+@reexport using DimensionalData: DimensionalData, Dimension, Dim, DimArray, X, Y, Z, Ti
 @reexport using Distributions
 @reexport using PosteriorStats: PosteriorStats, summarize
 @reexport using SciMLBase
@@ -75,7 +75,7 @@ export store!, getinputs, getoutputs, getmetadata
 include("simulation_data.jl")
 
 export SimulatorObservable, TimeSampledObservable, TransientObservable
-export observe!, retrieve, coordinates
+export observe!, getvalue, coordinates
 include("observables.jl")
 
 export AbstractSimulatorPrior, NamedProductPrior

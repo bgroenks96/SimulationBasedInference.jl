@@ -168,7 +168,7 @@ snpe_output, _ = produce_or_load(snpe_config, outdir, filename="snpe_inference_d
         θ = zero(inference_prob.u0) + θ
         ϕ = SBI.forward_map(inference_prob.prior, θ)
         sol = solve(forward_prob, LiteImplicitEuler(), p=ϕ.model)
-        map(retrieve, sol.prob.observables)
+        map(getvalue, sol.prob.observables)
     end
     preds = SBI.ntreduce(hcat, observables)
     @strdict sol posterior preds

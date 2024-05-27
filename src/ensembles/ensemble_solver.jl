@@ -244,7 +244,7 @@ function ensemble_solve(
     pred = reduce(hcat, map((i,out) -> pred_func(out, i, iter), 1:N_ens, enssol.u))
     observables = map(enssol) do sol
         # extract observables data
-        map(retrieve, sol.prob.observables)
+        map(getvalue, sol.prob.observables)
     end
     return (; pred, observables)
 end

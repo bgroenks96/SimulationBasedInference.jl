@@ -107,7 +107,9 @@ function observe!(obs::SimulatorObservable{N,Transient}, state) where {N}
 end
 
 function getvalue(obs::SimulatorObservable{N,Transient}, ::Type{T}=Any) where {N,T}
-    return obs.output.state
+    data = obs.output.state
+    coords = coordinates(obs)
+    return DimArray(data, coords)
 end
 
 function setvalue!(obs::SimulatorObservable{N,Transient}, value) where {N}
@@ -239,9 +241,12 @@ end
 
 function getvalue(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
+    @assert length(obs.output.output) > 0 "output buffer is empty; check for errors in the model evaluation"
     out = reduce(hcat, obs.output.output)
-    # drop first dimension if it is of length 1
-    return size(out,1) == 1 ? dropdims(out, dims=1) : out
+    coords = coordinates(obs)
+    darr = DimArray(out, coords)
+    singleton_dims = filter(c -> length(c) == 1, coords)
+    return dropdims(darr, dims=singleton_dims)
 end
 
 function setvalue!(obs::TimeSampledObservable, values::AbstractMatrix)
@@ -259,3 +264,10 @@ unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(fir
 _coerce(output::AbstractVector, shape::Dims) = reshape(output, shape)
 _coerce(output::Number, ::Tuple{}) = [output] # lift to single element vector
 _coerce(output, shape) = error("output of observable function must be a scalar or a vector! expected: $(shape), got $(typeof(output)) with $(size(output))")
+function _coerce(output::Number, shape::Dims{1})
+    if shape[1] == 1
+        return [output]
+    else
+        error("scalar output does not match expected dimensions $shape")
+    end
+end

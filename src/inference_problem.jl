@@ -41,11 +41,11 @@ SimulatorInferenceProblem(forward_prob::SimulatorForwardProblem, prior::Abstract
     SimulatorInferenceProblem(forward_prob, nothing, prior, likelihoods...; kwargs...)
 
 """
-    prior(prob::SimulatorInferenceProblem)
+    getprior(prob::SimulatorInferenceProblem)
 
 Retrieves the prior from the given `SimulatorInferenceProblem`.
 """
-prior(prob::SimulatorInferenceProblem) = prob.prior
+getprior(prob::SimulatorInferenceProblem) = prob.prior
 
 SciMLBase.isinplace(prob::SimulatorInferenceProblem) = false
 

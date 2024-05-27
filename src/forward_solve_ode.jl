@@ -64,25 +64,26 @@ function CommonSolve.init(
     p=forward_prob.prob.p,
     saveat=[],
     save_everystep=false,
+    copy_observables=false,
     solve_kwargs...
 )
     # collect and combine sample points from all obsevables
     t_sample = map(sampletimes, forward_prob.observables)
     t_sample_all = forward_prob.config.obs_to_prob_time.(sort(unique(union(t_sample...)))) 
     t_points = if isempty(t_sample_all) || t_sample_all[end] < forward_prob.tspan[end]
-        vcat(t_sample_all, [forward_prob.tspan[end]])
+        adstrip.(vcat(t_sample_all, [forward_prob.tspan[end]]))
     else
-        t_sample_all
+        adstrip.(t_sample_all)
     end
     # reinitialize inner problem with new parameters
-    newprob = remake(forward_prob, p=p, copy_observables=false)
+    newprob = remake(forward_prob; p, copy_observables)
     # initialize integrator with built-in saving disabled
     integrator = init(newprob.prob, ode_alg; saveat, save_everystep, solve_kwargs...)
     # initialize observables
     for obs in newprob.observables
         initialize!(obs, integrator)
     end
-    return SimulatorODEForwardSolver(newprob, integrator, adstrip.(t_points), 1)
+    return SimulatorODEForwardSolver(newprob, integrator, t_points, 1)
 end
 
 function CommonSolve.step!(forward::SimulatorODEForwardSolver)
@@ -96,8 +97,12 @@ function CommonSolve.step!(forward::SimulatorODEForwardSolver)
     if forward.step_idx > length(forward.tstops)
         return forwardstep!(forward.integrator)
     end
-    # otherwise, evaluate the next step and observables
-    retval = forwardstep!(integrator, dt, true)
+    # otherwise, evaluate the next step and observables if dt > 0
+    retval = if dt > zero(dt)
+        forwardstep!(integrator, dt, true)
+    else
+        nothing
+    end
     # iterate over observables and update those for which t is a sample point
     for obs in prob.observables
         if t ∈ map(prob.config.obs_to_prob_time, sampletimes(obs))

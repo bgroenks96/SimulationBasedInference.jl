@@ -12,10 +12,11 @@ using Test
     observable = SimulatorObservable(:u, state -> state.u, 0.0, 0.1:0.1:1.0, size(odeprob.u0), samplerate=0.01)
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     forward_sol = solve(forwardprob, Tsit5())
+    @test forward_sol.sol.retcode == ReturnCode.Success
     @test isa(forward_sol, SimulatorForwardSolution)
     obs = getvalue(observable)
     @test size(obs) == (10,)
-    @test all(diff(obs[1,:]) .< 0.0)
+    @test all(diff(obs) .< 0.0)
 end
 
 @testset "Forward NonlinearProblem" begin
@@ -25,9 +26,10 @@ end
     observable = SimulatorObservable(:u, state -> state.u, size(nlprob.u0))
     forwardprob = SimulatorForwardProblem(nlprob, observable)
     forward_sol = solve(forwardprob, NewtonRaphson(), abstol=1e-6, reltol=1e-8)
+    @test forward_sol.sol.retcode == ReturnCode.Success
     @test isa(forward_sol, SimulatorForwardSolution)
     obs = getvalue(observable)
-    @test isa(obs, Vector{Float64})
+    @test isa(obs, AbstractVector{Float64})
     @test round(obs[1], digits=3) == -20.271
 end
 

@@ -15,7 +15,7 @@ end
 Constructs a `JointPrior` from the given prior and likelihoods.
 """
 function JointPrior(modelprior::AbstractSimulatorPrior, liks::SimulatorLikelihood...)
-    lik_priors = with_names(filter(!isnothing, map(prior, liks)))
+    lik_priors = (; filter(x -> !isnothing(x[2]), map(lik -> nameof(lik) => getprior(lik), liks))...)
     param_nt = merge(
         (model=rand(modelprior),),
         map(d -> rand(d), lik_priors),
