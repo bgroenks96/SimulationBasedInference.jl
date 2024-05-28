@@ -19,7 +19,7 @@ function GenSimulatorPrior(gf::Gen.GenerativeFunction, args::Tuple)
     names = Symbol.(labels(params))
     # use zero values for prototype choice map
     choices_proto = Gen.from_array(choices, getdata(zero(params)))
-    return GenSimulatorPrior(gf, args, axes(params), names, choices_proto)
+    return GenSimulatorPrior(gf, args, getaxes(params), names, choices_proto)
 end
 
 function (prior::GenSimulatorPrior)(θ::AbstractVector{T}) where {T}
