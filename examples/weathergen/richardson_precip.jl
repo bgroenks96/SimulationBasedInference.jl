@@ -10,37 +10,66 @@ struct PrecipState{T}
     t::Date
 end
 
+struct AnnualStats{T}
+    min::T
+    mid::T
+    max::T
+    peak_month::Int
+    function AnnualStats(min::T, mid::T, max::T, peak_month::Int) where {T}
+        @assert min < mid < max
+        return new{T}(min, mid, max, peak_month)
+    end
+end
+
 StatsFuns.logistic(b::Gen.DistWithArgs{T}) where T <: Real =
     Gen.DistWithArgs(Gen.TransformedDistribution{T, T}(b.base, 0, logistic, logit, x -> (1.0 / (x-x^2),)), b.arglist)
 
-@dist logitnormal(μ, σ) = logistic(normal(μ, σ))
+@dist reparameterized_normal(μ, σ) = μ + normal(0,1)*σ
 
-@gen function iid_logitnormal(μ::AbstractVector, σ::Real)
-    x ~ mvnormal(μ, Diagonal(zero(μ) .+ σ))
-    return logistic.(x)
+@gen function logitnormal(μ, σ)
+    z ~ reparameterized_normal(μ, σ)
+    return logistic(z)
 end
 
-@gen function richardson_params(n::Int, pwd_mean=0.5, pdd_mean=0.5, precip_mean=5.0)
-    log_p_sigma ~ normal(log(0.5), 0.2)
-    p_sigma = exp(log_p_sigma)
-    pwd0 ~ logitnormal(logit(pwd_mean), p_sigma)
-    pdd0 ~ logitnormal(logit(pdd_mean), p_sigma)
-    log_precip_std ~ normal(-2.0, 0.5)
-    log_precip_mean0 ~ normal(log(precip_mean), exp(log_precip_std))
-    lpwd = @trace(mvnormal(logit.(pwd0*ones(n)), Diagonal(ones(n)*p_sigma)), :lpwd)
-    lpdd = @trace(mvnormal(logit.(pdd0*ones(n)), Diagonal(ones(n)*p_sigma)), :lpdd)
-    log_precip_mean ~ mvnormal(log_precip_mean0*ones(n), Diagonal(ones(n)*exp(log_precip_std)))
-    log_gamma_shape ~ normal(log(2.0), 0.1)
-    return (; lpwd, lpdd, log_precip_mean, log_gamma_shape)
+@gen function positive_cosine_transform(level_min, level_mid, level_max, phase_shift)
+    dist = SimulationBasedInference.from_moments(LogNormal, level_mid, (level_max - level_min)/2)
+    log_level ~ reparameterized_normal(log(level_mid), dist.σ)
+    amp_scale ~ logitnormal(0.0, 1.0)
+    level = exp(log_level)
+    amp = amp_scale*abs(level)
+    return ComponentVector(; level, amp, phase_shift)
+end
+
+@gen function logistic_cosine_transform(level_min, level_mid, level_max, phase_shift)
+    level ~ logitnormal(logit(level_mid), 0.5)
+    amp_scale ~ logitnormal(logit((level_max - level_min)/2), 1.0)
+    amp = amp_scale*min(1 - level, level)
+    return ComponentVector(; level, amp, phase_shift)
+end
+
+function apply_cosine_transform(n::Int, params, t)
+    return params.level + params.amp*cos(2π/n*(t - params.phase_shift))
+end
+
+@gen function richardson_params(pwd::AnnualStats, pdd::AnnualStats, precip::AnnualStats)
+    logit_p_sigma ~ normal(0.0, 0.5)
+    log_precip_sigma ~ normal(-1.0, 0.5)
+    pwd = @trace(logistic_cosine_transform(pwd.min, pwd.mid, pwd.max, pwd.peak_month), :pwd)
+    pdd = @trace(logistic_cosine_transform(pdd.min, pdd.mid, pdd.max, pdd.peak_month), :pdd)
+    precip_mean = @trace(positive_cosine_transform(precip.min, precip.mid, precip.max, precip.peak_month), :precip_mean)
+    log_gamma_shape ~ normal(0.0, 0.5)
+    gamma_shape = exp(log_gamma_shape)
+    return ComponentVector(; pwd, pdd, precip_mean, gamma_shape)
 end
 
 @gen function richardson_kernel(i::Int, state::PrecipState, params)
     t = state.t + Day(1)
     m = month(t)
-    pwd = logistic(params.lpwd[m])
-    pdd = logistic(params.lpdd[m])
-    gamma_shape = exp(params.log_gamma_shape)
-    gamma_scale = exp(params.log_precip_mean[m]) / gamma_shape
+    pwd = apply_cosine_transform(12, params.pwd, m)
+    pdd = apply_cosine_transform(12, params.pdd, m)
+    precip_mean = apply_cosine_transform(12, params.precip_mean, m)
+    gamma_shape = params.gamma_shape
+    gamma_scale = precip_mean / gamma_shape
     @assert gamma_shape > 0 "$params"
     @assert gamma_scale > 0 "$params"
     p = ifelse(state.precip > 0, pwd, pdd)
