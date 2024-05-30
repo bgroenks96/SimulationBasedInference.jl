@@ -19,6 +19,15 @@ function ntreduce(f, xs::AbstractVector{<:NamedTuple})
 end
 
 """
+    adstrip(x::ForwardDiff.Dual)
+    adstrip(x::Number)
+
+Strips the AD type from `x` if it is a `Dual` number; otherwise just returns `x`.
+"""
+adstrip(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+adstrip(x::Number) = x
+
+"""
     betadist(mean, dispersion)
 
 Helper method for defining a `Beta` distribution with the `mean` and `dispersion` parameterization, i.e:
@@ -96,8 +105,38 @@ function from_moments(::Type{Gamma}, mean, stddev)
     return Gamma(α, θ)
 end
 
-adstrip(x::ForwardDiff.Dual) = ForwardDiff.value(x)
-adstrip(x::Number) = x
+function quantile_loss(::Type{distType}, proj, qs::Pair...) where {distType<:UnivariateDistribution}
+    function loss(θ)
+        d = distType(proj(θ)...)
+        ℓ = sum(map(qv -> (qv[2] - invlogcdf(d, log(qv[1])))^2, qs))
+        return ℓ
+    end
+end
+
+function from_quantiles(
+    d0::distType,
+    qs::Pair...;
+    optimizer=LBFGS(),
+    options=Optim.Options()
+) where {distType<:UnivariateDistribution}
+    proj = param_bijector(distType)
+    loss = quantile_loss(distType, inverse(proj), qs...)
+    initial_x = proj(collect(Distributions.params(d0)))
+    res = optimize(loss, initial_x, optimizer, options)
+    return distType(inverse(proj)(res.minimizer)...)
+end
+
+"""
+    param_bijector(::Type{T}) where {T<:UnivariateDistribution}
+
+Returns a bijector for the parameters of distribution type `T`.
+"""
+param_bijector(::Type{<:Union{Normal,LogNormal,LogitNormal,Logistic}}) = Stacked(identity, Base.Fix1(broadcast, log))
+param_bijector(::Type{<:Union{Beta,Gamma,InverseGamma,InverseGaussian}}) = Stacked(Base.Fix1(broadcast, log), Base.Fix1(broadcast, log))
+param_bijector(::Type{Exponential}) = Base.Fix1(broadcast, log)
+param_bijector(::Type{Bernoulli}) = Base.Fix1(broadcast, logit)
+param_bijector(::Type{T}) where {T} = error("no parameter bijector defined for distribution type $T")
+
 
 # This is type piracy but nice to make Distributions implement log-density interface;
 # TODO: consider creating an issue on LogDensityProblems or Distributions?
