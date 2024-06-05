@@ -5,7 +5,7 @@
 [docs-dev-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-dev-url]: https://bgroenks96.github.io/SimulationBasedInference.jl/dev/
 
-`SimulationBasedInference.jl` aims to bring together a variety of different methods for *simulation-based inference* (SBI), i.e. statistical inference with simulator-like models, in the Julia programming language. Although SBI can be applied to both Bayesian and Frequentist inference frameworks, this pckage focuses on the Bayesian approach.
+`SimulationBasedInference.jl` aims to bring together a variety of different methods for *simulation-based inference* (SBI), i.e. statistical inference with simulator-like models, in the Julia programming language. Although SBI can be applied to both Bayesian and Frequentist inference frameworks, this package focuses on the Bayesian approach.
 
 Please note that this package is still very much under construction and things may break or change without prior notice.
 
