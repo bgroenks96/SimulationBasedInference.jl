@@ -166,6 +166,9 @@ The following is a list of inference methods and/or probablisitc programming fra
   - [x] [DynamicHMC](https://github.com/tpapp/DynamicHMC.jl)
   - [x] [Gen](https://github.com/probcomp/Gen.jl)
 
+## Funding acknowledgements
+This work was supported by the Helmholtz Einstein Berlin International Research School in Data Science (grant HIDSS-0001) and the German Academic Exchange Service (grant 57647579).
+
 ## References
 [1] Cranmer, Kyle, Johann Brehmer, and Gilles Louppe. "The frontier of simulation-based inference." Proceedings of the National Academy of Sciences 117.48 (2020): 30055-30062.
 
