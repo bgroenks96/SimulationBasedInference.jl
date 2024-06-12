@@ -16,6 +16,9 @@ using OrdinaryDiffEq
 using Plots, StatsPlots
 import Random
 
+# extensions
+using DynamicHMC
+
 using DisplayAs #hide
 
 # and then initialize a random number generator for reproducibility.
@@ -38,20 +41,21 @@ odeprob = ODEProblem(ode_func, [1.0], tspan, ode_p)
 # state from the ODE integrator. The `SimulatorObservable(name, func, t0, tsave, coords)` additionally takes
 # an initial time point, a vector of observed time points, and a tuple specifying the shape or coordiantes of
 # the observable at each time point. Here, `(1,)` indicates that the state is a one-dimensional vector.
-tsave = tspan[1]+0.1:0.2:tspan[end];
+dt = 0.2
+tsave = tspan[begin]+dt:dt:tspan[end];
 n_obs = length(tsave);
-observable = SimulatorObservable(:y, integrator -> integrator.u, tspan[1], tsave, (1,), samplerate=0.01);
+observable = ODEObservable(:y, odeprob, tsave, samplerate=0.01);
 forward_prob = SimulatorForwardProblem(odeprob, observable)
 
 # In order to set up our synthetic example, we need to some data to infer from.
 # Here we generate the data by running the forward model and adding Gaussian noise.
 ode_solver = Tsit5()
-forward_sol = solve(forward_prob, ode_solver, saveat=0.01);
+forward_sol = solve(forward_prob, ode_solver);
 true_obs = get_observable(forward_sol, :y)
 noise_scale = 0.05
 noisy_obs = true_obs .+ noise_scale*randn(rng, n_obs);
 # plot the results
-plot(forward_sol.sol, label="True solution", linewidth=3, color=:black)
+plot(true_obs, label="True solution", linewidth=3, color=:black)
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", alpha=0.5)
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
@@ -59,14 +63,14 @@ DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 # less mass at the tails. We could also use a flat prior `Beta(1,1)` if we wanted to
 # be more agnostic to further minimize the influence of the prior.
 model_prior = prior(α=Beta(2,2));
-noise_scale_prior = prior(σ=Exponential(noise_scale));
+noise_scale_prior = prior(σ=Exponential(0.1));
 p1 = Plots.plot(model_prior.dist.α)
 p2 = Plots.plot(noise_scale_prior.dist.σ)
 plt = Plots.plot(p1, p2)
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
 # Now we assign a simple Gaussian likelihood for the obsevation/noise model.
-lik = SimulatorLikelihood(IsoNormal, observable, noisy_obs, noise_scale_prior);
+lik = IsotropicGaussianLikelihood(observable, noisy_obs, noise_scale_prior);
 nothing #hide
 
 # We now have all of the ingredients needed to set up and solve the inference problem.
@@ -96,7 +100,7 @@ posterior_obs_std_enis = std(prior_ens_obs, weights(importance_weights), 2)[:,1]
 posterior_mean_enis = mean(prior_ens, weights(importance_weights))
 
 # Now we plot the prior vs. the posterior predictions.
-plot(tsave, true_obs, label="True solution", c=:black, linewidth=2, title="Importance weighted posterior predictions")
+plot(tsave, true_obs, label="True solution", c=:black, linewidth=2, title="Linear ODE posterior predictions (EnIS)")
 plot!(tsave, prior_ens_obs_mean, label="Prior", c=:gray, linestyle=:dash, ribbon=2*prior_ens_obs_std, alpha=0.5, linewidth=2)
 plot!(tsave, posterior_obs_mean_enis, label="Posterior", c=:blue, linestyle=:dash, ribbon=2*posterior_obs_std_enis, alpha=0.7, linewidth=2)
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:orange)
@@ -136,11 +140,26 @@ plot!(tsave, posterior_obs_mean_eks, label="Posterior", c=:blue, linestyle=:dash
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:black)
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
-# Finally, we can plot the posterior predictions of all of the algorithms and compare.
+# Now solve using the gold standard No U-turn sampler (NUTS). This will take a few minutes to run.
+# Note that this would generally not be feasible more expensive simulators.
+hmc_sol = @time solve(inference_prob, MCMC(NUTS()), num_samples=1000, rng=rng);
+posterior_hmc = transpose(Array(hmc_sol.result))
+posterior_mean_hmc = mean(posterior_hmc, dims=2)
+posterior_obs_hmc = reduce(hcat, map(out -> out.y, hmc_sol.storage.outputs))
+posterior_obs_mean_hmc = mean(posterior_obs_hmc, dims=2)[:,1]
+posterior_obs_std_hmc = std(posterior_obs_hmc, dims=2)[:,1]
 plot(tsave, true_obs, label="True solution", c=:black, linewidth=2, title="EKS")
 plot!(tsave, prior_ens_obs_mean, label="Prior", c=:gray, linestyle=:dash, ribbon=2*prior_ens_obs_std, alpha=0.5, linewidth=2)
-plot!(tsave, posterior_obs_mean_enis, label="Posterior (EnIS)", linestyle=:dash, ribbon=2*posterior_obs_std_enis, alpha=0.5, linewidth=3)
-plot!(tsave, posterior_obs_mean_esmda, label="Posterior (ES-MDA)", linestyle=:dash, ribbon=2*posterior_obs_std_esmda, alpha=0.5, linewidth=3)
-plot!(tsave, posterior_obs_mean_eks, dims=2, label="Posterior (EKS)", linestyle=:dash, ribbon=2*posterior_obs_std_eks, alpha=0.5, linewidth=3)
+plot!(tsave, posterior_obs_mean_hmc, label="Posterior", c=:blue, linestyle=:dash, ribbon=2*posterior_obs_std_hmc, alpha=0.7, linewidth=2)
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:black)
+
+# Finally, we can plot the posterior predictions of all of the algorithms and compare.
+plot(tsave, true_obs, label="True solution", c=:black, linewidth=2, title="Linear ODE: Inference algorithm comparison", dpi=300, xlabel="time")
+plot!(tsave, prior_ens_obs_mean, label="Prior", c=:gray, linestyle=:dash, ribbon=2*prior_ens_obs_std, alpha=0.4, linewidth=2)
+plot!(tsave, posterior_obs_mean_enis, label="Posterior (EnIS)", linestyle=:dash, ribbon=2*posterior_obs_std_enis, alpha=0.4, linewidth=3)
+plot!(tsave, posterior_obs_mean_esmda, label="Posterior (ES-MDA)", linestyle=:dash, ribbon=2*posterior_obs_std_esmda, alpha=0.4, linewidth=3)
+plot!(tsave, posterior_obs_mean_eks, label="Posterior (EKS)", linestyle=:dash, ribbon=2*posterior_obs_std_eks, alpha=0.4, linewidth=3)
+plot!(tsave, posterior_obs_mean_hmc, label="Posterior (HMC)", linestyle=:dash, ribbon=2*posterior_obs_std_hmc, alpha=0.4, linewidth=3)
+plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:black)
+savefig("res/linearode_poseterior_preds_comparison.png") #hide
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide

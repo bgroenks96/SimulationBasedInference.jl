@@ -85,7 +85,7 @@ end
 function sample_ensemble_predictive(
     sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm},
     new_storage::SimulationData=SimulationArrayStorage();
-    num_samples_per_sim::Int=10,
+    num_samples_per_sim::Int=1,
     pred_transform=identity,
     iterations=[],
     rng::Random.AbstractRNG=Random.default_rng(),

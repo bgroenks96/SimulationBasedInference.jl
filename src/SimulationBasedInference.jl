@@ -99,7 +99,7 @@ include("inference_problem.jl")
 export SimulatorForwardSolver
 include("forward_solve.jl")
 
-export SimulatorODEForwardSolver
+export SimulatorODEForwardSolver, ODEObservable
 include("forward_solve_ode.jl")
 
 include("emulators/Emulators.jl")

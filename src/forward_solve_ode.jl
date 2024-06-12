@@ -18,6 +18,10 @@ function SimulatorForwardProblem(
     return SimulatorForwardProblem(prob, named_observables, SimulatorODEConfig(stepfunc, obs_to_prob_time))
 end
 
+function ODEObservable(name::Symbol, prob::AbstractODEProblem, tsave; obsfunc=identity, kwargs...)
+    return SimulatorObservable(name, integrator -> obsfunc(integrator.u), prob.tspan[1], tsave, size(prob.u0); kwargs...)
+end
+
 """
     SimulatorODEForwardSolver{algType,uType,tType,iip,integratorType<:AbstractODEIntegrator{algType,iip,uType,tType}} <: AbstractODEIntegrator{algType,iip,uType,tType}
 
