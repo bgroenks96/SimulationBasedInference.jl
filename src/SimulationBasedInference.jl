@@ -23,6 +23,7 @@ using UnPack
 @reexport using Bijectors
 @reexport using ComponentArrays
 @reexport using DimensionalData: DimensionalData, Dimension, Dim, DimArray, X, Y, Z, Ti
+@reexport using DimensionalData: dims, hasdim, rebuild
 @reexport using Distributions
 @reexport using PosteriorStats: PosteriorStats, summarize
 @reexport using SciMLBase

@@ -79,7 +79,19 @@ function get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgo
     # retrieve ensemble from storage
     out = getoutputs(sol.storage, inds)
     # reduce over named tuples, concatenating each observable
-    return ntreduce(hcat, convert(Vector{NamedTuple}, out))
+    return ntreduce(enscat, convert(Vector{NamedTuple}, out))
+end
+
+enscat(x::AbstractVecOrMat, y::AbstractVector) = hcat(x, y)
+function enscat(acc::DimArray, x::DimArray)
+    acc_dims = Tuple(dims(acc))
+    x_dims = Tuple(dims(x))
+    if !hasdim(acc, :ens)
+        acc = DimArray(reshape(acc.data, size(acc)..., 1), (acc_dims..., Dim{:ens}(1:1)))
+    end
+    N = size(acc, :ens)
+    x = DimArray(reshape(x.data, size(x)..., 1), (x_dims..., Dim{:ens}(N+1:N+1)))
+    return cat(acc, x, dims=:ens)
 end
 
 function sample_ensemble_predictive(

@@ -92,9 +92,9 @@ function summarize_ensemble(inference_sol, obs_name::Symbol)
     posterior_std = std(posterior_ens, dims=2)[:,1]
     # predictions
     obsv = get_observables(inference_sol)
-    pred_ens = obsv[obs_name]
-    pred_mean = mean(pred_ens, dims=2)
-    pred_std = std(pred_ens, dims=2)
+    pred_ens = Matrix(obsv[obs_name])
+    pred_mean = mean(pred_ens, dims=2)[:,1]
+    pred_std = std(pred_ens, dims=2)[:,1]
     return (;
         prior_ens, prior_mean, prior_std,
         posterior_ens, posterior_mean, posterior_std,
