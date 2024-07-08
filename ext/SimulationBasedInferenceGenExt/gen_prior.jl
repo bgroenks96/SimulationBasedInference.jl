@@ -15,7 +15,9 @@ end
 function GenSimulatorPrior(gf::Gen.GenerativeFunction, args::Tuple)
     trace = simulate(gf, args)
     choices = to_static_choice_map(choicemap(get_choices(trace)))
-    params = ComponentVector(choicemap2nt(choices))
+    choices_nt = choicemap2nt(choices)
+    datatype = isempty(choices_nt) ? Float64 : eltype(choices_nt)
+    params = ComponentVector{datatype}(choices_nt)
     names = Symbol.(labels(params))
     # use zero values for prototype choice map
     choices_proto = Gen.from_array(choices, getdata(zero(params)))
