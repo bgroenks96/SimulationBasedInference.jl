@@ -25,7 +25,7 @@ function GenSimulatorPrior(
     params = isempty(choices_nt) ? ComponentVector{Float64}() : ComponentVector(choices_nt)
     names = Symbol.(labels(params))
     # use zero values for prototype choice map
-    para_choices = Gen.from_array(choices, getdata(zero(params)))
+    para_choices = Gen.from_array(all_choices, getdata(zero(params)))
     static_choices = to_static_choice_map(preset_choices)
     return GenSimulatorPrior(gf, args, getaxes(params), names, sel, para_choices, static_choices)
 end
@@ -49,8 +49,9 @@ SimulationBasedInference.forward_map(prior::GenSimulatorPrior, θ::AbstractVecto
 
 SimulationBasedInference.logprob(prior::GenSimulatorPrior, θ::NamedTuple) = logprob(prior.model, ComponentVector(θ))
 function SimulationBasedInference.logprob(prior::GenSimulatorPrior, θ::AbstractVector)
+    # 
     choices = Gen.from_array(prior.param_choices, Vector(θ))
-    weight, retval = assess(prior.gf, prior.args, choices)
+    weight, retval = assess(prior.gf, prior.args, merge(prior.static_choices, choices))
     return weight
 end
 
