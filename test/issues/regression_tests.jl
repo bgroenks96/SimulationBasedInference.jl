@@ -1,5 +1,22 @@
 using Test
 
+include("../testcases.jl")
+
+@testset "Issue #3" begin
+    using SimulationBasedInference
+
+    rng = Random.MersenneTwister(1234)
+    # linear ODE test case with default parameter settings
+    inference_prob = linear_ode(; rng)
+    # parameter prior, excluding likelihood parameters
+    prior = inference_prob.prior.model
+    eks = EKS()
+    # solve inference problem with EKS
+    eks_sol = solve(inference_prob, eks, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
+    obs = get_observable(eks_sol, :obs)
+    @test isa(obs, DimArray)
+end
+
 @testset "Issue #4" begin
     """
     Initial ensemble is not respected by ensemble solvers.
