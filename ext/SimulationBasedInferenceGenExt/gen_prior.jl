@@ -22,8 +22,7 @@ function GenSimulatorPrior(
     trace, _ = generate(gf, args, preset_choices)
     choices = to_static_choice_map(get_selected(choicemap(get_choices(trace)), sel))
     choices_nt = choicemap2nt(choices)
-    datatype = isempty(choices_nt) ? Float64 : eltype(choices_nt)
-    params = ComponentVector{datatype}(choices_nt)
+    params = isempty(choices_nt) ? ComponentVector{Float64}() : ComponentVector(choices_nt)
     names = Symbol.(labels(params))
     # use zero values for prototype choice map
     para_choices = Gen.from_array(choices, getdata(zero(params)))
