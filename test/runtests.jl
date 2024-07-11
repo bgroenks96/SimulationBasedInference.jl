@@ -23,3 +23,7 @@ end
 @testset "Turing integration" begin
     include("TuringExt/turing_tests.jl")
 end
+
+@testset "Regression tests" begin
+    include("issues/regression_tests.jl")
+end

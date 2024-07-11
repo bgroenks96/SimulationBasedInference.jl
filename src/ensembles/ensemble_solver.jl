@@ -122,23 +122,26 @@ function CommonSolve.init(
     output_func=(sol,i,iter) -> (sol, false),
     pred_func=default_pred_func(inference_prob),
     obs_cov_func=obscov,
-    ensemble_size::Integer=128,
     initial_ens=nothing,
+    ensemble_size::Integer=isnothing(initial_ens) ? 128 : size(initial_ens, 2),
     itercallback=state -> true,
     storage=SimulationArrayStorage(),
     verbose=true,
     rng=Random.default_rng(),
     solve_kwargs...
 )
+    println(initial_ens)
     # extract model prior (i.e. ignoring likelihood parameters)
     model_prior = inference_prob.prior.model
+    # construct transform from model prior
+    constrained_to_unconstrained = bijector(inference_prob.prior.model)
     # sample initial ensemble
     if isnothing(initial_ens)
-        # construct transform from model prior
-        constrained_to_unconstrained = bijector(inference_prob.prior.model)
         samples = sample(rng, model_prior, ensemble_size)
         # apply transform to samples and then concatenate on second axis
         initial_ens = reduce(hcat, map(constrained_to_unconstrained, samples))
+    else
+        initial_ens = reduce(hcat, map(constrained_to_unconstrained, eachcol(initial_ens)))
     end
     # extract observations from likelihood terms
     likelihoods = values(inference_prob.likelihoods)
