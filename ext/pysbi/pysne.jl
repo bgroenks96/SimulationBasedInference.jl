@@ -39,14 +39,15 @@ simulation data, and inference algorithm.
 mutable struct PySBISolver{algType,samplingType<:PySBISampling}
     prob::SimulatorInferenceProblem
     alg::algType
+    iter::Int
+    maxiter::Int
     simulate_kwargs::NamedTuple
     sampling::samplingType
     data::Union{Missing,SimulationData}
-    prior::Py
+    proposal::Py
     simulator::Py
     inference::Py
     estimator::Union{Missing,Py}
-    result::Union{Missing,Any}
 end
 
 function CommonSolve.init(
@@ -60,6 +61,8 @@ function CommonSolve.init(
     # simulate kwargs
     num_simulations::Int = 1000,
     num_workers::Int = 1,
+    # iteration
+    num_rounds::Int = 1,
     # sample kwargs
     sampling::PySBISampling = default_sampling(alg.algtype),
     # solve kwargs
@@ -71,6 +74,8 @@ function CommonSolve.init(
     return PySBISolver(
         inference_prob,
         alg,
+        1,
+        num_rounds,
         (; num_simulations, num_workers),
         sampling,
         missing,
@@ -78,7 +83,6 @@ function CommonSolve.init(
         prepared_sim,
         inference_alg,
         missing,
-        missing
     )
 end
 
@@ -91,6 +95,11 @@ function CommonSolve.init(
     pred_transform = identity,
     prior = pyprior(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
+    # simulate kwargs
+    num_simulations::Int = 1000,
+    num_workers::Int = 1,
+    # iteration
+    num_rounds::Int = 1,
     # sample kwargs
     sampling::PySBISampling = default_sampling(alg.algtype),
     # solve kwargs
@@ -103,47 +112,50 @@ function CommonSolve.init(
     return PySBISolver(
         inference_prob,
         alg,
-        (;),
+        1,
+        num_rounds,
+        (; num_simulations, num_workers),
         sampling,
         data,
         prepared_prior,
         prepared_sim,
         inference_alg,
         missing,
-        missing
     )
 end
 
 function CommonSolve.step!(solver::PySBISolver)
+    @info "Starting iteration $(solver.iter)/$(solver.maxiter)"
     # step 1: run simulations, if necessary
-    if ismissing(solver.data)
+    if ismissing(solver.data) || solver.iter > 1
         @info "Running simulations"
-        Θ, Y = sbi.inference.simulate_for_sbi(solver.simulator; proposal=solver.prior, solver.simulate_kwargs...)
-        solver.inference.append_simulations(Θ, Y)
-        solver.data = SimulationArrayStorage()
+        Θ, Y = sbi.inference.simulate_for_sbi(solver.simulator; proposal=solver.proposal, solver.simulate_kwargs...)
+        solver.inference.append_simulations(Θ, Y, solver.proposal)
+        # Create internal simulation storage if it does not exist yet;
+        # Note that this is duplicating simulation data already stored by the python package which is less than ideal.
+        # It would be good to consider how to eliminate this redundancy in the future.
+        solver.data = ismissing(solver.data) ? SimulationArrayStorage() : solver.data
         store!(solver.data, transpose(pyconvert(Matrix, Θ)), collect(eachrow(pyconvert(Matrix, Y))))
-        return true
-    # step 2: train density estimator
-    elseif ismissing(solver.estimator)
-        @info "Training estimator"
-        solver.estimator = solver.inference.train()
-        return true
-    # step 3: build posterior
-    elseif ismissing(solver.result)
-        @info "Building posterior"
-        x_obs = reduce(vcat, map(lik -> vec(lik.data), solver.prob.likelihoods))
-        posterior = solver.inference.build_posterior(solver.estimator)
-        posterior.set_default_x(x_obs)
-        solver.result = SurrogatePosterior(solver.prob.prior, posterior)
-        return false
-    else
-        return false
     end
+
+    # step 2: train density estimator
+    @info "Training estimator"
+    solver.estimator = solver.inference.train()
+
+    # step 3: build posterior
+    @info "Building posterior"
+    x_obs = reduce(vcat, map(lik -> vec(lik.data), solver.prob.likelihoods))
+    posterior = solver.inference.build_posterior(solver.estimator)
+    posterior.set_default_x(x_obs)
+    solver.proposal = posterior
+    solver.iter += 1
+    return solver.iter <= solver.maxiter
 end
 
 function CommonSolve.solve!(solver::PySBISolver)
     while step!(solver) end
-    return SimulatorInferenceSolution(solver.prob, solver.alg, solver.data, solver.result)
+    posterior = SurrogatePosterior(solver.prob.prior, solver.proposal)
+    return SimulatorInferenceSolution(solver.prob, solver.alg, solver.data, posterior)
 end
 
 function default_sampling(algtype)

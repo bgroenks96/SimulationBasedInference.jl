@@ -162,9 +162,9 @@ hmc_sol = @time solve(inference_prob, MCMC(NUTS(), num_samples=10_000));
 hmc_res = summarize_markov_chain(hmc_sol, :y)
 hmc_sol.result
 
-simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1,2], num_samples_per_sim=10);
+simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1,2]);
 # gaussian_prior = PySBI.pyprior(inference_prob.prior, LaplaceMethod())
-snpe_sol = @time solve(inference_prob, PySNE(), simdata);
+snpe_sol = @time solve(inference_prob, PySNE(), simdata, num_rounds=1);
 snpe_res = summarize_snpe(snpe_sol)
 
 # densities

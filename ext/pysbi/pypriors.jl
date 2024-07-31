@@ -58,7 +58,7 @@ pyprior(d::MvNormal) = torch.distributions.MultivariateNormal(torch.Tensor(d.μ)
 pyprior(prior::AbstractSimulatorPrior) = PyPrior(prior)
 
 """
-    torchprior(prior::AbstractSimulatorPrior, approx::GaussianApproximationMethod)
+    pyprior(prior::AbstractSimulatorPrior, approx::GaussianApproximationMethod)
 
 Currently, it seems that `torch` does not provide a generic product distribution for combining
 univariate distributions into a higher dimensional multivariate distribution. As a cheap workaround,
