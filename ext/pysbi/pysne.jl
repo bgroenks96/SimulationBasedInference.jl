@@ -19,8 +19,9 @@ SNPE_B(kwargs...) = PySNE(; algtype=sbi.inference.SNPE_B, kwargs...)
 SNPE_C(kwargs...) = PySNE(; algtype=sbi.inference.SNPE_C, kwargs...)
 SNLE_A(kwargs...) = PySNE(; algtype=sbi.inference.SNLE_A, kwargs...)
 
-function build(alg::PySNE)
+function build(alg::PySNE, prior)
     return alg.algtype(
+        prior=prior,
         density_estimator=alg.density_estimator,
         device=alg.device,
         logging_level=alg.logging_level,
@@ -66,7 +67,7 @@ function CommonSolve.init(
 ) where {T}
     pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
     prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
-    inference_alg = build(alg)
+    inference_alg = build(alg, prepared_prior)
     return PySBISolver(
         inference_prob,
         alg,
@@ -97,7 +98,7 @@ function CommonSolve.init(
 ) where {T}
     pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
     prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
-    inference_alg = build(alg)
+    inference_alg = build(alg, prepared_prior)
     append_simulations!(inference_alg, inference_prob, data)
     return PySBISolver(
         inference_prob,
