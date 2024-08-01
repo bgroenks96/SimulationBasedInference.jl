@@ -20,7 +20,7 @@ function PyPrior(prior::AbstractSimulatorPrior)
                 return SBI.logprob(prior, binv(x)) + SBI.logabsdetjac(binv, x)
             elseif length(size(x)) == 2
                 xs = map(binv, eachrow(x))
-                lp = transpose(reduce(hcat, map(xᵢ -> [SBI.logprob(prior, xᵢ) + SBI.logabsdetjac(binv, xᵢ)], xs)))
+                lp = reduce(vcat, map(xᵢ -> [SBI.logprob(prior, xᵢ) + SBI.logabsdetjac(binv, xᵢ)], xs))
                 return Py(lp).to_numpy()
             else
                 error("invalid sample shape: $(size(x))")

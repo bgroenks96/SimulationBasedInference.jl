@@ -146,7 +146,7 @@ function CommonSolve.step!(solver::PySBISolver)
     @info "Building posterior"
     x_obs = reduce(vcat, map(lik -> vec(lik.data), solver.prob.likelihoods))
     posterior = solver.inference.build_posterior(solver.estimator)
-    posterior.set_default_x(x_obs)
+    posterior.set_default_x(Py(x_obs).to_numpy())
     solver.proposal = posterior
     solver.iter += 1
     return solver.iter <= solver.maxiter
