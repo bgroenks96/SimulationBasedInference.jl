@@ -72,6 +72,7 @@ struct RejectionSampling <: PySBISampling
 end
 
 struct MCMCSampling <: PySBISampling
+    method::String
     parameters::Dict
-    MCMCSampling(; kwargs...) = new(Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
+    MCMCSampling(; method::String="slice_np", kwargs...) = new(method, Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
 end
