@@ -174,8 +174,8 @@ function default_sampling(algtype)
 end
 
 function _build_posterior(sampling::DirectSampling, inference::Py, estimator::Py)
-    direct_parameters = Dict(map(n -> string(n) => getproperty(sampling, n), propertynames(sampling))...)
-    return inference.build_posterior(estimator; sample_with="direct", direct_parameters)
+    direct_sampling_parameters = Dict(map(n -> string(n) => getproperty(sampling, n), propertynames(sampling))...)
+    return inference.build_posterior(estimator; sample_with="direct", direct_sampling_parameters)
 end
 
 function _build_posterior(sampling::MCMCSampling, inference::Py, estimator::Py)
