@@ -42,6 +42,7 @@ mutable struct PySBISolver{algType,samplingType<:PySBISampling}
     iter::Int
     maxiter::Int
     simulate_kwargs::NamedTuple
+    train_kwargs::NamedTuple
     sampling::samplingType
     data::Union{Missing,SimulationData}
     proposal::Py
@@ -61,8 +62,9 @@ function CommonSolve.init(
     # simulate kwargs
     num_simulations::Int = 1000,
     num_workers::Int = 1,
-    # iteration
+    # training
     num_rounds::Int = 1,
+    train_kwargs = (;),
     # sample kwargs
     sampling::PySBISampling = default_sampling(alg.algtype),
     # solve kwargs
@@ -77,6 +79,7 @@ function CommonSolve.init(
         1,
         num_rounds,
         (; num_simulations, num_workers),
+        train_kwargs,
         sampling,
         missing,
         prepared_prior,
@@ -98,9 +101,10 @@ function CommonSolve.init(
     # simulate kwargs
     num_simulations::Int = 1000,
     num_workers::Int = 1,
-    # iteration
+    # training
     num_rounds::Int = 1,
-    # sample kwargs
+    train_kwargs = (;),
+    # sampling options
     sampling::PySBISampling = default_sampling(alg.algtype),
     # solve kwargs
     solve_kwargs...
@@ -115,6 +119,7 @@ function CommonSolve.init(
         1,
         num_rounds,
         (; num_simulations, num_workers),
+        train_kwargs,
         sampling,
         data,
         prepared_prior,
@@ -140,12 +145,12 @@ function CommonSolve.step!(solver::PySBISolver)
 
     # step 2: train density estimator
     @info "Training estimator"
-    solver.estimator = solver.inference.train()
+    solver.estimator = solver.inference.train(; solver.train_kwargs...)
 
     # step 3: build posterior
     @info "Building posterior"
     x_obs = reduce(vcat, map(lik -> vec(lik.data), solver.prob.likelihoods))
-    posterior = solver.inference.build_posterior(solver.estimator)
+    posterior = _build_posterior(solver.sampling, solver.inference, solver.estimator)
     posterior.set_default_x(Py(x_obs).to_numpy())
     solver.proposal = posterior
     solver.iter += 1
@@ -166,4 +171,15 @@ function default_sampling(algtype)
     else
         MCMCSampling()
     end
+end
+
+function _build_posterior(sampling::DirectSampling, inference::Py, estimator::Py)
+    direct_parameters = Dict(map(n -> string(n) => getproperty(sampling, n), propertynames(sampling))...)
+    return inference.build_posterior(estimator; sample_with="direct", direct_parameters)
+end
+
+function _build_posterior(sampling::MCMCSampling, inference::Py, estimator::Py)
+    mcmc_method = sampling.method
+    mcmc_parameters = Dict(map(n -> string(n) => getproperty(sampling, n), propertynames(sampling)[2:end])...)
+    return inference.build_posterior(estimator; sample_with="mcmc", mcmc_method, mcmc_parameters)
 end

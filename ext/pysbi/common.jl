@@ -63,20 +63,16 @@ abstract type PySBISampling end
 
 Base.@kwdef struct DirectSampling <: PySBISampling
     max_sampling_batch_size::Int = 10_000
-    device::Union{Nothing,String} = nothing
-    x_shape::Union{Nothing,Dims} = nothing
     enable_transform::Bool = true
 end
 
 Base.@kwdef struct MCMCSampling <: PySBISampling
     method::String = "slice_np"
-    thin::Int = -1
+    thin::Int = 1
     warmup_steps::Int = 200
     num_chains::Int = 1
-    init_strategy::String = "resample"
-    init_strategy_parameters::Union{Nothing,Dict} = nothing
-    init_strategy_num_candidates::Union{Nothing,Int} = nothing
     num_workers::Int = 1
-    mp_context::String = "spawn"
-    device::Union{Nothing,String} = nothing
+    # mp_context::String = "spawn"
+    init_strategy::String = "resample"
+    init_strategy_parameters::AbstractDict = Dict()
 end
