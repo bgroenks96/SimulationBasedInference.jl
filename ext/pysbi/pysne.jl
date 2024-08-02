@@ -167,19 +167,24 @@ function default_sampling(algtype)
     if pyconvert(Bool, algtype == sbi.inference.SNPE_A) ||
        pyconvert(Bool, algtype == sbi.inference.SNPE_B) ||
        pyconvert(Bool, algtype == sbi.inference.SNPE_C)
-        DirectSampling()
+        RejectionSampling() # TODO: update with next sbi release
     else
         MCMCSampling()
     end
 end
 
 function _build_posterior(sampling::DirectSampling, inference::Py, estimator::Py)
-    direct_sampling_parameters = Dict(map(n -> string(n) => getproperty(sampling, n), propertynames(sampling))...)
+    direct_sampling_parameters = sampling.parameters
     return inference.build_posterior(estimator; sample_with="direct", direct_sampling_parameters)
+end
+
+function _build_posterior(sampling::RejectionSampling, inference::Py, estimator::Py)
+    rejection_sampling_parameters = sampling.parameters
+    return inference.build_posterior(estimator; sample_with="rejection", rejection_sampling_parameters)
 end
 
 function _build_posterior(sampling::MCMCSampling, inference::Py, estimator::Py)
     mcmc_method = sampling.method
-    mcmc_parameters = Dict(map(n -> string(n) => getproperty(sampling, n), propertynames(sampling)[2:end])...)
+    mcmc_parameters = sampling.parameters
     return inference.build_posterior(estimator; sample_with="mcmc", mcmc_method, mcmc_parameters)
 end

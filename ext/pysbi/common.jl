@@ -61,18 +61,17 @@ end
 
 abstract type PySBISampling end
 
-Base.@kwdef struct DirectSampling <: PySBISampling
-    max_sampling_batch_size::Int = 10_000
-    enable_transform::Bool = true
+struct DirectSampling <: PySBISampling
+    parameters::Dict
+    DirectSampling(; kwargs...) = new(Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
 end
 
-Base.@kwdef struct MCMCSampling <: PySBISampling
-    method::String = "slice_np"
-    thin::Int = 1
-    warmup_steps::Int = 200
-    num_chains::Int = 1
-    num_workers::Int = 1
-    # mp_context::String = "spawn"
-    init_strategy::String = "resample"
-    init_strategy_parameters::AbstractDict = Dict()
+struct RejectionSampling <: PySBISampling
+    parameters::Dict
+    RejectionSampling(; kwargs...) = new(Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
+end
+
+struct MCMCSampling <: PySBISampling
+    parameters::Dict
+    MCMCSampling(; kwargs...) = new(Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
 end
