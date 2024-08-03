@@ -20,7 +20,7 @@ include("pypriors.jl")
 
 include("common.jl")
 
-export PySNE
+export PySNE, MCMCSampling, DirectSampling, RejectionSampling
 include("pysne.jl")
 
 end

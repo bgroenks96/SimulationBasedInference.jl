@@ -163,6 +163,26 @@ function CommonSolve.solve!(solver::PySBISolver)
     return SimulatorInferenceSolution(solver.prob, solver.alg, solver.data, posterior)
 end
 
+# Sampling algorithms
+
+abstract type PySBISampling end
+
+struct DirectSampling <: PySBISampling
+    parameters::Dict
+    DirectSampling(; kwargs...) = new(Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
+end
+
+struct RejectionSampling <: PySBISampling
+    parameters::Dict
+    RejectionSampling(; kwargs...) = new(Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
+end
+
+struct MCMCSampling <: PySBISampling
+    method::String
+    parameters::Dict
+    MCMCSampling(; method::String="slice_np", kwargs...) = new(method, Dict(map((k,v) -> string(k) => v, keys(kwargs), values(kwargs))))
+end
+
 function default_sampling(algtype)
     if pyconvert(Bool, algtype == sbi.inference.SNPE_A) ||
        pyconvert(Bool, algtype == sbi.inference.SNPE_B) ||
