@@ -59,47 +59,8 @@ end
 function CommonSolve.init(
     inference_prob::SimulatorInferenceProblem,
     alg::PySNE,
+    simdata::Union{Nothing,SimulationData}=nothing,
     param_type::Type{T} = Vector;
-    transform = inverse(bijector(inference_prob)),
-    pred_transform = identity,
-    prior = pyprior(inference_prob.prior),
-    rng::Random.AbstractRNG = Random.default_rng(),
-    # simulate kwargs
-    num_simulations::Int = 1000,
-    num_workers::Int = 1,
-    # training
-    num_rounds::Int = 1,
-    train_kwargs = (;),
-    # sample kwargs
-    sampling::PySBISampling = default_sampling(alg.algtype),
-    # solve kwargs
-    solve_kwargs...
-) where {T}
-    pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
-    prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
-    inference_alg = build(alg, prepared_prior)
-    return PySBISolver(
-        inference_prob,
-        alg,
-        1,
-        num_rounds,
-        (; num_simulations, num_workers),
-        train_kwargs,
-        sampling,
-        missing,
-        prepared_prior,
-        prepared_sim,
-        inference_alg,
-        missing,
-    )
-end
-
-function CommonSolve.init(
-    inference_prob::SimulatorInferenceProblem,
-    alg::PySNE,
-    data::SimulationData,
-    param_type::Type{T} = Vector;
-    transform = inverse(bijector(inference_prob)),
     pred_transform = identity,
     prior = pyprior(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
@@ -114,10 +75,13 @@ function CommonSolve.init(
     # solve kwargs
     solve_kwargs...
 ) where {T}
-    pysim = pysimulator(inference_prob, transform, pred_transform, T; rng)
+    simdata = isnothing(simdata) ? SimulationArrayStorage() : simdata
+    pysim = pysimulator(inference_prob, simdata, pred_transform, T; rng)
     prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
     inference_alg = build(alg, prepared_prior)
-    append_simulations!(inference_alg, inference_prob, data)
+    if !isnothing(simdata)
+        append_simulations!(inference_alg, inference_prob, simdata)
+    end
     return PySBISolver(
         inference_prob,
         alg,
@@ -126,7 +90,7 @@ function CommonSolve.init(
         (; num_simulations, num_workers),
         train_kwargs,
         sampling,
-        data,
+        simdata,
         prepared_prior,
         prepared_sim,
         inference_alg,
@@ -137,15 +101,10 @@ end
 function CommonSolve.step!(solver::PySBISolver)
     @info "Starting iteration $(solver.iter)/$(solver.maxiter)"
     # step 1: run simulations, if necessary
-    if ismissing(solver.data) || solver.iter > 1
+    if length(solver.data) == 0 || solver.iter > 1
         @info "Running simulations"
         Θ, Y = sbi.inference.simulate_for_sbi(solver.simulator; proposal=solver.proposal, solver.simulate_kwargs...)
         solver.inference.append_simulations(Θ, Y, solver.proposal)
-        # Create internal simulation storage if it does not exist yet;
-        # Note that this is duplicating simulation data already stored by the python package which is less than ideal.
-        # It would be good to consider how to eliminate this redundancy in the future.
-        solver.data = ismissing(solver.data) ? SimulationArrayStorage() : solver.data
-        store!(solver.data, transpose(pyconvert(Matrix, Θ)), collect(eachrow(pyconvert(Matrix, Y))))
     end
 
     # step 2: train density estimator

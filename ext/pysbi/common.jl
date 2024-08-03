@@ -1,8 +1,9 @@
-function pysimulator(inference_prob::SimulatorInferenceProblem, transform, pred_transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
+function pysimulator(inference_prob::SimulatorInferenceProblem, data::SimulationData, pred_transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
     function simulator(ζ::AbstractVector, return_py::Bool=true)
         θ = zero(inference_prob.u0) + ζ
         ϕ = SBI.forward_map(inference_prob.prior, θ)
-        solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
+        forward_sol = solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
+        store!(data, θ, map(getvalue, forward_sol.prob.observables))
         obs_vecs = map(inference_prob.likelihoods) do lik
             if hasproperty(ϕ, nameof(lik))
                 y_pred = SBI.sample_prediction(lik, ϕ[nameof(lik)])
