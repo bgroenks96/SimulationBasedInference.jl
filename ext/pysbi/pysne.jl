@@ -31,6 +31,11 @@ function build(alg::PySNE, prior)
 end
 
 """
+Base type for `sbi` sampling algorithms.
+"""
+abstract type PySBISampling end
+
+"""
     PySBISolver{algType,samplingType<:PySBISampling}
 
 Generic solver type for python sbi algorithms. Stores the prepared simulator,  prior,
@@ -164,8 +169,6 @@ function CommonSolve.solve!(solver::PySBISolver)
 end
 
 # Sampling algorithms
-
-abstract type PySBISampling end
 
 struct DirectSampling <: PySBISampling
     parameters::Dict
