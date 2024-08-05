@@ -117,18 +117,18 @@ function setvalue!(obs::SimulatorObservable{N,Transient}, value) where {N}
 end
 
 """
-    TimeSampled{timeType,reducerType} <: SimulatorOutput
+    TimeSampled{timeType,storageType,reducerType} <: SimulatorOutput
 
 `SimulatorOutput` which buffers samples taken from the simulator at preset times and applies a reduction operation at
 (lower frequency) save times. A simple example would be a windowed average or resampling operation that saves averages
 over higher frequency samples.
 """
-mutable struct TimeSampled{timeType,reducerType} <: SimulatorOutput
+mutable struct TimeSampled{timeType,storageType<:SimulationData,reducerType} <: SimulatorOutput
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
     reducer::reducerType # reducer function
-    output::Union{Nothing,AbstractVector}
+    storage::storageType
     buffer::Union{Nothing,AbstractVector}
     sampleidx::Int
 end
@@ -137,7 +137,8 @@ function TimeSampled(
     t0::tType,
     tsave::AbstractVector{tType};
     reducer=mean,
-    samplerate=Hour(3)
+    samplerate=Hour(3),
+    storage::SimulationData=SimulationArrayStorage(),
 ) where {tType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
@@ -151,7 +152,7 @@ function TimeSampled(
             push!(tsample, t)
         end
     end
-    return TimeSampled(extrema(tsample), tsample, collect(tsave), reducer, nothing, nothing, 1)
+    return TimeSampled(extrema(tsample), tsample, collect(tsave), reducer, storage, nothing, 1)
 end
 
 const TimeSampledObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeSampled}
@@ -177,11 +178,12 @@ function SimulatorObservable(
     coords::Tuple;
     reducer=mean,
     samplerate=Hour(3),
+    storage::SimulationData=SimulationArrayStorage(),
 ) where {tType}
     return SimulatorObservable(
         name,
         obsfunc,
-        TimeSampled(t0, tsave; reducer, samplerate),
+        TimeSampled(t0, tsave; reducer, samplerate, storage),
         (coordinates(coords)..., Ti(tsave)),
     )
 end
@@ -214,8 +216,8 @@ if they do not match.
 """
 function initialize!(obs::TimeSampledObservable, state)
     # Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
+    clear!(obs.output.storage)
     obs.output.buffer = []
-    obs.output.output = []
     obs.output.sampleidx = 1
     return nothing
 end
@@ -227,7 +229,7 @@ function observe!(obs::TimeSampledObservable, state)
     idx = searchsorted(obs.output.tsave, t)
     # if t ∈ save points, compute and store reduced output
     if first(idx) == last(idx) && length(obs.output.buffer) > 0
-        push!(obs.output.output, obs.output.reducer(obs.output.buffer))
+        store!(obs.output.storage, [t], obs.output.reducer(obs.output.buffer))
         # empty buffer
         resize!(obs.output.buffer, 0)
     end
@@ -241,8 +243,8 @@ end
 
 function getvalue(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
-    @assert length(obs.output.output) > 0 "output buffer is empty; check for errors in the model evaluation"
-    out = reduce(hcat, obs.output.output)
+    @assert length(obs.output.storage) > 0 "output buffer is empty; check for errors in the model evaluation"
+    out = reduce(hcat, getoutputs(obs.output.storage))
     coords = coordinates(obs)
     darr = DimArray(out, coords)
     singleton_dims = filter(c -> length(c) == 1, coords)
@@ -250,16 +252,15 @@ function getvalue(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
 end
 
 function setvalue!(obs::TimeSampledObservable, values::AbstractMatrix)
+    @assert size(values, 2) == length(savetimes(obs))
     obs.output.buffer = []
-    obs.output.output = collect(eachcol(values))
+    obs.output.storage = SimulationArrayStorage()
+    store!(obs.output.storage, reshape(savetimes(obs), 1, :), values)
 end
 
-function setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector})
-    obs.output.buffer = []
-    obs.output.output = values
-end
+setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(obs, reduce(hcat, values))
 
-unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.output)), length(obs.output.output))
+unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.storage)), length(obs.output.storage))
 
 _coerce(output::AbstractVector, shape::Dims) = reshape(output, shape)
 _coerce(output::Number, ::Tuple{}) = [output] # lift to single element vector
