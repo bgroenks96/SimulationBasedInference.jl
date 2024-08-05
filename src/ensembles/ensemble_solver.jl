@@ -130,7 +130,6 @@ function CommonSolve.init(
     rng=Random.default_rng(),
     solve_kwargs...
 )
-    println(initial_ens)
     # extract model prior (i.e. ignoring likelihood parameters)
     model_prior = inference_prob.prior.model
     # construct transform from model prior
