@@ -1,7 +1,11 @@
-function pysimulator(inference_prob::SimulatorInferenceProblem, data::SimulationData, pred_transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
+function pysimulator(inference_prob::SimulatorInferenceProblem, data::SimulationData, transform, pred_transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
+    # helper method to convert scalars to 1D arrays
+    lift(x::Number) = [x]
+    lift(x::AbstractVector) = x
+    # define simulator
     function simulator(ζ::AbstractVector, return_py::Bool=true)
         θ = zero(inference_prob.u0) + ζ
-        ϕ = SBI.forward_map(inference_prob.prior, θ)
+        ϕ = transform(θ)
         forward_sol = solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
         store!(data, θ, map(getvalue, forward_sol.prob.observables))
         obs_vecs = map(inference_prob.likelihoods) do lik
@@ -10,7 +14,7 @@ function pysimulator(inference_prob::SimulatorInferenceProblem, data::Simulation
             else
                 y_pred = SBI.sample_prediction(lik)
             end
-            pred_transform(y_pred)
+            lift(pred_transform(y_pred))
         end
         if return_py
             return Py(reduce(vcat, obs_vecs)).to_numpy()

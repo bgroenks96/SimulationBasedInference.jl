@@ -63,6 +63,7 @@ function CommonSolve.init(
     param_type::Type{T} = Vector;
     pred_transform = identity,
     prior = pyprior(inference_prob.prior),
+    transform = SBI.unconstrained_forward_map(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
     # simulate kwargs
     num_simulations::Int = 1000,
@@ -75,12 +76,17 @@ function CommonSolve.init(
     # solve kwargs
     solve_kwargs...
 ) where {T}
-    simdata = isnothing(simdata) ? SimulationArrayStorage() : simdata
-    pysim = pysimulator(inference_prob, simdata, pred_transform, T; rng)
-    prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
-    inference_alg = build(alg, prepared_prior)
-    if !isnothing(simdata)
-        append_simulations!(inference_alg, inference_prob, simdata)
+    if isnothing(simdata)
+        simdata = SimulationArrayStorage()
+        pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
+        prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
+        inference_alg = build(alg, prepared_prior)
+        SBI.clear!(simdata)
+    else
+        pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
+        prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
+        inference_alg = build(alg, prepared_prior)
+        append_simulations!(inference_alg, inference_prob, data)
     end
     return PySBISolver(
         inference_prob,
@@ -99,6 +105,9 @@ function CommonSolve.init(
 end
 
 function CommonSolve.step!(solver::PySBISolver)
+    if solver.iter > solver.maxiter
+        return false
+    end
     @info "Starting iteration $(solver.iter)/$(solver.maxiter)"
     # step 1: run simulations, if necessary
     if length(solver.data) == 0 || solver.iter > 1
