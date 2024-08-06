@@ -161,5 +161,7 @@ plot!(tsave, posterior_obs_mean_esmda, label="Posterior (ES-MDA)", linestyle=:da
 plot!(tsave, posterior_obs_mean_eks, label="Posterior (EKS)", linestyle=:dash, ribbon=2*posterior_obs_std_eks, alpha=0.4, linewidth=3)
 plot!(tsave, posterior_obs_mean_hmc, label="Posterior (HMC)", linestyle=:dash, ribbon=2*posterior_obs_std_hmc, alpha=0.4, linewidth=3)
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:black)
-savefig("res/linearode_poseterior_preds_comparison.png") #hide
+filepath = realpath("res/linearode_poseterior_preds_comparison.png") #hide
+mkpath(filepath) #hide
+savefig(filepath) #hide
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
