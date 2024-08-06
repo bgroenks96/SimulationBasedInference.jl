@@ -83,7 +83,7 @@ nothing #hide
 prior_ens = get_transformed_ensemble(enis_sol)
 prior_ens_mean = mean(prior_ens, dims=2)[:,1]
 prior_ens_std = std(prior_ens, dims=2)[:,1]
-prior_ens_obs = get_observables(enis_sol).y;
+prior_ens_obs = Array(get_observables(enis_sol).y);
 prior_ens_obs_mean = mean(prior_ens_obs, dims=2)[:,1]
 prior_ens_obs_std = std(prior_ens_obs, dims=2)
 nothing #hide
