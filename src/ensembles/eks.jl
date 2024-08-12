@@ -9,9 +9,9 @@ end
 
 get_ensemble(state::EKPState) = get_u_final(state.ekp)
 
-get_obs_mean(state::EKPState) = state.ekp.obs_mean
+get_obs_mean(state::EKPState) = get_obs(state.ekp)
 
-get_obs_cov(state::EKPState) = state.ekp.obs_noise_cov
+get_obs_cov(state::EKPState) = get_obs_noise_cov(state.ekp)
 
 logdensity_prior(ekp::EnsembleKalmanProcess, θ) = 0.0
 logdensity_prior(ekp::EnsembleKalmanProcess{<:Sampler}, θ) = logpdf(MvNormal(ekp.process.prior_mean, ekp.process.prior_cov), θ)
@@ -70,7 +70,7 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     # update ensemble
     update_ensemble!(ekp, out.pred)
     # compute likelihoods and prior prob
-    loglik = map(y -> logpdf(MvNormal(ekp.obs_mean, ekp.obs_noise_cov), y), eachcol(out.pred))
+    loglik = map(y -> logpdf(MvNormal(get_obs(ekp), get_obs_noise_cov(ekp)), y), eachcol(out.pred))
     logprior = map(θᵢ -> logdensity_prior(ekp, θᵢ), eachcol(Θ))
     # update ensemble solver state
     push!(state.loglik, loglik)

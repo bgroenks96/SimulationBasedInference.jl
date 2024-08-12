@@ -1,7 +1,7 @@
 name = "SimulationBasedInference"
 uuid = "78927d98-f421-490e-8789-96b006983a5c"
 authors = ["Brian Groenke <brian.groenke@awi.de>"]
-version = "0.1.3"
+version = "0.1.4"
 
 [deps]
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
@@ -66,7 +66,7 @@ DiffEqBase = "5,6"
 DimensionalData = "0.26,0.27"
 Distributions = "0.25"
 DynamicHMC = "3"
-EnsembleKalmanProcesses = "=1.1.5"
+EnsembleKalmanProcesses = ">=1.1.6,1.1"
 FileIO = "1"
 ForwardDiff = "0.10"
 JLD2 = "0.4"

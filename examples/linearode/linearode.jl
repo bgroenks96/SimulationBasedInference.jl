@@ -162,6 +162,6 @@ plot!(tsave, posterior_obs_mean_eks, label="Posterior (EKS)", linestyle=:dash, r
 plot!(tsave, posterior_obs_mean_hmc, label="Posterior (HMC)", linestyle=:dash, ribbon=2*posterior_obs_std_hmc, alpha=0.4, linewidth=3)
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:black)
 filepath = "res/linearode_poseterior_preds_comparison.png" #hide
-mkpath(filepath) #hide
+mkpath(dirname(filepath)) #hide
 savefig(filepath) #hide
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
