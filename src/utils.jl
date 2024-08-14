@@ -13,7 +13,7 @@ to each element and returning a named tuple of the reduced outputs. All named tu
 in the vector must have the same keys.
 """
 function ntreduce(f, xs::AbstractVector{<:NamedTuple})
-    reduce(xs) do acc, xᵢ
+    foldl(xs) do acc, xᵢ
         (; map(k -> k => f(acc[k], xᵢ[k]), keys(acc))...)
     end
 end
