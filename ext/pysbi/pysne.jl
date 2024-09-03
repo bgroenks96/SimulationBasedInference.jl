@@ -79,12 +79,13 @@ function CommonSolve.init(
     if isnothing(simdata)
         simdata = SimulationArrayStorage()
         pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
-        prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
+        prepared_prior, num_params, returns_numpy = sbi_utils.user_input_checks.process_prior(prior)
+        prepared_sim = sbi_utils.user_input_checks.process_simulator(pysim, prepared_prior, returns_numpy)
         inference_alg = build(alg, prepared_prior)
         SBI.clear!(simdata)
     else
         pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
-        prepared_sim, prepared_prior = sbi.inference.prepare_for_sbi(pysim, prior)
+        prepared_sim = sbi_utils.user_input_checks.process_simulator(pysim, prepared_prior, returns_numpy)
         inference_alg = build(alg, prepared_prior)
         append_simulations!(inference_alg, inference_prob, data)
     end
@@ -158,7 +159,7 @@ function default_sampling(algtype)
     if pyconvert(Bool, algtype == sbi.inference.SNPE_A) ||
        pyconvert(Bool, algtype == sbi.inference.SNPE_B) ||
        pyconvert(Bool, algtype == sbi.inference.SNPE_C)
-        RejectionSampling() # TODO: update with next sbi release
+        DirectSampling()
     else
         MCMCSampling()
     end

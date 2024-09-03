@@ -12,8 +12,8 @@ const torch = pyimport("torch")
 
 # import sbi and its submodules
 const sbi = pyimport("sbi")
-pyimport("sbi.inference")
-pyimport("sbi.utils")
+const sbi_inference = pyimport("sbi.inference")
+const sbi_utils = pyimport("sbi.utils")
 
 export pyprior
 include("pypriors.jl")
