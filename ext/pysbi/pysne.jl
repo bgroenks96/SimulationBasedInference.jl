@@ -85,9 +85,10 @@ function CommonSolve.init(
         SBI.clear!(simdata)
     else
         pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
+        prepared_prior, num_params, returns_numpy = sbi_utils.user_input_checks.process_prior(prior)
         prepared_sim = sbi_utils.user_input_checks.process_simulator(pysim, prepared_prior, returns_numpy)
         inference_alg = build(alg, prepared_prior)
-        append_simulations!(inference_alg, inference_prob, data)
+        append_simulations!(inference_alg, inference_prob, simdata)
     end
     return PySBISolver(
         inference_prob,

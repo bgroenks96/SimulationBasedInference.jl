@@ -28,7 +28,7 @@ include("data.jl")
 p_true = ComponentVector(a=2.5, b=0.65)
 N_obs = 100
 σ_true = 5.0
-σ_prior = prior(σ=LogNormal(0,0.5))
+σ_prior = prior(σ=Exponential(1.0))
 data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
 
 # plot the data
@@ -162,7 +162,7 @@ hmc_sol = @time solve(inference_prob, MCMC(NUTS(), num_samples=10_000));
 hmc_res = summarize_markov_chain(hmc_sol, :y)
 hmc_sol.result
 
-simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1]);
+simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1,2]);
 # gaussian_prior = PySBI.pyprior(inference_prob.prior, LaplaceMethod())
 snpe_sol = @time solve(inference_prob, PySNE(), simdata, num_rounds=1, num_simulations=1000);
 snpe_res = summarize_snpe(snpe_sol); snpe_res.posterior_mean
