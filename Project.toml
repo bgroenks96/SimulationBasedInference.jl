@@ -1,7 +1,7 @@
 name = "SimulationBasedInference"
 uuid = "78927d98-f421-490e-8789-96b006983a5c"
 authors = ["Brian Groenke <brian.groenke@awi.de>"]
-version = "0.1.6"
+version = "0.1.7"
 
 [deps]
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
