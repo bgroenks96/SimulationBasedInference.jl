@@ -18,6 +18,17 @@ function SimulatorForwardProblem(
     return SimulatorForwardProblem(prob, named_observables, SimulatorODEConfig(stepfunc, obs_to_prob_time))
 end
 
+function SimulatorForwardProblem(
+    prob::AbstractODEProblem,
+    p::AbstractVector,
+    observables::SimulatorObservable...;
+    stepfunc=step!,
+    obs_to_prob_time=default_time_converter(prob)
+)
+    return SimulatorForwardProblem(remake(prob, p=p), observables...; stepfunc, obs_to_prob_time)
+end
+
+
 function ODEObservable(name::Symbol, prob::AbstractODEProblem, tsave; obsfunc=identity, kwargs...)
     return SimulatorObservable(name, integrator -> obsfunc(integrator.u), prob.tspan[1], tsave, size(prob.u0); kwargs...)
 end
@@ -86,6 +97,12 @@ function CommonSolve.init(
     # initialize observables
     for obs in newprob.observables
         initialize!(obs, integrator)
+    end
+    # iterate over observables and update those for which t0 is a sample point
+    for obs in newprob.observables
+        if integrator.t ∈ map(newprob.config.obs_to_prob_time, sampletimes(obs))
+            observe!(obs, integrator)
+        end
     end
     return SimulatorODEForwardSolver(newprob, integrator, t_points, 1)
 end

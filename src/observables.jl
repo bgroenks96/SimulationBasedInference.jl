@@ -137,12 +137,12 @@ function TimeSampled(
     t0::tType,
     tsave::AbstractVector{tType};
     reducer=mean,
-    samplerate=Hour(3),
+    samplerate=_default_sample_rate(tsave),
     storage::SimulationData=SimulationArrayStorage(),
 ) where {tType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
-    @assert length(tsave) == 1 || minimum(diff(tsave)) >= samplerate "sample frequency must be higher than all saving intervals"
+    @assert length(tsave) == 1 || minimum(diff(tsave)) >= samplerate "sample frequency must be >= save frequency"
     tsample = [t0]
     for t in tsave
         # append sample points up to next t
@@ -198,6 +198,7 @@ at appropriate intervals relative to the forcing. The implementation of `Simulat
 responsible for computing and storing the model state at each sample time.
 """
 sampletimes(obs::TimeSampledObservable) = obs.output.tsample
+sampletimes(::SimulatorObservable) = []
 
 """
     savetimes(::TimeSampledObservable)
@@ -205,7 +206,9 @@ sampletimes(obs::TimeSampledObservable) = obs.output.tsample
 Return the time points at which simulator outputs will be saved.
 """
 savetimes(obs::TimeSampledObservable) = obs.output.tsave
+savetimes(::SimulatorObservable) = []
 
+_default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
 """
     initialize!(obs::TimeSampledObservable, state)
@@ -224,18 +227,19 @@ end
 
 function observe!(obs::TimeSampledObservable, state)
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
-    t = obs.output.tsample[obs.output.sampleidx]
+    inbounds = obs.output.sampleidx <= length(obs.output.tsample)
+    t = inbounds ? obs.output.tsample[obs.output.sampleidx] : obs.output.tsample[end]
     # find index of time point
     idx = searchsorted(obs.output.tsave, t)
+    # get observable vector at current state
+    Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
+    push!(obs.output.buffer, Y_t)
     # if t ∈ save points, compute and store reduced output
-    if first(idx) == last(idx) && length(obs.output.buffer) > 0
+    if first(idx) == last(idx) && inbounds && length(obs.output.buffer) > 0
         store!(obs.output.storage, [t], obs.output.reducer(obs.output.buffer))
         # empty buffer
         resize!(obs.output.buffer, 0)
     end
-    # get observable vector at current state
-    Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    push!(obs.output.buffer, Y_t)
     # update cached time
     obs.output.sampleidx += 1
     return Y_t
