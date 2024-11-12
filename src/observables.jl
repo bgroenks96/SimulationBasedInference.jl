@@ -1,5 +1,10 @@
 abstract type SimulatorOutput end
 
+"""
+    Observable{outputType<:SimulatorOutput}
+
+Base type for observables with the given `outputType`.
+"""
 abstract type Observable{outputType<:SimulatorOutput} end
 
 """

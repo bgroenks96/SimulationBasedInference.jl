@@ -1,16 +1,25 @@
+using ArgParse
 using SimulationBasedInference
 using PythonCall
 using Documenter
 using Literate
 
-# ENV["LOCALDOCS"] = "true"
+s = ArgParseSettings()
+@add_arg_table! s begin
+    "--local", "-l"
+       action = :store_true
+       help = "Local docs build mode"
+    "--draft", "-d"
+       action = :store_true
+       help = "Whether to build docs in draft mode, i.e. skipping execution of examples and doctests"
+end
+parsed_args = parse_args(ARGS, s)
 
-IS_LOCAL = haskey(ENV,"LOCALDOCS") && ENV["LOCALDOCS"] == "true"
+IS_LOCAL = parsed_args["local"] || parse(Bool, get(ENV, "LOCALDOCS", "false"))
+IS_DRAFT = parsed_args["draft"] || parse(Bool, get(ENV, "DRAFTDOCS", "false"))
 if haskey(ENV, "GITHUB_ACTIONS")
        ENV["JULIA_DEBUG"] = "Documenter"
 end
-
-IS_DRAFT = parse(Bool, get(ENV, "DRAFTDOCS", "false"))
 
 deployconfig = Documenter.auto_detect_deploy_system()
 
