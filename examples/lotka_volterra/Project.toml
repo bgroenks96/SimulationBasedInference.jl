@@ -1,0 +1,7 @@
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SimulationBasedInference = "78927d98-f421-490e-8789-96b006983a5c"
+StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"

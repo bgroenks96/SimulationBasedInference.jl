@@ -1,15 +1,12 @@
-using OrdinaryDiffEq
-using Plots
-
 using SimulationBasedInference
 
-using DifferentialEquations
 using LinearAlgebra
-using StatsPlots
-
+using Plots, StatsPlots
+using OrdinaryDiffEq
 using Random
 
 const rng = Random.MersenneTwister(1234);
+
 # ---------------------------------------------------------------------------- #
 #region Model
 # ---------------------------------------------------------------------------- #
@@ -23,40 +20,34 @@ p = [1.5, 1.0, 3.0, 1.0]
 u0 = [1.0,1.0]
 tspan = (0.0, 10.0)
 odeprob = ODEProblem(lotka_volterra!,u0,tspan, p)
-tsave = range(0.0, 10.0,101)            #dt = 0.1
+tsave = range(0.0,10.0,101) #dt = 0.1
 
 # ---------------------------------------------------------------------------- #
 #region Data Preparation
 # ---------------------------------------------------------------------------- #
 ode_solver = Tsit5();
 sol = solve(odeprob, ode_solver; saveat=0.1)
-odedata = Array(sol) + 0.8 * randn(size(Array(sol)))
+odedata = Array(sol) + 0.8 * randn(rng, size(Array(sol)))
 u1 = odedata[1,:]
 u2 = odedata[2,:]
 Nt = length(u1)
 
-### Define observables
-y1 = SimulatorObservable(:u1, state -> state.u[1,:], (Nt,))
-y2 = SimulatorObservable(:u2, state -> state.u[2,:], (Nt,))
+### Define (time sampled) observables
+y1 = SimulatorObservable(:u1, state -> state.u[1], tspan[1], tsave, (1,))
+y2 = SimulatorObservable(:u2, state -> state.u[2], tspan[1], tsave, (1,))
 
-function DAE_problem(ode_func, tspan, solver)
-    function DAE_simulation(θ)
-        prob = ODEProblem(ode_func,u0,tspan, θ)
-        sol = solve(prob, solver, saveat = tsave)
-        # return hcat(sol.u...)
-        return hcat(sol.u...)
-    end
-    return DAE_simulation
-end
-
-forward_prob = SimulatorForwardProblem(DAE_problem(lotka_volterra!, tspan, ode_solver), p, y1, y2)    
-
+forward_prob = SimulatorForwardProblem(odeprob, p, y1, y2)
 
 # ---------------------------------------------------------------------------- #
 #region Set prior
 # ---------------------------------------------------------------------------- #
 # parameter prior
-model_prior = prior(α=truncated(Normal(1.3, 3), 0, 3), β = truncated(Normal(1.2, 3), 0, 5), γ = truncated(Normal(1.2, 3), 0, 5), δ = truncated(Normal(1.2, 3), 0, 5))
+model_prior = prior(
+    α = truncated(Normal(1.3, 3), 0, 3),
+    β = truncated(Normal(1.2, 3), 0, 5),
+    γ = truncated(Normal(1.2, 3), 0, 5),
+    δ = truncated(Normal(1.2, 3), 0, 5)
+)
 # noise scale prior
 prior_y1 = prior(prior_y1 = InverseGamma(2,3));
 prior_y2 = prior(prior_y2 = InverseGamma(2,3));
