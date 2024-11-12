@@ -35,10 +35,16 @@ setvalue!(obs::Observable, value) = error("not implemented for observable of typ
     coordinates(obs::Observable)
 
 Retrieves coordinates for each dimension of the observables as a `Tuple` with length matching
-the number of dimensions. Default implementation returns `1:Nᵢ` in each dimension where `Nᵢ`
-is the size of dimension `i`.
+the number of dimensions.
 """
-coordinates(obs::Observable) = coordinates(size(obs))
+coordinates(obs::Observable) = error("not implemented for osbervable of type $(typeof(obs))")
+
+"""
+    size(obs::Observable)
+
+Retruns the shape of this observable by evaluating the `length` of each set of coordinates returned by `coordinates(obs)`.
+"""
+Base.size(obs::Observable) = map(length, coordinates(obs))
 
 """
     coordinates(dims...)
@@ -73,27 +79,25 @@ struct SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType<:Tu
     coords::coordsType
 end
 
-Base.nameof(obs::SimulatorObservable) = obs.name
+coordinates(obs::SimulatorObservable) = obs.coords
 
-Base.size(obs::SimulatorObservable) = map(length, obs.coords)
+Base.nameof(obs::SimulatorObservable) = obs.name
 
 function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,outputType}) where {N,outputType<:SimulatorOutput}
     println(io, "$(nameof(outputType)) SimulatorOsbervable $(obs.name) with $N $(N > 1 ? "dimensions" : "dimension")")
     show(io, mime, obs.coords)
 end
 
-coordinates(obs::SimulatorObservable) = obs.coords
-
 mutable struct Transient <: SimulatorOutput
     state::Union{Missing,AbstractVecOrMat}
 end
 
 """
-    SimulatorObservable(name::Symbol, f::Function, coords::Tuple)
+    SimulatorObservable(name::Symbol, f, coords::Tuple)
 
 Constructs a `Transient` observable with state mapping function `f` and coordinates `coords`.
 """
-function SimulatorObservable(name::Symbol, f::Function, coords::Tuple)
+function SimulatorObservable(name::Symbol, f, coords::Tuple)
     ds = coordinates(coords)
     return SimulatorObservable(name, f, Transient(missing), ds)
 end
@@ -137,7 +141,7 @@ function TimeSampled(
     t0::tType,
     tsave::AbstractVector{tType};
     reducer=mean,
-    samplerate=_default_sample_rate(tsave),
+    samplerate=default_sample_rate(tsave),
     storage::SimulationData=SimulationArrayStorage(),
 ) where {tType}
     @assert length(tsave) > 0
@@ -165,7 +169,7 @@ const TimeSampledObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeSamp
         tsave::AbstractVector{tType},
         output_shape_or_coords::Tuple;
         reducer=mean,
-        samplerate=Hour(3),
+        samplerate=default_sample_rate(tsave),
     ) where {tType}
 
 Constructs a `TimeSampled` observable which iteratively samples and stores outputs on each call to `observe!`.
@@ -177,7 +181,7 @@ function SimulatorObservable(
     tsave::AbstractVector{tType},
     coords::Tuple;
     reducer=mean,
-    samplerate=Hour(3),
+    samplerate=default_sample_rate(tsave),
     storage::SimulationData=SimulationArrayStorage(),
 ) where {tType}
     return SimulatorObservable(
@@ -208,7 +212,7 @@ Return the time points at which simulator outputs will be saved.
 savetimes(obs::TimeSampledObservable) = obs.output.tsave
 savetimes(::SimulatorObservable) = []
 
-_default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
+default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
 """
     initialize!(obs::TimeSampledObservable, state)

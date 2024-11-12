@@ -10,6 +10,8 @@ if haskey(ENV, "GITHUB_ACTIONS")
        ENV["JULIA_DEBUG"] = "Documenter"
 end
 
+IS_DRAFT = parse(Bool, get(ENV, "DRAFTDOCS", "false"))
+
 deployconfig = Documenter.auto_detect_deploy_system()
 
 const modules = [
@@ -27,7 +29,7 @@ mkpath(examples_output_dir)
 linearode_example_doc = Literate.markdown(
        joinpath(examples_dir, "linearode", "linearode.jl"),
        examples_output_dir,
-       execute=true,
+       execute=!IS_DRAFT,
        documenter=true
 )
 
@@ -42,13 +44,29 @@ makedocs(
               size_threshold_ignore=["examples/linearode.md"],
               canonical = "https://bgroenks96.github.io/SimulationBasedInference.jl/v0",
        ),
+       doctest=!IS_DRAFT,
+       draft=IS_DRAFT,
        warnonly=true, # don't fail when there are errors
        pages=[
               "Home" => "index.md",
               "Getting started" => [
                      "Ensemble inversion of a linear ODE" => "examples/linearode.md",
               ],
-              "API Reference" => "api.md",
+              "Problem interface" => [
+                     "Observables" => "problems/observables.md",
+                     "Forward problems" => "problems/forward_problem.md",
+                     "Inference problems" => "problems/inference_problem.md",
+              ],
+              "Inference algorithms" => [
+                     "Ensemble methods" => "inference/ensemble.md",
+                     "MCMC" => "inference/mcmc.md",
+                     "PySBI" => "inference/pysbi.md",
+              ],
+              "Utilities" => "utils.md",
+              "API Reference" => [
+                     "SimulationBasedInference" => "api/sbi.md",
+                     "Emulators" => "api/emulators.md",
+              ]
        ],
 )
 
