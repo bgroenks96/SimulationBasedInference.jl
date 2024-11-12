@@ -259,7 +259,7 @@ function getvalue(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
     @assert length(obs.output.storage) > 0 "output buffer is empty; check for errors in the model evaluation"
     out = reduce(hcat, getoutputs(obs.output.storage))
     coords = coordinates(obs)
-    darr = DimArray(out, coords)
+    darr = DimArray(reshape(out, size(obs)), coords)
     singleton_dims = filter(c -> length(c) == 1, coords)
     return dropdims(darr, dims=singleton_dims)
 end

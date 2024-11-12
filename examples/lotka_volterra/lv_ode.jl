@@ -37,6 +37,7 @@ y1 = SimulatorObservable(:u1, state -> state.u[1], tspan[1], tsave, (1,))
 y2 = SimulatorObservable(:u2, state -> state.u[2], tspan[1], tsave, (1,))
 
 forward_prob = SimulatorForwardProblem(odeprob, p, y1, y2)
+solve(forward_prob, ode_solver);
 
 # ---------------------------------------------------------------------------- #
 #region Set prior
@@ -56,7 +57,7 @@ prior_y2 = prior(prior_y2 = InverseGamma(2,3));
 lik_y1 = SimulatorLikelihood(IsoNormal, y1, u1, prior_y1, :u1) 
 lik_y2 = SimulatorLikelihood(IsoNormal, y2, u2, prior_y2, :u2)
 
-inference_prob = SimulatorInferenceProblem(forward_prob, model_prior, lik_y1, lik_y2)
+inference_prob = SimulatorInferenceProblem(forward_prob, ode_solver, model_prior, lik_y1, lik_y2)
 # inference_prob = SimulatorInferenceProblem(forward_prob, Tsit5(), model_prior, lik_y1, lik_y2);
 
 # ---------------------------------------------------------------------------- #
@@ -69,13 +70,16 @@ prior_ens = get_transformed_ensemble(enis_sol)
 prior_ens_mean = mean(prior_ens, dims=2)[:,1]
 prior_ens_std = std(prior_ens, dims=2)[:,1]
 
+importance_weights = get_weights(enis_sol)
+nothing #hide
+
+posterior_mean = mean(prior_ens, weights(importance_weights), dims=2)
+posterior_std = mean(prior_ens, weights(importance_weights), dims=2)
+
 # u1, x
 prior_ens_obs = Array(get_observables(enis_sol).u1);
 prior_ens_obs_mean = mean(prior_ens_obs, dims=2)[:,1]
 prior_ens_obs_std = std(prior_ens_obs, dims=2)
-nothing #hide
-
-importance_weights = get_weights(enis_sol)
 nothing #hide
 
 posterior_obs_mean_enis = mean(prior_ens_obs, weights(importance_weights), 2)[:,1]
@@ -108,7 +112,7 @@ plot!(plt_EnIS, size=(2000,600), ylims=(0,10))
 #region EKS Ensemble Kalman Sampler
 # ---------------------------------------------------------------------------- #
 eks_sol = solve(inference_prob, EKS(), ensemble_size=128, rng=rng, verbose=false)
-simdata = SimulationBasedInference.sample_ensemble_predictive(eks_sol)
+# simdata = SimulationBasedInference.sample_ensemble_predictive(eks_sol)
 PosteriorStats.summarize(eks_sol)
 
 posterior_eks = get_transformed_ensemble(eks_sol)
