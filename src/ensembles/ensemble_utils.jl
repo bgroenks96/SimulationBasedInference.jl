@@ -149,10 +149,6 @@ function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnsembleInfe
     return PosteriorStats.summarize(reshape(ens_transpose, size(ens_transpose, 1), 1, size(ens_transpose, 2)), args...; var_names=param_names, kwargs...)
 end
 
-function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnIS}, args...; iter=-1, kwargs...)
-    error("summarize on EnIS solution is not currently supported")
-end
-
 function MCMCChains.Chains(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}; iter=-1)
     ens = get_transformed_ensemble(sol, iter)
     # transpose to get N x k where N is the number of ensemble members (samples)

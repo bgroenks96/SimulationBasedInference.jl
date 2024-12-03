@@ -9,7 +9,24 @@ end
 
 The [SimulatorForwardProblem](@ref) defines a forward map $\mathcal{F}: \Phi \mapsto \{\mathbf{Y}_i\}$ for $i=1\dots N$ from parameters $\Phi$ to a set of $N$ [observables](@ref observables). Observables are functions of the simulator state that can be either diagnostics or true observable quantities that may be later compared to data.
 
-A `SimulatorForwardProblem` is a wrapper around any other type of [SciML problem](https://docs.sciml.ai/SciMLBase/stable/interfaces/Problems/) that characterizes a simulator as well as one or more observables computed from the output of the simulation. The simulator can also be defined by any arbitrary Julia function of the form `f(::AbstractVector)::Any` in which case the function is treated as a simple forward map from input parameters to some output type that is processed by the `Observable`s.
+A `SimulatorForwardProblem` is a wrapper around any other type of [SciML problem](https://docs.sciml.ai/SciMLBase/stable/interfaces/Problems/) that characterizes a simulator as well as one or more observables computed from the output of the simulation.
+
+```@docs; canonical=false
+SimulatorForwardProblem(
+    prob::SciMLBase.AbstractSciMLProblem,,
+    observables::SimulatorObservable...
+)
+```
+
+The simulator can also be defined by any arbitrary Julia function of the form `f(::AbstractVector)::Any` in which case the function is treated as a simple forward map from input parameters to some output type that is processed by the `Observable`s.
+
+```@docs; canonical=false
+SimulatorForwardProblem(
+    f,
+    p0::AbstractVector,
+    observables::SimulatorObservable...
+)
+```
 
 Note that forward problems typically need to be defined with some initial input parameters:
 ```@example

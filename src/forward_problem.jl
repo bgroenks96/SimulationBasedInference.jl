@@ -32,17 +32,26 @@ end
 
 const SimulatorSciMLForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:SciMLBase.AbstractSciMLProblem}
 
+"""
+    SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
+
+Constructs a `SimulatorForwardProblem` from the given SciML problem and observables.
+"""
 function SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
     named_observables = (; map(x -> nameof(x) => x, observables)...)
     return SimulatorForwardProblem(prob, named_observables, nothing)
 end
 
+"""
+    SimulatorForwardProblem(f, p0::AbstractVector, observables::SimulatorObservable...)
+
+Constructs a `SimulatorForwardProblem` from the callable/function `f(x)` and observables. The base problem
+will be a `SimpleForwardProblem` which wraps `f(x)` and uses `p0` as the default parameter/input values for `x`.
+"""
 function SimulatorForwardProblem(f, p0::AbstractVector, observables::SimulatorObservable...)
     named_observables = (; map(x -> nameof(x) => x, observables)...)
     return SimulatorForwardProblem(SimpleForwardProblem(f, p0), named_observables, nothing)
 end
-
-SimulatorForwardProblem(f, p0::AbstractVector) = SimulatorForwardProblem(f, p0, SimulatorObservable(:y, state -> state.u, size(f(p0))))
 
 """
     SciMLBase.remake(

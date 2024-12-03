@@ -13,6 +13,10 @@ Alias for EnIS.
 """
 const PBS = EnIS
 
+function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnIS}, args...; iter=-1, kwargs...)
+    error("summarize on EnIS solution is not currently supported")
+end
+
 mutable struct EnISState{ensType,meanType,covType} <: EnsembleState
     ens::ensType
     obs_mean::meanType
@@ -140,4 +144,3 @@ function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::Diagon
 
     return weights, Neff
 end
-

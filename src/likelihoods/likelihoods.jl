@@ -22,6 +22,13 @@ struct SimulatorLikelihood{distType,priorType,obsType,dataType}
     obs::obsType
     data::dataType
     prior::priorType
+
+    """
+        SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
+
+    Creates a `SimulatorLikelihood` with the given distribution type, observable, data source, and prior distribtuion.
+    A custom identifier may also be specified via the `name` argument; by default, the name of the observable is used.
+    """
     function SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
         return new{distType,typeof(prior),typeof(obs),typeof(data)}(name, obs, data, prior)
     end
@@ -29,8 +36,19 @@ end
 
 Base.nameof(l::SimulatorLikelihood) = l.name
 
+"""
+    observable(lik::SimulatorLikelihood)::SimulatorObservable
+
+Retrieve the `SimulatorObservable` associated with this likelihood.
+"""
 observable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
 
+"""
+    getprior(lik::SimulatorLikelihood)
+
+Return the `AbstractSimulatorPrior` distribution associated with the parameters for this likelihood.
+Note that this is distinct from the prior for the forward model parameters.
+"""
 getprior(lik::SimulatorLikelihood) = lik.prior
 
 """
