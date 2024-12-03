@@ -67,8 +67,8 @@ Samples the conditional predictive distribution `p(y|u)` where `u` is the curren
 observable. This method is optional for specializations; the default implementation simply invokes `rand`
 on the `predictive_distribution(lik, args...)`.
 """
-sample_prediction(lik::SimulatorLikelihood, args...) = sample_prediction(Random.default_rng(), lik, args...)
 sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood, args...) = rand(rng, predictive_distribution(lik, args...))
+sample_prediction(lik::SimulatorLikelihood, args...) = sample_prediction(Random.default_rng(), lik, args...)
 
 """
     loglikelihood(lik::SimulatorLikelihood, args...)

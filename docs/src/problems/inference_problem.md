@@ -53,7 +53,7 @@ Currently, `SimulatoionBasedInference` defines the following types of likelihood
 GaussianLikelihood(
     obs,
     data,
-    prior=NamedProductPrior(σ=Exponential(1.0)),
+    prior,
     name,
 )
 ```
@@ -62,7 +62,7 @@ GaussianLikelihood(
 IsotropicGaussianLikelihood(
     obs,
     data,
-    prior=NamedProductPrior(σ=Exponential(1.0)),
+    prior,
     name,
 )
 ```
@@ -71,7 +71,7 @@ IsotropicGaussianLikelihood(
 DiagonalGaussianLikelihood(
     obs,
     data,
-    prior=NamedProductPrior(σ=filldist(Exponential(1.0), prod(size(obs)))),
+    prior,
     name,
 )
 ```
@@ -106,7 +106,7 @@ Currently, all likelihoods must be defined using the `SimulatorLikelihood` type.
 All `SimulatorLikelihood`s must implement the following method interface:
 
 ```@docs; canonical=false
-observable(lik::SimulatorLikelihood)::SimulatorObservable
+observable(lik::SimulatorLikelihood)
 ```
 
 ```@docs; canonical=false
@@ -118,7 +118,7 @@ predictive_distribution(lik::SimulatorLikelihood, args...)
 ```
 
 ```@docs; canonical=false
-sample_prediction([rng::AbstractRNG], lik::SimulatorLikelihood, args...)
+sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood, args...)
 ```
 
 ## Parameter spaces
@@ -132,9 +132,11 @@ and the actual model parameter space. This distinction arises for three primary 
 3. Hierarchical models may define additional parameters which are conditioned on by each model parameter.
 
 We can express this more formally in terms of the above probability model as,
+
 $$
 p(\phi | y,\pi) \propto p(y|\phi,\pi)p(\phi|\theta,\pi)p(\theta|\pi)
 $$
+
 where $\phi = \pi(\theta)$ can be referred to as the *prior model* since it defines the statistical relationship between the sampled parameters $\theta$ and the "real" model parameters $\phi$. Note that the
 conditioning on the forward model $\mathcal{M}$ is here suppressed for brevity. In cases where $\pi$ is a deterministic mapping, the additional density terms $p(\phi|\theta)$ and $p(\theta)$ can be safely
 neglected.
