@@ -19,7 +19,7 @@ logdensity_prior(ekp::EnsembleKalmanProcess{<:Sampler}, θ) = logpdf(MvNormal(ek
 """
     EKS <: EnsembleInferenceAlgorithm
 
-Represents a proxy for the Ensemble Kalman Sampler implementation provided by `EnsembleKalmanProcesses`.
+Represents a proxy for the Ensemble Kalman Sampler (Garbuno-Inigo et al. 2020) implementation provided by `EnsembleKalmanProcesses`.
 """
 Base.@kwdef struct EKS <: EnsembleInferenceAlgorithm
     prior_approx::GaussianApproximationMethod = LaplaceMethod()

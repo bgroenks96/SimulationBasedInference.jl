@@ -13,7 +13,7 @@ A `SimulatorForwardProblem` is a wrapper around any other type of [SciML problem
 
 ```@docs; canonical=false
 SimulatorForwardProblem(
-    prob::SciMLBase.AbstractSciMLProblem,,
+    prob::SciMLBase.AbstractSciMLProblem,
     observables::SimulatorObservable...
 )
 ```

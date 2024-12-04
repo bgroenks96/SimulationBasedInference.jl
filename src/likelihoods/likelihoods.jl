@@ -22,26 +22,26 @@ struct SimulatorLikelihood{distType,priorType,obsType,dataType}
     obs::obsType
     data::dataType
     prior::priorType
+end
 
-    """
-        SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
+"""
+    SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
 
-    Creates a `SimulatorLikelihood` with the given distribution type, observable, data source, and prior distribtuion.
-    A custom identifier may also be specified via the `name` argument; by default, the name of the observable is used.
-    """
-    function SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
-        return new{distType,typeof(prior),typeof(obs),typeof(data)}(name, obs, data, prior)
-    end
+Creates a `SimulatorLikelihood` with the given distribution type, observable, data source, and prior distribtuion.
+A custom identifier may also be specified via the `name` argument; by default, the name of the observable is used.
+"""
+function SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
+    return SimulatorLikelihood{distType,typeof(prior),typeof(obs),typeof(data)}(name, obs, data, prior)
 end
 
 Base.nameof(l::SimulatorLikelihood) = l.name
 
 """
-    observable(lik::SimulatorLikelihood)::SimulatorObservable
+    observable(lik::SimulatorLikelihood)
 
 Retrieve the `SimulatorObservable` associated with this likelihood.
 """
-observable(lik::SimulatorLikelihood)::SimulatorObservable = lik.obs
+observable(lik::SimulatorLikelihood) = lik.obs
 
 """
     getprior(lik::SimulatorLikelihood)

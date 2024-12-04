@@ -1,3 +1,9 @@
+"""
+    GaussianLikelihood(obs, data, prior, name)
+
+Alias for `SimulatorLikelihood(Normal, obs, data, prior, name)`. Represents
+a univariate Guassian likelihood.
+"""
 GaussianLikelihood(
     obs,
     data,
@@ -5,6 +11,12 @@ GaussianLikelihood(
     name=nameof(obs)
 ) = SimulatorLikelihood(Normal, obs, data, prior, name)
 
+"""
+    IsotropicGaussianLikelihood(obs, data, prior, name)
+
+Alias for `SimulatorLikelihood(IsoNormal, obs, data, prior, name)`. Represents
+a multivaraite i.i.d Guassian likelihood with homoscedastic noise.
+"""
 IsotropicGaussianLikelihood(
     obs,
     data,
@@ -12,6 +24,12 @@ IsotropicGaussianLikelihood(
     name=nameof(obs)
 ) = SimulatorLikelihood(IsoNormal, obs, data, prior, name)
 
+"""
+    DiagonalGaussianLikelihood(obs, data, prior, name)
+
+Alias for `SimulatorLikelihood(DiagNormal, obs, data, prior, name)`. Represents
+a multivaraite i.i.d Guassian likelihood with heteroscedastic noise.
+"""
 DiagonalGaussianLikelihood(
     obs,
     data,

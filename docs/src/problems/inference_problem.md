@@ -11,9 +11,10 @@ The [SimulatorInferenceProblem](@ref) defines a probabilistic inverse problem fr
 and a set of `SimulatorLikelihood`s which relate the output of one or more observables to the data on which we wish to condition. In other words, the `SimulatorInferenceProblem` fully specifies
 the probability model,
 
-$$
+```math
 p(\phi,\sigma_1,\dots,\sigma_n | y_1,\dots,y_n,\mathcal{M}) \propto p(\phi|\mathcal{M})\prod_{i=1}^n p(\sigma_i) \prod_{i=1}^n p(y_i|\phi,\sigma_i,\mathcal{M})
-$$
+```
+
 for some forward model $\mathcal{M}$ with parameters $\phi$ and a set of observables mapping to data $y_i$ each with noise model parameters $\sigma_i$.
 
 ```@docs; canonical=false
@@ -31,19 +32,19 @@ SimulatorInferenceProblem(
 Each [SimulatorLikelihood](@ref) defines a *likelihood* or *predictive distribution* of some data given an observable defined for the simulator.
 
 ```@docs; canonical=false
-SimulatorLikelihood(::Type{distType}, obs, data, prior, name=nameof(obs)) where {distType}
+SimulatorLikelihood(::Type{distType}, obs, data, prior, name) where {distType}
 ```
 
 Note that the `prior` passed to the `SimulatorLikelihood` is the prior for the observation noise/error model, not the forward model. To illustrate this distinction, consisder as an example a simple classical linear regression:
 
-$$
+```math
 \begin{align*}
 y_i &\sim \mathcal{N}(\mu, \sigma) \\
-\mu &= \beta x
-\beta &\sim \mathcal{N}(0,1)
+\mu &= \beta x \\
+\beta &\sim \mathcal{N}(0,1) \\
 \sigma &\sim \text{InvGamma}(2,3)
 \end{align*}
-$$
+```
 
 In this case, the forward model parameters $\phi = \beta$ whereas the noise model parameters for the likelihood correspond to $\sigma$. Note that `SimulatorInferenceProblem` always assumes that $\sigma$ is *a priori* independent of $\phi$!
 
@@ -133,9 +134,9 @@ and the actual model parameter space. This distinction arises for three primary 
 
 We can express this more formally in terms of the above probability model as,
 
-$$
+```math
 p(\phi | y,\pi) \propto p(y|\phi,\pi)p(\phi|\theta,\pi)p(\theta|\pi)
-$$
+```
 
 where $\phi = \pi(\theta)$ can be referred to as the *prior model* since it defines the statistical relationship between the sampled parameters $\theta$ and the "real" model parameters $\phi$. Note that the
 conditioning on the forward model $\mathcal{M}$ is here suppressed for brevity. In cases where $\pi$ is a deterministic mapping, the additional density terms $p(\phi|\theta)$ and $p(\theta)$ can be safely

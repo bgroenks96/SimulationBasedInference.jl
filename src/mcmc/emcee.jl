@@ -1,5 +1,10 @@
 import AffineInvariantMCMC
 
+"""
+    Emcee
+
+Wrapper type for affine-invariant Markov-chain Monte Carlo, a.k.a "emcee".
+"""
 Base.@kwdef struct Emcee end
 
 function CommonSolve.solve(

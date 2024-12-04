@@ -207,14 +207,15 @@ end
 
 """
     ensemble_solve(
-        state::EnsembleState,
+        ens::AbstractMatrix,
         initial_prob::SciMLBase.AbstractSciMLProblem,
         ensalg::SciMLBase.BasicEnsembleAlgorithm,
         dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
-        param_map,
+        param_map;
+        iter::Integer=1,
         prob_func,
         output_func,
-        pred_func;
+        pred_func,
         solve_kwargs...
     )
 

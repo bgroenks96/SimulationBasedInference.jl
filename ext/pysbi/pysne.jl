@@ -2,7 +2,7 @@
     PySNE <: SBI.SimulatorInferenceAlgorithm
 
 Wrapper for the sequential neural estimator (SNxE) algorithms from
-the python `sbi` package. `algtype` should typically be one of `SNPE_A`, `SNPEB`,
+the python `sbi` package. `algtype` should typically be one of `SNPE_A`, `SNPE_B`,
 `SNPE_C`, or 'SNLE_A', though any suitable algorithm type can be used.
 """
 Base.@kwdef struct PySNE <: SBI.SimulatorInferenceAlgorithm

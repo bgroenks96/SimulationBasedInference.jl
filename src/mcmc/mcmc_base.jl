@@ -9,6 +9,12 @@ struct MCMC{algType,stratType,kwargType} <: SimulatorInferenceAlgorithm
     kwargs::kwargType # additional kwargs for the sampler
 end
 
+"""
+    MCMC(alg, strat; kwargs...)
+
+Generic consturctor for MCMC algorithms with implementation-specific type `alg`
+and "strategy" `strat`.
+"""
 function MCMC(alg, strat=MCMCSerial(); kwargs...)
     return MCMC(alg, strat, (; kwargs...))
 end

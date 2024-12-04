@@ -1,10 +1,9 @@
 """
     EnIS
 
-Basic ensemble importance sampling (EnIS) inference algorithm.
-Also sometimes referred to as a "particle batch smoother" (PBS) or
-"generalized likelihood uncertainty estimation" (GLUE) depending on
-the context.
+Basic ensemble importance sampling (EnIS) inference algorithm. Also sometimes referred to as
+the "particle batch smoother" (PBS) or "generalized likelihood uncertainty estimation" (GLUE)
+depending on the context.
 """
 Base.@kwdef struct EnIS <: EnsembleInferenceAlgorithm end
 
