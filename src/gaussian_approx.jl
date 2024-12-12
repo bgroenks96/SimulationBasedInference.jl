@@ -58,7 +58,7 @@ function gaussian_approx(
     # compute Fisher information
     Γ = ForwardDiff.hessian(nll, mode)
     # get covariance
-    Σ = pinv(Γ)
+    Σ = Hermitian(pinv(Γ))
     # constructor MvNormal prior
     return MvNormal(round.(mode, digits=approx.roundoff), Σ)
 end
