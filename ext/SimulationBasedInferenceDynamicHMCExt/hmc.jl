@@ -18,7 +18,7 @@ function CommonSolve.init(
     warmup_reporter=DynamicHMC.NoProgressReport(),
 )
     b = SBI.bijector(prob)
-    q = b(sample(prob.prior))
+    q = b(sample(rng, prob.prior))
     ℓ = ADgradient(autodiff, prob)
     # stepwise sampling; see DynamicHMC docs!
     # initialization
