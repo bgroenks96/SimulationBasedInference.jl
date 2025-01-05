@@ -7,6 +7,12 @@ mutable struct DynamicHMCSolver{algType<:MCMC,probType,statsType,QType}
     Q::QType
 end
 
+function default_hmc_init(rng, prob::SimulatorInferenceProblem)
+    b = SBI.bijector(prob)
+    q = b(sample(rng, prob.prior))
+    return (; q)
+end
+
 function CommonSolve.init(
     prob::SimulatorInferenceProblem,
     mcmc::MCMC{<:DynamicHMC.NUTS};
@@ -15,6 +21,8 @@ function CommonSolve.init(
     autodiff=:ForwardDiff,
     rng::Random.AbstractRNG=Random.default_rng(),
     storage::SBI.SimulationData=SimulationArrayStorage(),
+    initialization=default_hmc_init(rng, prob),
+    warmup_stages=default_warmup_stages(),
     warmup_reporter=DynamicHMC.NoProgressReport(),
     solve_kwargs...,
 )
@@ -23,7 +31,7 @@ function CommonSolve.init(
     ℓ = ADgradient(autodiff, logdensity(prob; solve_kwargs...))
     # stepwise sampling; see DynamicHMC docs!
     # initialization
-    results = DynamicHMC.mcmc_keep_warmup(rng, ℓ, 0; initialization=(; q), reporter = warmup_reporter)
+    results = DynamicHMC.mcmc_keep_warmup(rng, ℓ, 0; initialization, warmup_stages, reporter = warmup_reporter)
     steps = DynamicHMC.mcmc_steps(results.sampling_logdensity, results.final_warmup_state)
     Q = results.final_warmup_state.Q
     sol = SimulatorInferenceSolution(prob, mcmc, storage, nothing)

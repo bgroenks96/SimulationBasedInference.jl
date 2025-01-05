@@ -76,7 +76,7 @@ end
     forward_eval!(
         inference_prob::SimulatorInferenceProblem,
         θ::ComponentVector;
-        callback=sol -> nothing,
+        forward_callback=sol -> nothing,
         solve_kwargs...
     )
 
@@ -87,13 +87,13 @@ space of the prior. The function `callback(sol)` is invoked after the forward
 function forward_eval!(
     inference_prob::SimulatorInferenceProblem,
     θ::ComponentVector;
-    callback=sol -> nothing,
+    forward_callback=sol -> nothing,
     solve_kwargs...
 )
     ζ = forward_map(inference_prob.prior, θ)
     solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=ζ.model, solve_kwargs...)
     sol = solve!(solver)
-    callback(sol)
+    forward_callback(sol)
     loglik = sum(map(l -> loglikelihood(l, getproperty(ζ, nameof(l))), inference_prob.likelihoods), init=0.0)
     return loglik
 end
@@ -110,7 +110,7 @@ function logjoint(
     u::AbstractVector;
     transform=false,
     forward_solve=true,
-    callback=sol -> nothing,
+    forward_callback=sol -> nothing,
     solve_kwargs...
 )
     uvec = zero(inference_prob.u0) .+ u
@@ -128,7 +128,7 @@ function logjoint(
     logprior += logprob(inference_prob.prior, θ)
     # solve forward problem;
     loglik = if forward_solve
-        forward_eval!(inference_prob, θ; callback, solve_kwargs...)
+        forward_eval!(inference_prob, θ; forward_callback, solve_kwargs...)
     else
         # check that parameters match
         @assert all(θ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameters"
