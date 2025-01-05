@@ -16,10 +16,11 @@ function CommonSolve.init(
     rng::Random.AbstractRNG=Random.default_rng(),
     storage::SBI.SimulationData=SimulationArrayStorage(),
     warmup_reporter=DynamicHMC.NoProgressReport(),
+    solve_kwargs...,
 )
     b = SBI.bijector(prob)
     q = b(sample(rng, prob.prior))
-    ℓ = ADgradient(autodiff, prob)
+    ℓ = ADgradient(autodiff, logdensity(prob; solve_kwargs...))
     # stepwise sampling; see DynamicHMC docs!
     # initialization
     results = DynamicHMC.mcmc_keep_warmup(rng, ℓ, 0; initialization=(; q), reporter = warmup_reporter)

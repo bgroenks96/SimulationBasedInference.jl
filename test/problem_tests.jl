@@ -56,8 +56,9 @@ end
     x = b(u)
     ldj = SBI.logabsdetjacinv(b, x)
     # check LogDensityProblems interface
-    ldpcheck = LogDensityProblems.capabilities(inferenceprob)
+    ℓ = logdensity(inferenceprob)
+    ldpcheck = LogDensityProblems.capabilities(ℓ)
     @test isa(ldpcheck, LogDensityProblems.LogDensityOrder{0})
-    @test LogDensityProblems.dimension(inferenceprob) == length(u)
-    @test LogDensityProblems.logdensity(inferenceprob, x) ≈ lp + ldj
+    @test LogDensityProblems.dimension(ℓ) == length(u)
+    @test LogDensityProblems.logdensity(ℓ, x) ≈ lp + ldj
 end

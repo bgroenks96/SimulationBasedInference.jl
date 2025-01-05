@@ -97,6 +97,9 @@ include("forward_problem.jl")
 export SimulatorInferenceProblem, SimulatorInferenceSolution
 include("inference_problem.jl")
 
+# LogDensityProblems interface
+include("logdensity.jl")
+
 export SimulatorForwardSolver
 include("forward_solve.jl")
 

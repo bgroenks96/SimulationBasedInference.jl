@@ -72,10 +72,28 @@ function Base.getproperty(prob::SimulatorInferenceProblem, sym::Symbol)
     return getproperty(getfield(prob, :forward_prob), sym)
 end
 
-function forward_eval!(inference_prob::SimulatorInferenceProblem, θ::ComponentVector; solve_kwargs...)
+"""
+    forward_eval!(
+        inference_prob::SimulatorInferenceProblem,
+        θ::ComponentVector;
+        callback=sol -> nothing,
+        solve_kwargs...
+    )
+
+Runs a single forward problem evaluation given the parameters θ in the sample
+space of the prior. The function `callback(sol)` is invoked after the forward
+`solve!` call but before the log likelihood is evaluated (for debugging purposes).
+"""
+function forward_eval!(
+    inference_prob::SimulatorInferenceProblem,
+    θ::ComponentVector;
+    callback=sol -> nothing,
+    solve_kwargs...
+)
     ζ = forward_map(inference_prob.prior, θ)
     solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=ζ.model, solve_kwargs...)
-    solve!(solver)
+    sol = solve!(solver)
+    callback(sol)
     loglik = sum(map(l -> loglikelihood(l, getproperty(ζ, nameof(l))), inference_prob.likelihoods), init=0.0)
     return loglik
 end
@@ -92,6 +110,7 @@ function logjoint(
     u::AbstractVector;
     transform=false,
     forward_solve=true,
+    callback=sol -> nothing,
     solve_kwargs...
 )
     uvec = zero(inference_prob.u0) .+ u
@@ -109,7 +128,7 @@ function logjoint(
     logprior += logprob(inference_prob.prior, θ)
     # solve forward problem;
     loglik = if forward_solve
-        forward_eval!(inference_prob, θ; solve_kwargs...)
+        forward_eval!(inference_prob, θ; callback, solve_kwargs...)
     else
         # check that parameters match
         @assert all(θ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameters"
@@ -134,36 +153,27 @@ end
 
 logprob(inference_prob::SimulatorInferenceProblem, u) = sum(logjoint(inference_prob, u, transform=false))
 
-# log density interface
-
 """
-    logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
+    logdensityfunc(inference_prob::SimulatorInferenceProblem, x; kwargs...)
 
-Applies the inverse transformation defined by `bijector` and calculates the
+Constructs a function which applies the inverse transformation defined by `bijector` and calculates the
 `logjoint` density. Note that this requires evaluating the likelihood/forward-map, which
 may involve running the simulator.
 """
-function LogDensityProblems.logdensity(inference_prob::SimulatorInferenceProblem, x; kwargs...)
-    lp = sum(logjoint(inference_prob, x; transform=true, kwargs...))
-    return lp
-end
-
-function logdensityfunc(prob::SimulatorInferenceProblem, storage::SimulationData)
+function logdensityfunc(prob::SimulatorInferenceProblem, storage::SimulationData; transform=true, kwargs...)
     function logprob(θ)
         # deep copy inference problem to prevent memory
         # collisions between walkers; hopefully this doesn't
         # cause too much allocation...
         probcopy = deepcopy(prob)
-        lp = logdensity(probcopy, θ)
+        lp = sum(logjoint(prob, θ; transform=transform, kwargs...))
         observables = probcopy.forward_prob.observables
         store!(storage, θ, observables)
         return lp
     end
 end
 
-LogDensityProblems.capabilities(::Type{<:SimulatorInferenceProblem}) = LogDensityProblems.LogDensityOrder{0}()
-
-LogDensityProblems.dimension(inference_prob::SimulatorInferenceProblem) = length(inference_prob.u0)
+# log density interface
 
 Bijectors.bijector(prob::SimulatorInferenceProblem) = bijector(prob.prior)
 
