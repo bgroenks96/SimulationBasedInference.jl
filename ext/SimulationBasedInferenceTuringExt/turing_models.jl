@@ -16,10 +16,11 @@ function CommonSolve.solve(
     storage=SimulationArrayStorage(),
     num_samples=1000,
     num_chains=1,
+    rng::AbstractRNG=Random.default_rng(),
     kwargs...
 )
     m = SBI.joint_model(prob, prob.forward_solver; storage, kwargs...)
-    chain = Turing.sample(m, mcmc.alg, mcmc.strat, num_samples, num_chains)
+    chain = Turing.sample(rng, m, mcmc.alg, mcmc.strat, num_samples, num_chains)
     return SimulatorInferenceSolution(prob, mcmc, storage, chain)
 end
 

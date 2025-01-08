@@ -116,13 +116,14 @@ end
 function from_quantiles(
     d0::distType,
     qs::Pair...;
-    optimizer=LBFGS(),
-    options=Optim.Options()
+    optimizer=Newton(),
+    options=Optim.Options(),
 ) where {distType<:UnivariateDistribution}
     proj = param_bijector(distType)
     loss = quantile_loss(distType, inverse(proj), qs...)
     initial_x = proj(collect(Distributions.params(d0)))
     res = optimize(loss, initial_x, optimizer, options)
+    @assert res.ls_success "Optimization of $distType failed for $(qs); $res"
     return distType(inverse(proj)(res.minimizer)...)
 end
 

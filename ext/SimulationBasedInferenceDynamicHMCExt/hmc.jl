@@ -22,7 +22,7 @@ function CommonSolve.init(
     rng::Random.AbstractRNG=Random.default_rng(),
     storage::SBI.SimulationData=SimulationArrayStorage(),
     initialization=default_hmc_init(rng, prob),
-    warmup_stages=default_warmup_stages(),
+    warmup_stages=DynamicHMC.default_warmup_stages(),
     warmup_reporter=DynamicHMC.NoProgressReport(),
     solve_kwargs...,
 )
