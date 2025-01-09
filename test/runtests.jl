@@ -1,5 +1,7 @@
 using Test
 
+include("testcases.jl")
+
 @testset "Observables" begin
     include("observable_tests.jl")
 end

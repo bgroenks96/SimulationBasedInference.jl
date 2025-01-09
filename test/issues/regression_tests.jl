@@ -1,7 +1,5 @@
 using Test
 
-include("../testcases.jl")
-
 @testset "Issue #3" begin
     using SimulationBasedInference
 

@@ -22,8 +22,6 @@ function test_ensemble_alg_interface(solver::EnsembleSolver)
     @test solver.state.iter == prev_iter+1
 end
 
-include("../testcases.jl")
-
 @testset "EnIS" begin
     include("enis_tests.jl")
 end
