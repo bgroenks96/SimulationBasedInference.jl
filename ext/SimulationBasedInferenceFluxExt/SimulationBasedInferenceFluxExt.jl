@@ -5,7 +5,7 @@ using SimulationBasedInference.Emulators
 
 using Flux
 
-mutable struct FluxModel{modelType,lossType,optType,paramsType,reType}
+mutable struct FluxModel{modelType,lossType,optType}
     model::modelType
     loss::lossType
     opt::optType
@@ -15,7 +15,8 @@ function Emulators.Emulator(
     data::EmulatorData,
     model::Flux.Chain;
     optimizer=Flux.AMSGrad(),
-    loss=Flux.Losses.mse, kwargs...
+    loss=Flux.Losses.mse,
+    kwargs...
 )
     p, re = Flux.destructure(model)
     data_converted = EmulatorData(convert.(eltype(p), data.X), convert.(eltype(p), data.Y), data.static_inputs...)

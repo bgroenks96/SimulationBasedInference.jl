@@ -13,6 +13,9 @@ end
 # convenience constructor
 EmulatedObservables(predict_func=predict; named_emulators...) = EmulatedObservables((; named_emulators...), predict_func)
 
+# default observable prediction
+predict(em::Emulator, obs::Observable, X) = predict(em, X)
+
 mutable struct EmulatedObservablesSolver
     forward_prob::SimulatorForwardProblem
     emobs::EmulatedObservables
@@ -37,10 +40,17 @@ end
 function CommonSolve.step!(solver::EmulatedObservablesSolver)
     forward_prob = solver.forward_prob
     emulators = solver.emobs.emulators
+    
     # evaluate emulator for each specified observable
     p = forward_prob.prob.p
-    preds = map(nm -> solver.emobs.predict_func(emulators[nm], p), solver.names)
+    preds = map(solver.names) do name
+        solver.emobs.predict_func(emulators[name], forward_prob.observables[name], p)
+    end
+    
+    # store predictions in solver struct
     solver.preds = NamedTuple{solver.names}(preds)
+    
+    # iterate over observables and manually set values to match predictions
     for name in solver.names
         obs = forward_prob.observables[name]
         # reshape to match shape of observable
