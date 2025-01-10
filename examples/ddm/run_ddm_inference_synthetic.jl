@@ -14,7 +14,9 @@ import CairoMakie as Makie
 import Random
 
 # RNG with fixed random seed for reproducibility
-const rng = Random.MersenneTwister(1234)
+const rng = Random.MersenneTwister(0xFFFF)
+# set seed for pytorch as well
+PySBI.torch.manual_seed(0xFFFF)
 
 const datadir = joinpath("examples", "data", "ddm")
 const outdir = mkpath(joinpath(dirname(Base.current_project()), "examples", "ddm", "output"))
@@ -23,13 +25,14 @@ include("datenum.jl")
 include("ddm.jl")
 include("data.jl")
 
-
-# Arbitrarily select "true" parameters and run forward model
-p_true = ComponentVector(a=2.5, b=0.65)
+# Arbitrarily select "true" parameters
+p_true = ComponentVector(a=3.5, b=0.8)
 N_obs = 100
 σ_true = 5.0
-σ_prior = prior(σ=Exponential(1.0))
-data = generate_synthetic_dataset(N_obs, σ_true, p_true; datadir)
+
+# load datasets
+forcing_data = load_finse_era5_forcings(datadir)
+data = generate_synthetic_dataset(forcing_data, N_obs, σ_true, p_true; min_swe=-Inf, rng)
 
 # plot the data
 let fig = Makie.Figure(size=(1200,600)),
@@ -56,12 +59,6 @@ end
 y_obs_pred = SimulatorObservable(:y_obs, state -> state.u[data.idx,1], (Ti(data.ts[data.idx]),))
 y_pred = SimulatorObservable(:y, state -> state.u[:,1], (Ti(data.ts),))
 
-# Define simple prior
-prior_dist = prior(
-    a = LogNormal(0,2),
-    b = LogNormal(0,2),
-)
-
 # Construct forward problem;
 # first we need a function of *only* the parameters
 function ddm_forward(ts, precip, Tair)
@@ -69,9 +66,17 @@ function ddm_forward(ts, precip, Tair)
     return ddm
 end
 
+# Define simple prior
+param_prior = prior(
+    a = LogNormal(0,1),
+    b = LogNormal(0,1),
+)
+
+σ_prior = prior(σ=LogNormal(0,1))
+
 forward_prob = SimulatorForwardProblem(
     ddm_forward(data.ts, data.precip, data.Tair),
-    ComponentVector(mean(prior_dist)), # initial parameters, can be anything
+    ComponentVector(mean(param_prior)), # initial parameters, can be anything
     y_obs_pred,
     y_pred,
 )
@@ -80,7 +85,7 @@ forward_prob = SimulatorForwardProblem(
 lik = IsotropicGaussianLikelihood(y_obs_pred, data.y_obs, σ_prior)
 
 # Construct inference problem
-inference_prob = SimulatorInferenceProblem(forward_prob, prior_dist, lik)
+inference_prob = SimulatorInferenceProblem(forward_prob, param_prior, lik)
 
 function summarize_ensemble(inference_sol, obs_name::Symbol)
     # prior/posterior stats
@@ -121,7 +126,8 @@ function summarize_snpe(inference_sol, observable=:y; num_samples=10_000)
     pred_ens = map(eachcol(posterior_ens)) do p
         ϕ = p0 + p
         sol = solve(inference_sol.prob.forward_prob, p=ϕ.model)
-        getvalue(sol.prob.observables[observable])
+        y_pred = getvalue(sol.prob.observables[observable])
+        y_pred .+ rand(rng, Normal(0, ϕ.y_obs.σ))
     end
     pred_ens = reduce(hcat, pred_ens)
     pred_mean = mean(pred_ens, dims=2)
@@ -129,9 +135,9 @@ function summarize_snpe(inference_sol, observable=:y; num_samples=10_000)
     return (; posterior_ens, posterior_mean, posterior_std, pred_ens, pred_mean, pred_std, p0)
 end
 
-function plot_density!(ax, res, idx::Integer, color; offset=0.0)
+function plot_density!(ax, res, idx::Integer, color; alpha=0.4, offset=0.0)
     samples = res.posterior_ens[idx,:]
-    d = Makie.density!(ax, samples, color=(color,0.4), offset=offset)
+    d = Makie.density!(ax, samples, color=(color,alpha), offset=offset)
     vl = Makie.vlines!(ax, [res.posterior_mean[idx]], color=(color,0.75), linewidth=2.0)
     return (; d, vl)
 end
@@ -141,31 +147,42 @@ function plot_predictions!(ax, res, ts, color; hdi_prob=0.95, alpha1=0.6, alpha2
     pred_hdi = mapslices(x -> hdi(x, prob=hdi_prob), res.pred_ens, dims=2)[:,1]
     σ = length(res.posterior_mean) == 3 ? res.posterior_mean[end] : median(σ_prior).σ
     ci_band = Makie.band!(ax, 1:length(ts), map(intrv -> intrv.lower, pred_hdi), map(intrv -> intrv.upper, pred_hdi), color=(color, alpha1))
-    pi_band = Makie.band!(ax, 1:length(ts), max.(0.0, res.pred_mean[:,1] .- 2*σ), res.pred_mean[:,1] .+ 2*σ, color=(color, alpha2))
+    # pi_band = Makie.band!(ax, 1:length(ts), res.pred_mean[:,1] .- 2*σ, res.pred_mean[:,1] .+ 2*σ, color=(color, alpha2))
     lines = Makie.lines!(ax, 1:length(ts), res.pred_mean[:,1], linewidth=4.0, color=(color,alpha1))
     return (; ci_band, lines)
 end
 
 # Solve with EnIS
-enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), ensemble_size=512, verbose=false, rng=rng);
+enis_sol = solve(inference_prob, EnIS(), EnsembleThreads(), ensemble_size=1024, verbose=false, rng=rng);
 enis_res = summarize_ensemble(enis_sol, :y)
 
 # Solve inference problem with EKS
-eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), ensemble_size=512, verbose=false, rng=rng);
+eks_sol = @time solve(inference_prob, EKS(), EnsembleThreads(), ensemble_size=1024, verbose=false, rng=rng);
 eks_res = summarize_ensemble(eks_sol, :y)
 
 # Solve with ESMDA
 esmda_sol = @time solve(inference_prob, ESMDA(maxiters=10), EnsembleThreads(), ensemble_size=512, verbose=false, rng=rng);
 esmda_res = summarize_ensemble(esmda_sol, :y)
 
-hmc_sol = @time solve(inference_prob, MCMC(NUTS(), num_samples=10_000));
+hmc_sol = @time solve(inference_prob, MCMC(NUTS()), num_samples=10_000, rng=rng);
 hmc_res = summarize_markov_chain(hmc_sol, :y)
 hmc_sol.result
 
-simdata = SBI.sample_ensemble_predictive(eks_sol, pred_transform=y -> max.(y, zero(eltype(y))), iterations=[1,2]);
-# gaussian_prior = PySBI.pyprior(inference_prob.prior, LaplaceMethod())
-snpe_sol = @time solve(inference_prob, PySNE(), simdata, num_rounds=1, num_simulations=1000);
-snpe_res = summarize_snpe(snpe_sol); snpe_res.posterior_mean
+simdata = SBI.sample_ensemble_predictive(
+    eks_sol,
+    # pred_transform=y -> max.(y, zero(eltype(y))),
+    iterations=1:10,
+    rng=rng,
+);
+snpe_sol = @time solve(
+    inference_prob,
+    PySNE(),
+    simdata,
+    num_rounds=1,
+    # pred_transform=y -> max.(y, zero(eltype(y))),
+);
+snpe_res = summarize_snpe(snpe_sol);
+println("$(snpe_res.posterior_mean) ± $(snpe_res.posterior_std)")
 
 # densities
 let fig = Makie.Figure(size=(800,600), dpi=300.0),
@@ -180,7 +197,7 @@ let fig = Makie.Figure(size=(800,600), dpi=300.0),
     else
         Makie.axislegend(ax, [d1,d2,d3,d4], ["EKS", "ES-MDA", "SNPE", "HMC"])
     end
-    # Makie.xlims!(ax, 2.0, 3.5)
+    # Makie.xlims!(ax, 2.0, 3.0)
     Makie.save(joinpath(outdir, "ddm_factor_posterior_comparison_$(data.name).png"), fig)
     fig
 end
@@ -230,17 +247,19 @@ let fig = Makie.Figure(size=(900,600)),
     ax3 = Makie.Axis(fig[2,1:2], xlabel="Day of year", ylabel="SWE / mm");
     Makie.hideydecorations!(ax1, ticks=true, ticklabels=true, grid=false)
     Makie.hideydecorations!(ax2, ticks=true, ticklabels=true, grid=false)
-    d14, _ = plot_density!(ax1, hmc_res, 1, :orange)
+    d14, _ = plot_density!(ax1, hmc_res, 1, :orange, alpha=0.7)
     d13, _ = plot_density!(ax1, snpe_res, 1, :green)
     d11, _ = plot_density!(ax1, eks_res, 1, :blue)
+    Makie.xlims!(ax1, 3.2, 3.8)
     # d12, _ = plot_density!(ax1, esmda_res, 1, :orange)
-    d24, _ = plot_density!(ax2, hmc_res, 2, :orange)
+    d24, _ = plot_density!(ax2, hmc_res, 2, :orange, alpha=0.7)
     d23, _ = plot_density!(ax2, snpe_res, 2, :green)
     d21, _ = plot_density!(ax2, eks_res, 2, :blue)
+    Makie.xlims!(ax2, 0.78, 0.82)
     # d22, _ = plot_density!(ax2, esmda_res, 2, :orange)
-    plt4 = plot_predictions!(ax3, hmc_res, data.ts, :orange, alpha1=0.7, alpha2=0.5)
-    plt1 = plot_predictions!(ax3, eks_res, data.ts, :blue, alpha1=0.4, alpha2=0.2)
-    plt3 = plot_predictions!(ax3, snpe_res, data.ts, :green, alpha1=0.4, alpha2=0.2)
+    plt4 = plot_predictions!(ax3, hmc_res, data.ts, :orange, alpha1=0.5, alpha2=0.2)
+    plt1 = plot_predictions!(ax3, eks_res, data.ts, :blue, alpha1=0.5, alpha2=0.2)
+    plt3 = plot_predictions!(ax3, snpe_res, data.ts, :green, alpha1=0.5, alpha2=0.2)
     # plt2 = plot_predictions!(ax3, esmda_res, data.ts, :orange)
     if haskey(data, :y_true)
         vt1 = Makie.vlines!(ax1, [p_true[1]], color=:black, linestyle=:dash)
@@ -255,6 +274,6 @@ let fig = Makie.Figure(size=(900,600)),
         push!(names, "Ground truth")
     end
     Makie.axislegend(ax3, plots, names)
-    Makie.save(joinpath(outdir, "posterior_densities_with_predictions_$(data.name).pdf"), fig)
+    # Makie.save(joinpath(outdir, "posterior_densities_with_predictions_$(data.name).pdf"), fig)
     fig
 end

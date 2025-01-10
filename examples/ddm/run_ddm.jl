@@ -3,23 +3,11 @@ using MAT
 
 import CairoMakie as Makie
 
-const download_url = "https://www.dropbox.com/scl/fi/fbxn7antmrchk39li44l6/daily_forcing.mat?rlkey=u1s2lu13f4grqnbxt4ediwlk2&dl=0"
-
 include("datenum.jl")
 include("ddm.jl")
+include("data.jl")
 
-datadir = mkpath(joinpath("examples", "data"))
-filepath = joinpath(datadir, "finse_tp.mat")
-if !isfile(filepath)
-    @info "Downloading forcing data to $filepath"
-    download(download_url, filepath)
-end
-
-data = matread(filepath)
-forcing = data["f"]
-ts = todatetime.(DateNumber.(forcing["t"]))[:,1]
-precip = forcing["P"][:,1]
-Tair = forcing["T"][:,1]
+forcings = load_finse_era5_forcings()
 
 a = [1.0,3.0,10.0]
 b = [1.0,1.0,5.0]
@@ -27,7 +15,7 @@ b = [1.0,1.0,5.0]
 # uncomment to debug in VSCode
 #@run D=DDM(ts,P,T,a,b)
 
-D = @time DDM(ts, precip, Tair, a, b)
+D = @time DDM(forcings.ts, forcings.precip, forcings.Tair, a, b)
 
 Makie.lines(D[:,1])
 
@@ -35,7 +23,7 @@ Makie.lines(D[:,1])
 using ForwardDiff
 using Statistics
 
-loss(p) = mean(DDM(ts, precip, Tair, p[1], p[2]))
+loss(p) = mean(DDM(forcings.ts, forcings.precip, forcings.Tair, p[1], p[2]))
 
 ForwardDiff.gradient(loss, [3.0,1.0])
 
