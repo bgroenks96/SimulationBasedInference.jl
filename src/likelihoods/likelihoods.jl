@@ -1,3 +1,5 @@
+abstract type AbstractLikelihood end
+
 """
     SimulatorLikelihood{distType,obsType,dataType,priorType}
 
@@ -17,7 +19,7 @@ the computation of the likelihood from the simulator via the `SimulatorObservabl
 forward simulation. When the `SimulatorLikelihood` is evaluated, these outputs are obtained from `getvalue(obs)`
 and the only additional parameters needed are those specified by `prior`.
 """
-struct SimulatorLikelihood{distType,priorType,obsType,dataType}
+struct SimulatorLikelihood{distType,priorType,obsType,dataType} <: AbstractLikelihood
     name::Symbol
     obs::obsType
     data::dataType

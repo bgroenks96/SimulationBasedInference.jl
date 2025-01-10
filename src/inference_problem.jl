@@ -19,7 +19,7 @@ end
         prob::SimulatorForwardProblem,
         forward_solver,
         prior::AbstractSimulatorPrior,
-        likelihoods::SimulatorLikelihood...;
+        likelihoods::AbstractLikelihood...;
         metadata::Dict=Dict(),
     )
 
@@ -30,14 +30,14 @@ function SimulatorInferenceProblem(
     forward_prob::SimulatorForwardProblem,
     forward_solver,
     prior::AbstractSimulatorPrior,
-    likelihoods::SimulatorLikelihood...;
+    likelihoods::AbstractLikelihood...;
     metadata::Dict=Dict(),
 )
     joint_prior = JointPrior(prior, likelihoods...)
     u0 = zero(rand(joint_prior))
     return SimulatorInferenceProblem(u0, forward_prob, forward_solver, joint_prior, with_names(likelihoods), metadata)
 end
-SimulatorInferenceProblem(forward_prob::SimulatorForwardProblem, prior::AbstractSimulatorPrior, likelihoods::SimulatorLikelihood...; kwargs...) =
+SimulatorInferenceProblem(forward_prob::SimulatorForwardProblem, prior::AbstractSimulatorPrior, likelihoods::AbstractLikelihood...; kwargs...) =
     SimulatorInferenceProblem(forward_prob, nothing, prior, likelihoods...; kwargs...)
 
 """
