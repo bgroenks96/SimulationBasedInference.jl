@@ -14,7 +14,7 @@ end
 EmulatedObservables(predict_func=predict; named_emulators...) = EmulatedObservables((; named_emulators...), predict_func)
 
 # default observable prediction
-predict(em::Emulator, obs::Observable, X) = predict(em, X)
+predict(em::Emulator, obs::SimulatorObservable, X) = predict(em, X)
 
 mutable struct EmulatedObservablesSolver
     forward_prob::SimulatorForwardProblem
