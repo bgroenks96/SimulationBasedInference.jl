@@ -120,8 +120,10 @@ function logjoint(
         f = inverse(bijector(inference_prob))
         ϕvec = f(uvec)
         θ = zero(uvec) + ϕvec
-        # add density change due to transform
-        logprior += logabsdetjac(f, uvec)
+        # add density change due to transform;
+        # this is actually not necessary since we are calculating
+        # the logjoint w.r.t to the constrained space
+        # logprior += logabsdetjac(f, uvec)
     else
         θ = uvec
     end

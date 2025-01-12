@@ -11,12 +11,23 @@ struct PyPrior
     variance::Py
 end
 
+"""
+    PyPrior(prior::AbstractSimulatorPrior)
+
+Constructs an `sbi` compatible prior distribution which wraps the given
+`SimulationBasedInference` prior distribution. This implementation automatically
+applies the `bijector` for the given prior to map samples to and from the unconstrained
+space. This avoids the need to define the constraints in `sbi`.
+"""
 function PyPrior(prior::AbstractSimulatorPrior)
     function pylogprob(x)
         x = collect(PyArray(x))
         binv = inverse(bijector(prior))
         try
             if length(size(x)) == 1
+                # in this case, since the sbi density estimators are trying to estimate the
+                # density over the unconstrained parameters, I think it is necessary to include
+                # the LDJ correction here.
                 return SBI.logprob(prior, binv(x)) + SBI.logabsdetjac(binv, x)
             elseif length(size(x)) == 2
                 xs = map(binv, eachrow(x))
