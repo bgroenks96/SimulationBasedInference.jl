@@ -20,7 +20,7 @@ function CommonSolve.solve(
     kwargs...
 )
     m = SBI.joint_model(prob, prob.forward_solver; storage, kwargs...)
-    chain = Turing.sample(rng, m, mcmc.alg, mcmc.strat, num_samples, num_chains)
+    chain = Turing.sample(rng, m, mcmc.alg, mcmc.strat, num_samples, num_chains; mcmc.kwargs...)
     return SimulatorInferenceSolution(prob, mcmc, storage, chain)
 end
 
