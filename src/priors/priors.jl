@@ -63,3 +63,5 @@ Base.rand(prior::AbstractSimulatorPrior) = rand(Random.default_rng(), prior)
 Base.rand(prior::AbstractSimulatorPrior, n::Integer) = rand(Random.default_rng(), prior, n)
 
 include("distributions.jl")
+
+include("gaussian_approx.jl")

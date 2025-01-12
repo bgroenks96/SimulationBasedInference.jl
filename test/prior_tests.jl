@@ -45,3 +45,13 @@ end
     @test z[2] ≈ Bijectors.Logit(0,1)(x[2])
     @test all(x .≈ inverse(b)(b(x)))
 end
+
+@testset "Gaussian approximation" begin
+    rng = Random.MersenneTwister(1234)
+    # check special case of LogNormal and LogitNormal where
+    # the transform is exact
+    priordist = prior(a = LogNormal(0,1), b=LogitNormal(0,1))
+    uprior = gaussian_approx(LaplaceMethod(), priordist; rng)
+    @test iszero(mean(uprior))
+    @test cov(uprior) == I
+end

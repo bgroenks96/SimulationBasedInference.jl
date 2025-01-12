@@ -80,12 +80,9 @@ export observe!, getvalue, coordinates
 include("observables.jl")
 
 export AbstractSimulatorPrior, NamedProductPrior
-export prior, logprob, forward_map, unconstrained_forward_map
-include("priors/priors.jl")
-
 export GaussianApproximationMethod, EmpiricalGaussian, LaplaceMethod
-export gaussian_approx
-include("gaussian_approx.jl")
+export prior, logprob, forward_map, unconstrained_forward_map, gaussian_approx
+include("priors/priors.jl")
 
 export SimulatorLikelihood
 include("likelihoods/likelihoods.jl")
