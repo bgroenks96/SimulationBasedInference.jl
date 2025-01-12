@@ -19,7 +19,7 @@ end
 end
 
 @testset "Emulators" begin
-    include("emulator_tests.jl")
+    include("emulators/emulator_tests.jl")
 end
 
 @testset "Turing integration" begin

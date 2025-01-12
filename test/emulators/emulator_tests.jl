@@ -6,6 +6,9 @@ using Random
 using Statistics
 using Test
 
+# autodiff
+using ForwardDiff, Zygote
+
 @testset "Decorrelated" begin
     rng = MersenneTwister(1234)
     X = randn(rng, 5,1000)
@@ -32,4 +35,12 @@ end
     fitted_emulator = Emulators.fit!(emulator, verbosity=0)
     preds = Emulators.predict(emulator, X)
     @test all(map(d -> isa(d, MvNormal), preds))
+
+    # test GP forward vs. reverse grad
+    gpr = GPRegressor()
+    Emulators.fit!(gpr, X, Y[1,:], verbosity=0)
+    Emulators.predict(gpr, X[:,1:1])
+    zgrad = Zygote.gradient(x -> mean(Emulators.predict(gpr, reshape(x,:,1))[1]), X[:,1])[1]
+    fgrad = ForwardDiff.gradient(x -> mean(Emulators.predict(gpr, reshape(x,:,1))[1]), X[:,1])
+    @test isapprox(zgrad, fgrad)
 end
