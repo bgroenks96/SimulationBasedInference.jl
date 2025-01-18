@@ -90,11 +90,11 @@ function forward_eval!(
     forward_callback=sol -> nothing,
     solve_kwargs...
 )
-    ζ = forward_map(inference_prob.prior, θ)
-    solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=ζ.model, solve_kwargs...)
+    p = forward_map(inference_prob.prior, θ)
+    solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=p.model, solve_kwargs...)
     sol = solve!(solver)
     forward_callback(sol)
-    loglik = sum(map(l -> loglikelihood(l, getproperty(ζ, nameof(l))), inference_prob.likelihoods), init=0.0)
+    loglik = sum(map(l -> loglikelihood(l, getproperty(p, nameof(l))), inference_prob.likelihoods), init=0.0)
     return loglik
 end
 
