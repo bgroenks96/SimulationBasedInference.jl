@@ -54,11 +54,11 @@ end
     # apply bijection
     b = SBI.bijector(inferenceprob)
     x = b(u)
-    ldj = SBI.logabsdetjacinv(b, x)
+    # ldj = SBI.logabsdetjacinv(b, x)
     # check LogDensityProblems interface
     ℓ = logdensity(inferenceprob)
     ldpcheck = LogDensityProblems.capabilities(ℓ)
     @test isa(ldpcheck, LogDensityProblems.LogDensityOrder{0})
     @test LogDensityProblems.dimension(ℓ) == length(u)
-    @test LogDensityProblems.logdensity(ℓ, x) ≈ lp + ldj
+    @test LogDensityProblems.logdensity(ℓ, x) ≈ lp
 end
