@@ -19,6 +19,16 @@ function ntreduce(f, xs::AbstractVector{<:NamedTuple})
 end
 
 """
+    tuplejoin([x, y], z...)
+
+Concatenates one or more tuples together; should generally be type stable.
+"""
+tuplejoin() = tuple()
+tuplejoin(x) = Tuple(x)
+tuplejoin(x, y) = (x..., y...)
+tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
+
+"""
     adstrip(x::ForwardDiff.Dual)
     adstrip(x::Number)
 
@@ -105,9 +115,9 @@ function from_moments(::Type{Gamma}, mean, stddev)
     return Gamma(α, θ)
 end
 
-function quantile_loss(::Type{distType}, proj, qs::Pair...) where {distType<:UnivariateDistribution}
+function quantile_loss(::Type{distType}, bij, qs::Pair...) where {distType<:UnivariateDistribution}
     function loss(θ)
-        d = distType(proj(θ)...)
+        d = distType(bij(θ)...)
         ℓ = sum(map(qv -> (qv[2] - invlogcdf(d, log(qv[1])))^2, qs))
         return ℓ
     end
@@ -119,13 +129,15 @@ function from_quantiles(
     optimizer=Newton(),
     options=Optim.Options(),
 ) where {distType<:UnivariateDistribution}
-    proj = param_bijector(distType)
-    loss = quantile_loss(distType, inverse(proj), qs...)
-    initial_x = proj(collect(Distributions.params(d0)))
-    res = optimize(loss, initial_x, optimizer, options)
+    bij = param_bijector(distType)
+    qloss = quantile_loss(distType, inverse(bij), qs...)
+    initial_x = bij(collect(Distributions.params(d0)))
+    res = optimize(qloss, initial_x, optimizer, options)
     @assert res.ls_success "Optimization of $distType failed for $(qs); $res"
-    return distType(inverse(proj)(res.minimizer)...)
+    return distType(inverse(bij)(res.minimizer)...)
 end
+
+# Bijector utilities
 
 """
     param_bijector(::Type{T}) where {T<:UnivariateDistribution}
@@ -138,6 +150,38 @@ param_bijector(::Type{Exponential}) = Base.Fix1(broadcast, log)
 param_bijector(::Type{Bernoulli}) = Base.Fix1(broadcast, logit)
 param_bijector(::Type{T}) where {T} = error("no parameter bijector defined for distribution type $T")
 
+bstack(b1, b2) = Stacked(b1, b2)
+function bstack(b1::Stacked, b2)
+    last_in = last(b1.ranges_in[end])+1
+    last_out = last(b1.ranges_out[end])+1
+    ranges_in = tuplejoin(vcat(b1.ranges_in, [last_in:last_in])...)
+    ranges_out = tuplejoin(vcat(b1.ranges_out, [last_out:last_out])...)
+    length_in = b1.length_in + 1
+    length_out = b1.length_out + 1
+    return Stacked(tuple(b1.bs..., b2), ranges_in, ranges_out, length_in, length_out)
+end
+function bstack(b1, b2::Stacked)
+    ranges_in = tuplejoin(vcat([1:1], map(r -> first(r)+1:last(r)+1, b2.ranges_in))...)
+    ranges_out = tuplejoin(vcat([1:1], map(r -> first(r)+1:last(r)+1, b2.ranges_out))...)
+    length_in = b1.length_in + 1
+    length_out = b1.length_out + 1
+    return Stacked(tuple(b1, b2.bs...), ranges_in, ranges_out, length_in, length_out)
+end
+function bstack(b1::Stacked, b2::Stacked)
+    offs_in = last(b1.ranges_in[end])
+    offs_out = last(b1.ranges_out[end])
+    ranges_in = vcat(b1.ranges_in, map(r -> first(r)+offs_in:last(r)+offs_in, b2.ranges_in))
+    ranges_out = vcat(b1.ranges_out, map(r -> first(r)+offs_out:last(r)+offs_out, b2.ranges_out))
+    return Stacked(
+        tuple(b1.bs..., b2.bs...),
+        tuplejoin(ranges_in...),
+        tuplejoin(ranges_out...),
+        b1.length_in + b2.length_in,
+        b1.length_out + b2.length_out,
+    )
+end
+
+# logprob overrides
 
 # This is type piracy but nice to make Distributions implement log-density interface;
 # TODO: consider creating an issue on LogDensityProblems or Distributions?
