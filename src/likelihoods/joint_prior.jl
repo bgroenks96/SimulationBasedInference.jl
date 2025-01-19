@@ -58,8 +58,9 @@ logprob(jp::JointPrior, θ::AbstractVector) = logprob(jp, ComponentVector(θ, jp
 
 function forward_map(jp::JointPrior, θ::ComponentVector)
     ϕ_m = forward_map(jp.model, θ.model)
-    ϕ_lik = map(n -> n => forward_map(jp.lik[n], θ[n]), keys(jp.lik))
-    return ComponentVector(;model=ϕ_m, ϕ_lik...)
+    ϕ_lik = map(n -> forward_map(jp.lik[n], θ[n]), keys(jp.lik))
+    ϕ = vcat(ϕ_m, ϕ_lik...)
+    return ComponentVector(ϕ, jp.ax)
 end
 forward_map(jp::JointPrior, θ::AbstractVector) = forward_map(jp, ComponentVector(θ, jp.ax))
 
@@ -72,7 +73,8 @@ function unconstrained_forward_map(jp::JointPrior, ζ::ComponentVector)
     θ_lik = ComponentVector(; map(n -> n => f_lik[n](ζ[n]), keys(jp.lik))...)
     # apply forward maps
     ϕ_m = forward_map(jp.model, θ_m)
-    ϕ_lik = map(n -> n => forward_map(jp.lik[n], θ_lik[n]), keys(jp.lik))
-    return ComponentVector(;model=ϕ_m, ϕ_lik...)
+    ϕ_lik = map(n -> forward_map(jp.lik[n], θ_lik[n]), keys(jp.lik))
+    ϕ = vcat(ϕ_m, ϕ_lik...)
+    return ComponentVector(ϕ, jp.ax)
 end
 unconstrained_forward_map(jp::JointPrior, θ::AbstractVector) = unconstrained_forward_map(jp, ComponentVector(θ, jp.ax))

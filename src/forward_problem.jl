@@ -98,13 +98,13 @@ function Base.show(io::IO, ::MIME"text/plain", prob::SimulatorForwardProblem)
 end
 
 """
-    SimulatorForwardSolution{TSol}
+    SimulatorForwardSolution{solType,probType}
 
-Solution for a `SimulatorForwardProblem` that wraps the underlying `DESolution`.
+Solution for a `SimulatorForwardProblem` that wraps the underlying forward solution.
 """
-struct SimulatorForwardSolution{TSol}
-    prob::SimulatorForwardProblem
-    sol::TSol
+struct SimulatorForwardSolution{solType,probType}
+    prob::probType
+    sol::solType
 end
 
 get_observables(sol::SimulatorForwardSolution) = sol.prob.observables
