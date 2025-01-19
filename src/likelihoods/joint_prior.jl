@@ -1,14 +1,14 @@
 # Joint prior
 """
-    JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes} <: AbstractSimulatorPrior
+    JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes,axesType,lnames} <: AbstractSimulatorPrior
 
 Represents the "joint" prior `p(θₘ,θₗ)` where `θ = [θₘ θₗ]` are the full set of parameters in the joint;
 distribution `p(x,θ)`. θₘ are the model (simulator) parameters and θₗ are the noise/error model parameters.
 """
-struct JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes,lnames} <: AbstractSimulatorPrior
+struct JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes,axesType,lnames} <: AbstractSimulatorPrior
     model::modelPriorType
     lik::NamedTuple{lnames,likPriorTypes}
-    ax::Tuple{Vararg{ComponentArrays.Axis}}
+    ax::axesType
 end
 
 """
