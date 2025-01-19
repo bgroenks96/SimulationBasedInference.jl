@@ -19,16 +19,6 @@ function ntreduce(f, xs::AbstractVector{<:NamedTuple})
 end
 
 """
-    tuplejoin([x, y], z...)
-
-Concatenates one or more tuples together; should generally be type stable.
-"""
-tuplejoin() = tuple()
-tuplejoin(x) = Tuple(x)
-tuplejoin(x, y) = (x..., y...)
-tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
-
-"""
     adstrip(x::ForwardDiff.Dual)
     adstrip(x::Number)
 
@@ -154,17 +144,17 @@ bstack(b1, b2) = Stacked(b1, b2)
 function bstack(b1::Stacked, b2)
     last_in = last(b1.ranges_in[end])+1
     last_out = last(b1.ranges_out[end])+1
-    ranges_in = tuplejoin(vcat(b1.ranges_in, [last_in:last_in])...)
-    ranges_out = tuplejoin(vcat(b1.ranges_out, [last_out:last_out])...)
+    ranges_in = tuple(b1.ranges_in..., last_in:last_in)
+    ranges_out = tuple(b1.ranges_out..., last_out:last_out)
     length_in = b1.length_in + 1
     length_out = b1.length_out + 1
     return Stacked(tuple(b1.bs..., b2), ranges_in, ranges_out, length_in, length_out)
 end
 function bstack(b1, b2::Stacked)
-    ranges_in = tuplejoin(vcat([1:1], map(r -> first(r)+1:last(r)+1, b2.ranges_in))...)
-    ranges_out = tuplejoin(vcat([1:1], map(r -> first(r)+1:last(r)+1, b2.ranges_out))...)
-    length_in = b1.length_in + 1
-    length_out = b1.length_out + 1
+    ranges_in = tuple(1:1, map(r -> first(r)+1:last(r)+1, b2.ranges_in)...)
+    ranges_out = tuple(1:1, map(r -> first(r)+1:last(r)+1, b2.ranges_out)...)
+    length_in = b2.length_in + 1
+    length_out = b2.length_out + 1
     return Stacked(tuple(b1, b2.bs...), ranges_in, ranges_out, length_in, length_out)
 end
 function bstack(b1::Stacked, b2::Stacked)
@@ -174,8 +164,8 @@ function bstack(b1::Stacked, b2::Stacked)
     ranges_out = vcat(b1.ranges_out, map(r -> first(r)+offs_out:last(r)+offs_out, b2.ranges_out))
     return Stacked(
         tuple(b1.bs..., b2.bs...),
-        tuplejoin(ranges_in...),
-        tuplejoin(ranges_out...),
+        tuple(ranges_in...),
+        tuple(ranges_out...),
         b1.length_in + b2.length_in,
         b1.length_out + b2.length_out,
     )
