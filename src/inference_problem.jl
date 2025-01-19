@@ -1,15 +1,27 @@
 #### Inverse/inference problems ####
 
 """
-    SimulatorInferenceProblem{modelPriorType<:AbstractSimulatorPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
+    SimulatorInferenceProblem{
+        modelPriorType<:AbstractSimulatorPrior,
+        uType,
+        fwdProbType<:SimulatorForwardProblem,
+        fwdSolverType,
+        priorType<:JointPrior
+    } <: SciMLBase.AbstractSciMLProblem
 
 Represents a generic simulation-based Bayesian inference problem for finding the posterior distribution over model parameters given some observed data.
 """
-struct SimulatorInferenceProblem{modelPriorType<:AbstractSimulatorPrior,uType,solverType} <: SciMLBase.AbstractSciMLProblem
+struct SimulatorInferenceProblem{
+    modelPriorType<:AbstractSimulatorPrior,
+    uType,
+    fwdProbType<:SimulatorForwardProblem,
+    fwdSolverType,
+    priorType<:JointPrior{modelPriorType}
+} <: SciMLBase.AbstractSciMLProblem
     u0::uType
-    forward_prob::SimulatorForwardProblem
-    forward_solver::solverType
-    prior::JointPrior{modelPriorType}
+    forward_prob::fwdProbType
+    forward_solver::fwdSolverType
+    prior::priorType
     likelihoods::NamedTuple
     metadata::Dict
 end
