@@ -51,4 +51,4 @@ Statistics.cov(prior::NamedProductPrior) = map(cov, prior.dist)
 # Bijectors
 
 Bijectors.bijector(prior::UnivariatePriorDistribution) = bijector(prior.dist[1])
-Bijectors.bijector(prior::MultivariatePriorDistribution) = Stacked(collect(map(bijector, prior.dist)))
+Bijectors.bijector(prior::MultivariatePriorDistribution) = Stacked(map(bijector, prior.dist)...)

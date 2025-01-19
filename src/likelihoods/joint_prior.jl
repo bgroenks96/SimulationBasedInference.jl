@@ -85,20 +85,20 @@ function bstack(b1::Stacked, b2)
     ranges_out = vcat(b1.ranges_out, [last_out:last_out])
     length_in = b1.length_in + 1
     length_out = b1.length_out + 1
-    return Stacked(vcat(b1.bs, b2), ranges_in, ranges_out, length_in, length_out)
+    return Stacked(tuple(b1.bs..., b2), ranges_in, ranges_out, length_in, length_out)
 end
 function bstack(b1, b2::Stacked)
     ranges_in = vcat([1:1], map(r -> first(r)+1:last(r)+1, b2.ranges_in))
     ranges_out = vcat([1:1], map(r -> first(r)+1:last(r)+1, b2.ranges_out))
     length_in = b1.length_in + 1
     length_out = b1.length_out + 1
-    return Stacked(vcat(b1.bs, b2), ranges_in, ranges_out, length_in, length_out)
+    return Stacked(tuple(b1, b2.bs...), ranges_in, ranges_out, length_in, length_out)
 end
 function bstack(b1::Stacked, b2::Stacked)
     offs_in = last(b1.ranges_in[end])
     offs_out = last(b1.ranges_out[end])
     return Stacked(
-        vcat(b1.bs, b2.bs),
+        tuple(b1.bs..., b2.bs...),
         vcat(b1.ranges_in, map(r -> first(r)+offs_in:last(r)+offs_in, b2.ranges_in)),
         vcat(b1.ranges_out, map(r -> first(r)+offs_out:last(r)+offs_out, b2.ranges_out)),
         b1.length_in + b2.length_in,

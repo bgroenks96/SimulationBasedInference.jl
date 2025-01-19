@@ -34,8 +34,14 @@ end
 
 @testset "bijector" begin
     rng = Random.MersenneTwister(1234)
+    # univariate prior
     d = Normal(0,1)
     priordist = prior(:x, d)
+    x = rand(rng, priordist)
+    b = bijector(priordist)
+    z = b(x)
+    @test z[1] ≈ x[1]
+    # multivariate prior
     d = (x = Normal(0,1), p = Beta(1,1))
     priordist = NamedProductPrior(d)
     x = rand(rng, priordist)
