@@ -79,6 +79,7 @@ function CommonSolve.init(
     p=forward_prob.prob.p,
     saveat=[],
     save_everystep=false,
+    copy_observables=false,
     solve_kwargs...
 )
     # collect and combine sample points from all obsevables
@@ -89,19 +90,21 @@ function CommonSolve.init(
     else
         adstrip.(t_sample_all)
     end
+    # reinitialize inner problem with new parameters
+    newprob = remake(forward_prob; p, copy_observables)
     # initialize integrator with built-in saving disabled
-    integrator = init(forward_prob.prob, ode_alg; p, saveat, save_everystep, solve_kwargs...)
+    integrator = init(newprob.prob, ode_alg; saveat, save_everystep, solve_kwargs...)
     # initialize observables
-    for obs in forward_prob.observables
+    for obs in newprob.observables
         initialize!(obs, integrator)
     end
     # iterate over observables and update those for which t0 is a sample point
-    for obs in forward_prob.observables
-        if integrator.t ∈ map(forward_prob.config.obs_to_prob_time, sampletimes(obs))
+    for obs in newprob.observables
+        if integrator.t ∈ map(newprob.config.obs_to_prob_time, sampletimes(obs))
             observe!(obs, integrator)
         end
     end
-    return SimulatorODEForwardSolver(forward_prob, integrator, t_points, 1)
+    return SimulatorODEForwardSolver(newprob, integrator, t_points, 1)
 end
 
 function CommonSolve.step!(forward::SimulatorODEForwardSolver)
