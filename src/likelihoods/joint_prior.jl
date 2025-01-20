@@ -66,7 +66,7 @@ logprob(jp::JointPrior, θ::AbstractVector) = logprob(jp, ComponentVector(θ, jp
         return ComponentVector(ϕ, jp.ax)
     end
 end
-forward_map(jp::JointPrior, θ::AbstractVector) = forward_map(jp, ComponentVector(θ, jp.ax))
+forward_map(jp::JointPrior{<:Any,lnames}, θ::AbstractVector) where {lnames} = forward_map(jp, ComponentVector(θ, jp.ax))
 
 function unconstrained_forward_map(jp::JointPrior, ζ::ComponentVector)
     f = inverse(bijector(jp))
