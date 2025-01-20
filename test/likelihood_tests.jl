@@ -11,14 +11,16 @@ using Test
     lik = SimulatorLikelihood(IsoNormal, observable, data, noise_scale_prior)
     jp = JointPrior(p_prior, lik)
     # Test sampling
-    ξ = rand(MersenneTwister(1234), jp)
-    @test length(ξ) == 2
-    @test hasproperty(ξ, :model)
-    @test hasproperty(ξ, :test)
-    @test hasproperty(ξ.model, :p)
+    ζ = rand(MersenneTwister(1234), jp)
+    @test length(ζ) == 2
+    @test hasproperty(ζ, :model)
+    @test hasproperty(ζ, :test)
+    @test hasproperty(ζ.model, :p)
     # Test forward map
     θ = @inferred SBI.unconstrained_forward_map(jp, [0.0,0.0])
     @test θ ≈ [1.0,1.0]
+    p = @inferred SBI.forward_map(jp, ζ)
+    @test p == ζ
     # Test log density evaluation
     lp = @inferred SBI.logprob(jp, θ)
     @test lp ≈ sum(logpdf.(LogNormal(0,1), θ))

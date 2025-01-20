@@ -62,11 +62,11 @@ logprob(jp::JointPrior{<:Any,lnames}, θ::AbstractVector) where {lnames} = logpr
 
 @generated function forward_map(jp::JointPrior{<:Any,lnames}, θ::ComponentVector) where {lnames}
     ϕ_args = map(lnames) do n
-        :(forward_map(jp.lik[$(QuoteNode(n))], θ[$(QuoteNode(n))]))
+        :(Array(forward_map(jp.lik[$(QuoteNode(n))], θ[Val{$(QuoteNode(n))}()])))
     end
     quote
         ϕ_m = forward_map(jp.model, θ.model)
-        ϕ = vcat(ϕ_m, $(ϕ_args...))
+        ϕ = vcat(Array(ϕ_m), $(ϕ_args...))
         return ComponentVector(ϕ, jp.ax)
     end
 end
