@@ -44,17 +44,21 @@ function Bijectors.bijector(jp::JointPrior)
     return b_combined
 end
 
-function logprob(jp::JointPrior, θ::ComponentVector)
-    lp_model = logprob(jp.model, θ.model)
-    liknames = collect(keys(jp.lik))
-    if length(liknames) > 0
-        lp_lik = sum(map((d,n) -> logprob(d, getproperty(θ, n)), collect(jp.lik), liknames))
-        return lp_model + lp_lik
-    else
-        return lp_model
+@generated function logprob(jp::JointPrior{<:Any,lnames}, θ::ComponentVector) where {lnames}
+    sum_args = map(lnames) do n
+        :(logprob(jp.lik[$(QuoteNode(n))], θ[Val{$(QuoteNode(n))}()]))
+    end
+    quote
+        lp_model = logprob(jp.model, θ.model)
+        if length(lnames) > 0
+            lp_lik = sum($(sum_args...))
+            return lp_model + lp_lik
+        else
+            return lp_model
+        end
     end
 end
-logprob(jp::JointPrior, θ::AbstractVector) = logprob(jp, ComponentVector(θ, jp.ax))
+logprob(jp::JointPrior{<:Any,lnames}, θ::AbstractVector) where {lnames} = logprob(jp, ComponentVector(θ, jp.ax))
 
 @generated function forward_map(jp::JointPrior{<:Any,lnames}, θ::ComponentVector) where {lnames}
     ϕ_args = map(lnames) do n
