@@ -1,13 +1,13 @@
 # Joint prior
 """
-    JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes,axesType,lnames} <: AbstractSimulatorPrior
+    JointPrior{modelPriorType<:AbstractSimulatorPrior,likNames,likPriorTypes,axesType} <: AbstractSimulatorPrior
 
 Represents the "joint" prior `p(θₘ,θₗ)` where `θ = [θₘ θₗ]` are the full set of parameters in the joint;
 distribution `p(x,θ)`. θₘ are the model (simulator) parameters and θₗ are the noise/error model parameters.
 """
-struct JointPrior{modelPriorType<:AbstractSimulatorPrior,likPriorTypes,axesType,lnames} <: AbstractSimulatorPrior
+struct JointPrior{modelPriorType<:AbstractSimulatorPrior,likNames,likPriorTypes,axesType} <: AbstractSimulatorPrior
     model::modelPriorType
-    lik::NamedTuple{lnames,likPriorTypes}
+    lik::NamedTuple{likNames,likPriorTypes}
     ax::axesType
 end
 
@@ -56,25 +56,25 @@ function logprob(jp::JointPrior, θ::ComponentVector)
 end
 logprob(jp::JointPrior, θ::AbstractVector) = logprob(jp, ComponentVector(θ, jp.ax))
 
-function forward_map(jp::JointPrior, θ::ComponentVector)
-    ϕ_m = forward_map(jp.model, θ.model)
-    ϕ_lik = map(n -> forward_map(jp.lik[n], θ[n]), keys(jp.lik))
-    ϕ = vcat(ϕ_m, ϕ_lik...)
-    return ComponentVector(ϕ, jp.ax)
+@generated function forward_map(jp::JointPrior{<:Any,lnames}, θ::ComponentVector) where {lnames}
+    ϕ_args = map(lnames) do n
+        :(forward_map(jp.lik[$(QuoteNode(n))], θ[$(QuoteNode(n))]))
+    end
+    quote
+        ϕ_m = forward_map(jp.model, θ.model)
+        ϕ = vcat(ϕ_m, $(ϕ_args...))
+        return ComponentVector(ϕ, jp.ax)
+    end
 end
 forward_map(jp::JointPrior, θ::AbstractVector) = forward_map(jp, ComponentVector(θ, jp.ax))
 
 function unconstrained_forward_map(jp::JointPrior, ζ::ComponentVector)
-    # get inverse bijectors
-    f_m = inverse(bijector(jp.model))
-    f_lik = map(inverse ∘ bijector, jp.lik)
-    # apply bijections
-    θ_m = f_m(ζ.model)
-    θ_lik = ComponentVector(; map(n -> n => f_lik[n](ζ[n]), keys(jp.lik))...)
-    # apply forward maps
-    ϕ_m = forward_map(jp.model, θ_m)
-    ϕ_lik = map(n -> forward_map(jp.lik[n], θ_lik[n]), keys(jp.lik))
-    ϕ = vcat(ϕ_m, ϕ_lik...)
-    return ComponentVector(ϕ, jp.ax)
+    f = inverse(bijector(jp))
+    θ = ComponentArray(f(ζ), jp.ax)
+    # apply forward map
+    return forward_map(jp.model, θ)
 end
-unconstrained_forward_map(jp::JointPrior, θ::AbstractVector) = unconstrained_forward_map(jp, ComponentVector(θ, jp.ax))
+
+function unconstrained_forward_map(jp::JointPrior, θ::AbstractVector)
+    return unconstrained_forward_map(jp, ComponentVector(θ, jp.ax))
+end

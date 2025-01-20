@@ -4,6 +4,7 @@ using LinearAlgebra
 using LogDensityProblems
 using NonlinearSolve
 using OrdinaryDiffEq
+using Random
 using Test
 
 @testset "Forward ODEProblem" begin
@@ -40,7 +41,7 @@ end
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     α_prior = prior(:α, LogNormal(0,1))
     noise_scale_prior = prior(:σ, Exponential(1.0))
-    data = randn(10)
+    data = randn(MersenneTwister(1234), 10)
     lik = SimulatorLikelihood(IsoNormal, observable, data, noise_scale_prior)
     inferenceprob = SimulatorInferenceProblem(forwardprob, Tsit5(), α_prior, lik)
     u = copy(inferenceprob.u0)
