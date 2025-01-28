@@ -40,28 +40,31 @@ MLJ.
 """
 Base.@kwdef mutable struct GPRegressor
     μ::Function = default_linear_mean
-    k::Function = default_kernel
-    θ_init::NamedTuple = θ_default
-    μ_init::Function = mean_function_initializer(μ, Random.GLOBAL_RNG)
-    σ²::Float64 = 1e-6
+    k::Function = default_rbf_kernel
+    θ_init::Function = kernel_function_initializer(k, Random.default_rng())
+    μ_init::Function = mean_function_initializer(μ, Random.default_rng())
+    ε::Float64 = 1e-3
     optimizer::Optim.AbstractOptimizer = LBFGS()
     optimizer_opts::NamedTuple = (;)
     fitresult::Any = missing
 end
-
-θ_default = (σf² = positive(1.0), ℓ = positive(1.0))
   
 # this is what the user should supply for MLJ instead of just a kernel
-function default_kernel(θ::NamedTuple)
-    return  θ.σf²  * (SqExponentialKernel() ∘ ScaleTransform(1/2(θ.ℓ)^2) + WhiteKernel())
+function default_rbf_kernel(θ::NamedTuple)
+    return  θ.σf² * (SqExponentialKernel() ∘ ARDTransform(θ.ℓ.^2 ./ 2)) + θ.σ₀²*WhiteKernel()
+end
+
+function kernel_function_initializer(::typeof(default_rbf_kernel), ::AbstractRNG)
+    rbf_init(X, y) = (σf² = positive(1.0), σ₀² = positive(1.0), ℓ = positive(ones(size(X, 1))))
 end
 
 function fit!(gp::GPRegressor, X::AbstractMatrix, y::AbstractVector; verbosity=1, kwargs...)
     Xmatrix = ColVecs(X)
 
-    # augment θ_init to include mean function params and σ²
+    # augment θ_init to include mean function params and σ
     θ_mean = gp.μ_init(X, y)
-    θ_init_full = (gp.θ_init..., θ_mean..., σ²=positive(gp.σ²))
+    θ_kern = gp.θ_init(X, y)
+    θ_init_full = (θ_kern..., θ_mean..., ε=positive(gp.ε))
     flat_θᵢ, unflatten = ParameterHandling.value_flatten(θ_init_full)
 
     # define loss function as minus marginal log-likelihood
@@ -69,7 +72,7 @@ function fit!(gp::GPRegressor, X::AbstractMatrix, y::AbstractVector; verbosity=1
         k = gp.k(θ) # build kernel function with current params
         μ = gp.μ(θ) # build mean function with current params
         f = GP(μ, k) # build AbstractGP using our μ and k
-        fₓ = f(Xmatrix, θ.σ²) # construct fintite GP at points in Xmatrix
+        fₓ = f(Xmatrix, θ.ε^2) # construct fintite GP at points in Xmatrix
         return -logpdf(fₓ, y) # return minus marginal log-likelihood
     end
 
@@ -98,13 +101,13 @@ function fit!(gp::GPRegressor, X::AbstractMatrix, y::AbstractVector; verbosity=1
     θ_best = unflatten(opt.minimizer)
 
     f = GP(gp.μ(θ_best), gp.k(θ_best))
-    fₓ = f(Xmatrix, θ_best.σ²)
+    fₓ = f(Xmatrix, θ_best.ε)
     p_fₓ = posterior(fₓ, y)  # <-- this is our fitresult as it let's us do everything we need
 
     # generate new θ for fitresult
-    θ_out = [p for p ∈ pairs(θ_best) if p[1] != :σ²]
+    θ_out = [p for p ∈ pairs(θ_best) if p[1] != :ε]
 
-    gp.fitresult = (p_fₓ, θ_out, θ_best.σ², opt)
+    gp.fitresult = (p_fₓ, θ_out, θ_best.ε, opt)
 
     return gp
 end
