@@ -79,3 +79,38 @@ end
     
     @test all(true_ens .≈ initial_ens)
 end
+
+@testset "Issue #12" begin
+    using SimulationBasedInference
+    using SimulationBasedInference.PySBI
+    using PythonCall
+
+    rng = Random.MersenneTwister(1234);
+    
+    ode_func(u,p,t) = -p[1]*u;
+    α_true = 0.2
+    ode_p = [α_true];
+    tspan = (0.0,10.0);
+    odeprob = ODEProblem(ode_func, [1.0], tspan, ode_p)
+    
+    tsave = tspan[1]+0.1:0.2:tspan[end];
+    n_obs = length(tsave);
+    observable = SimulatorObservable(:y, integrator -> integrator.u, tspan[1], tsave, size(odeprob.u0), samplerate=0.01);
+    
+    forward_prob = SimulatorForwardProblem(odeprob, observable)
+    ode_solver = Tsit5();
+    forward_sol = solve(forward_prob, ode_solver);
+    y_pred = get_observable(forward_sol, :y)
+    
+    true_obs = get_observable(forward_sol, :y)
+    noisy_obs = true_obs .+ 0.05*randn(rng, n_obs);
+    
+    model_prior = prior(α=Beta(2,2));
+    noise_scale_prior = prior(σ=Exponential(0.1));
+    
+    lik = IsotropicGaussianLikelihood(observable, noisy_obs, noise_scale_prior);
+    
+    inference_prob = SimulatorInferenceProblem(forward_prob, ode_solver, model_prior, lik);
+    
+    snpe_sol = solve(inference_prob, PySNE(), num_simulations=1000, rng=rng);    
+end
