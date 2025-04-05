@@ -2,7 +2,7 @@
 
 julia_version = "1.10.8"
 manifest_format = "2.0"
-project_hash = "8ac45417f1a3bab1c74220738c90f614e086578e"
+project_hash = "0f4e829b4b4eff319c246d0cf49feda58cb8bd11"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -535,10 +535,11 @@ uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
 version = "2.5.0"
 
 [[deps.CondaPkg]]
-deps = ["JSON3", "Markdown", "MicroMamba", "Pidfile", "Pkg", "Preferences", "Scratch", "TOML", "pixi_jll"]
-git-tree-sha1 = "44d759495ed1711e3c0ca469f8d609429318b332"
+deps = ["JSON3", "Markdown", "MicroMamba", "Pidfile", "Pkg", "Preferences", "TOML"]
+git-tree-sha1 = "905244d4b8d2319783a39df4e7c7eb9e9bb022d8"
+pinned = true
 uuid = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
-version = "0.2.26"
+version = "0.2.24"
 
 [[deps.ConsoleProgressMonitor]]
 deps = ["Logging", "ProgressMeter"]
@@ -623,12 +624,6 @@ deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "fc173b380865f70627d7dd1190dc2fce6cc105af"
 uuid = "ee1fde0b-3d02-5ea6-8484-8dfef6360eab"
 version = "1.14.10+0"
-
-[[deps.DecisionTree]]
-deps = ["AbstractTrees", "DelimitedFiles", "LinearAlgebra", "Random", "ScikitLearnBase", "Statistics"]
-git-tree-sha1 = "526ca14aaaf2d5a0e242f3a8a7966eb9065d7d78"
-uuid = "7806a523-6efd-50cb-b5f6-3fa6f1930dbb"
-version = "0.12.4"
 
 [[deps.DefineSingletons]]
 git-tree-sha1 = "0fba8b706d0178b4dc7fd44a96a92382c9065c2c"
@@ -2686,12 +2681,6 @@ git-tree-sha1 = "a8e18eb383b5ecf1b5e6fc237eb39255044fd92b"
 uuid = "30f210dd-8aff-4c5f-94ba-8e64358c1161"
 version = "3.0.0"
 
-[[deps.ScikitLearnBase]]
-deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "7877e55c1523a4b336b433da39c8e8c08d2f221f"
-uuid = "6e75b9c4-186b-50bd-896f-2d2496a4843e"
-version = "0.5.0"
-
 [[deps.ScopedValues]]
 deps = ["HashArrayMappedTries", "Logging"]
 git-tree-sha1 = "1147f140b4c8ddab224c94efa9569fc23d63ab44"
@@ -2760,7 +2749,7 @@ version = "1.1.0"
 
 [[deps.SimulationBasedInference]]
 deps = ["AbstractGPs", "AbstractMCMC", "Accessors", "AffineInvariantMCMC", "Bijectors", "CommonSolve", "ComponentArrays", "CondaPkg", "Dates", "DiffEqBase", "DimensionalData", "Distributed", "Distributions", "EnsembleKalmanProcesses", "FileIO", "ForwardDiff", "JLD2", "KernelFunctions", "LinearAlgebra", "LogDensityProblems", "LogDensityProblemsAD", "MCMCChains", "MLJModelInterface", "Optim", "PackageExtensionCompat", "ParameterHandling", "PosteriorStats", "Random", "Reexport", "Requires", "SciMLBase", "Statistics", "StatsBase", "StatsFuns", "Tables", "UnPack", "Zygote"]
-path = "../.."
+git-tree-sha1 = "07aa981d70fe2995f1f926c341972236610874c4"
 uuid = "78927d98-f421-490e-8789-96b006983a5c"
 version = "0.1.10"
 
@@ -3477,12 +3466,6 @@ version = "2022.0.0+0"
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 version = "17.4.0+2"
-
-[[deps.pixi_jll]]
-deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl"]
-git-tree-sha1 = "f349584316617063160a947a82638f7611a8ef0f"
-uuid = "4d7b5844-a134-5dcd-ac86-c8f19cd51bed"
-version = "0.41.3+0"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]

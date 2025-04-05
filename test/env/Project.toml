@@ -2,7 +2,6 @@
 Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
-DecisionTree = "7806a523-6efd-50cb-b5f6-3fa6f1930dbb"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 EnsembleKalmanProcesses = "aa8a2aa5-91d8-4396-bcef-d4f2ec43552d"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
