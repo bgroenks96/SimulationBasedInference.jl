@@ -18,33 +18,38 @@ const rng = Random.MersenneTwister(1234)
 
 const datadir = joinpath("examples", "data", "ddm")
 const outdir = mkpath(joinpath(dirname(Base.current_project()), "examples", "ddm", "output"))
+const plotdir = mkpath(joinpath(dirname(Base.current_project()), "examples", "ddm", "plots"))
 
 include("datenum.jl")
 include("ddm.jl")
 include("data.jl")
 
 σ_prior = prior(σ=LogNormal(log(10.0), 0.5))
-data = load_ny_alesund_dataset(Date(2020,9,1), Date(2021,8,31); datadir)
-data2 = load_ny_alesund_dataset(Date(2021,9,1), Date(2022,8,31); datadir)
+
+year = 2021
+data = load_ny_alesund_dataset(datadir, Date(year,9,1), Date(year+1,8,31))
+data2 = load_ny_alesund_dataset(datadir, Date(2021,9,1), Date(2022,8,31))
 
 # plot the data
 let fig = Makie.Figure(size=(1200,600)),
     xticks = (1:30:length(data.ts), Dates.format.(data.ts[1:30:end], "YYYY-mm")),
-    ax1 = Makie.Axis(fig[1,1], xticks=xticks, ylabel="Water equivalent / mm"),
-    ax2 = Makie.Axis(fig[2,1], xticks=xticks, ylabel="Temperature / °C");
+    ax1 = Makie.Axis(fig[2,1:4], xticks=xticks, ylabel="Water equivalent / mm", title="Precipitation and SWE"),
+    ax2 = Makie.Axis(fig[3,1:4], xticks=xticks, ylabel="Temperature / °C", title="Air temperature");
     Makie.hidexdecorations!(ax1, ticklabels=true, grid=false, ticks=false)
     ax2.xticklabelrotation = π/4
     if haskey(data, :y_true)
         lines = Makie.lines!(ax1, 1:length(data.ts), data.y_true[:,1], linewidth=2.0, color=:gray)
-        lines_pr = Makie.lines!(ax1, 1:length(data.precip), cumsum(data.precip)./10, color=:blue)
+        lines_pr = Makie.lines!(ax1, 1:length(data.ts), cumsum(data.precip.*(data.Tair .<= 0.0)), color=:blue)
         points = Makie.scatter!(ax1, data.idx, data.y_obs, color=:black)
-        Makie.axislegend(ax1, [lines_pr, lines, points], ["Cumulative precip. x 0.1", "Ground truth", "Pseudo-obs"], position=:lt)
+        Makie.axislegend(ax1, [lines_pr, lines, points], ["Cumulative (frozen) precip.", "Ground truth", "Pseudo-obs"], position=:lt)
     else
-        lines = Makie.lines!(ax1, 1:length(data.precip), cumsum(data.precip), color=:blue)
+        lines = Makie.lines!(ax1, 1:length(data.ts), cumsum(data.precip.*(data.Tair .<= 0.0)), color=:blue)
         points = Makie.scatter!(ax1, data.idx, data.y_obs, color=:black)
-        Makie.axislegend(ax1, [points, lines], ["Observed SWE", "Cumulative precip."], position=:lt)
+        Makie.axislegend(ax1, [points, lines], ["Observed SWE", "Cumulative (frozen) precip."], position=:lt)
     end
     Makie.lines!(ax2, 1:length(data.ts), data.Tair, linewidth=2.0, color=:lightblue)
+    Makie.Label(fig[1,2:3], "$(data.name) $year-$(year+1)", fontsize=22)
+    Makie.save(joinpath(plotdir, "Tair_precip_swe_data_$(data.name)_$(year)-$(year+1).png"), fig)
     fig
 end
 

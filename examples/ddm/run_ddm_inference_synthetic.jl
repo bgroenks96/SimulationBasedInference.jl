@@ -43,9 +43,9 @@ let fig = Makie.Figure(size=(1200,600)),
     ax2.xticklabelrotation = π/4
     if haskey(data, :y_true)
         lines = Makie.lines!(ax1, 1:length(data.ts), data.y_true[:,1], linewidth=2.0, color=:gray)
-        lines_pr = Makie.lines!(ax1, 1:length(data.precip), cumsum(data.precip)./10, color=:blue)
+        lines_pr = Makie.lines!(ax1, 1:length(data.precip), cumsum(data.precip.*(data.Tair .<= 0.0)), color=:blue)
         points = Makie.scatter!(ax1, data.idx, data.y_obs, color=:black)
-        Makie.axislegend(ax1, [lines_pr, lines, points], ["Cumulative precip. x 0.1", "Ground truth", "Pseudo-obs"], position=:lt)
+        Makie.axislegend(ax1, [lines_pr, lines, points], ["Cumulative (frozen) precip.", "Ground truth", "Pseudo-obs"], position=:lt)
     else
         lines = Makie.lines!(ax1, 1:length(data.precip), cumsum(data.precip), color=:blue)
         points = Makie.scatter!(ax1, data.idx, data.y_obs, color=:black)

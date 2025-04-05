@@ -9,6 +9,24 @@ import Random
 
 const finse_dataset_url = "https://www.dropbox.com/scl/fi/fbxn7antmrchk39li44l6/daily_forcing.mat?rlkey=u1s2lu13f4grqnbxt4ediwlk2&dl=0"
 
+function load_finse_era5_forcings(datadir="data/")
+    # Download forcing data if not present
+    datadir = mkpath(datadir)
+    filepath = joinpath(datadir, "finse_tp.mat")
+    if !isfile(filepath)
+        @info "Downloading forcing data to $filepath"
+        download(finse_dataset_url, filepath)
+    end
+    # Read foricng data
+    data = matread(filepath)
+    forcing = data["f"]
+    ts = todatetime.(DateNumber.(forcing["t"]))[:,1]
+    precip = forcing["P"][:,1]
+    Tair = forcing["T"][:,1]
+    return (; ts, Tair, precip)
+end
+
+
 function generate_synthetic_dataset(
     forcing_data::NamedTuple,
     N_obs::Int,
@@ -27,7 +45,7 @@ function generate_synthetic_dataset(
 end
 
 function load_ny_alesund_dataset(datadir, t1::Date, t2::Date; precip_dataset=:pluvio)
-    forcing_data = load_ny_alesund_forcings(datadir, t1, t2; precip_Dataset, datadir)
+    forcing_data = load_ny_alesund_forcings(datadir, t1, t2; precip_dataset)
     swe_df = filter(
         row -> t1 <= row.date <= t2,
         load_bayelva_swe_daily(; datadir),
@@ -36,23 +54,6 @@ function load_ny_alesund_dataset(datadir, t1::Date, t2::Date; precip_dataset=:pl
     idx = findall(.!ismissing.(swe))
     y_obs = collect(skipmissing(swe[idx]))
     return merge(forcing_data, (; y_obs, idx, name="ny_alesund_$precip_dataset"))
-end
-
-function load_finse_era5_forcings(datadir="data/")
-    # Download forcing data if not present
-    datadir = mkpath(datadir)
-    filepath = joinpath(datadir, "finse_tp.mat")
-    if !isfile(filepath)
-        @info "Downloading forcing data to $filepath"
-        download(finse_dataset_url, filepath)
-    end
-    # Read foricng data
-    data = matread(filepath)
-    forcing = data["f"]
-    ts = todatetime.(DateNumber.(forcing["t"]))[:,1]
-    precip = forcing["P"][:,1]
-    Tair = forcing["T"][:,1]
-    return (; ts, Tair, precip)
 end
 
 function load_ny_alesund_forcings(datadir, t1::Date, t2::Date; precip_dataset=:pluvio)
