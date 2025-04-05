@@ -51,11 +51,11 @@ end
   
 # this is what the user should supply for MLJ instead of just a kernel
 function default_rbf_kernel(θ::NamedTuple)
-    return  θ.σf² * (SqExponentialKernel() ∘ ARDTransform(θ.ℓ.^2 ./ 2)) + θ.σ₀²*WhiteKernel()
+    return  θ.σf² * (SqExponentialKernel() ∘ ARDTransform(θ.ℓ.^2 ./ 2) + WhiteKernel())
 end
 
 function kernel_function_initializer(::typeof(default_rbf_kernel), ::AbstractRNG)
-    rbf_init(X, y) = (σf² = positive(1.0), σ₀² = positive(1.0), ℓ = positive(ones(size(X, 1))))
+    rbf_init(X, y) = (σf² = positive(1.0), ℓ = positive(ones(size(X, 1))))
 end
 
 function fit!(gp::GPRegressor, X::AbstractMatrix, y::AbstractVector; verbosity=1, kwargs...)
