@@ -47,8 +47,10 @@ function PyPrior(prior::AbstractSimulatorPrior)
 
     function pysample(shape)
         b = bijector(prior)
-        samples = reduce(hcat, map(b, eachcol(SBI.sample(prior, pyconvert(Dims, shape)))))
-        return Py(transpose(samples)).to_numpy()
+        samples = transpose(reduce(hcat, map(b, eachcol(SBI.sample(prior, shape)))))
+        samples = reshape(samples, (shape..., size(samples)[end]))
+        @assert shape == size(samples)[1:end-1] "batch dimensions do not match $(size(samples)[1:end-1]) != $shape)"
+        return Py(samples).to_numpy()
     end
 
     # TODO: Maybe there is a better way to do this for priors that have analytical moments...
