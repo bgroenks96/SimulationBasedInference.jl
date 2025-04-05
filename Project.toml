@@ -98,8 +98,9 @@ Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 KernelFunctions = "ec8451be-7e33-11e9-00cf-bbf324bd1392"
 NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [targets]
-test = ["Gen", "KernelFunctions", "NonlinearSolve", "OrdinaryDiffEq", "Test", "Turing"]
+test = ["Gen", "KernelFunctions", "NonlinearSolve", "OrdinaryDiffEq", "PythonCall", "Test", "Turing"]
