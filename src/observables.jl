@@ -110,7 +110,7 @@ end
 initialize!(obs::SimulatorObservable{N,Transient}, state) where {N} = observe!(obs, state)
 
 function observe!(obs::SimulatorObservable{N,Transient}, state) where {N}
-    out = reshape(collect(obs.obsfunc(state)), size(obs))
+    out = _coerce(obs.obsfunc(state), size(obs))
     obs.output.state = out
     return out
 end
@@ -275,9 +275,9 @@ setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) 
 
 unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.storage)), length(obs.output.storage))
 
-_coerce(output::AbstractVector, shape::Dims) = reshape(output, shape)
+_coerce(output::AbstractArray{T,N}, shape::Dims{N}) where {T,N} = reshape(output, shape)
 _coerce(output::Number, ::Tuple{}) = [output] # lift to single element vector
-_coerce(output, shape) = error("output of observable function must be a scalar or a vector! expected: $(shape), got $(typeof(output)) with $(size(output))")
+_coerce(output, shape) = error("output of observable function must be a scalar or array! expected: $(shape), got $(typeof(output)) with $(size(output))")
 function _coerce(output::Number, shape::Dims{1})
     if shape[1] == 1
         return [output]
