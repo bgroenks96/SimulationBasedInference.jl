@@ -10,6 +10,8 @@
 # in order to demonstrate the usage of `SimulationBasedInference` on dynamical
 # systems more broadly, we will solve the problem using numerical methods.
 
+import Pkg; Pkg.instantiate() #hide
+
 # First, we load the necessary packages
 using SimulationBasedInference
 using OrdinaryDiffEq
@@ -47,21 +49,21 @@ n_obs = length(tsave);
 observable = ODEObservable(:y, odeprob, tsave, samplerate=0.01);
 forward_prob = SimulatorForwardProblem(odeprob, observable)
 
-# In order to set up our synthetic example, we need to some data to infer from.
-# Here we generate the data by running the forward model and adding Gaussian noise.
+# In order to set up our synthetic example, we need some data to condition on.
+# For this example, we will generate the data by running the forward model and adding Gaussian noise.
 ode_solver = Tsit5()
 forward_sol = solve(forward_prob, ode_solver);
 true_obs = get_observable(forward_sol, :y)
 noise_scale = 0.05
 noisy_obs = true_obs .+ noise_scale*randn(rng, n_obs);
-# plot the results
+# Plot the resulting pseudo-observations vs. the ground truth.
 plot(true_obs, label="True solution", linewidth=3, color=:black)
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", alpha=0.5)
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
-# Here we set our priors. We use a weakly informative `Beta(2,2)` prior which puts
-# less mass at the tails. We could also use a flat prior `Beta(1,1)` if we wanted to
-# be more agnostic to further minimize the influence of the prior.
+# Here we set our priors. We use a weakly informative `Beta(2,2)` prior which places
+# less probability mass at the extreme values near zero and one. We could also use a flat
+# prior `Beta(1,1)` if we wanted to be maximally indifferent to which parameters are most likely.
 model_prior = prior(α=Beta(2,2));
 noise_scale_prior = prior(σ=Exponential(0.1));
 p1 = Plots.plot(model_prior.dist.α)
@@ -69,7 +71,7 @@ p2 = Plots.plot(noise_scale_prior.dist.σ)
 plt = Plots.plot(p1, p2)
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
-# Now we assign a simple Gaussian likelihood for the obsevation/noise model.
+# Now we assign a simple Gaussian likelihood for the observation/noise model.
 lik = IsotropicGaussianLikelihood(observable, noisy_obs, noise_scale_prior);
 nothing #hide
 
@@ -106,10 +108,10 @@ plot!(tsave, posterior_obs_mean_enis, label="Posterior", c=:blue, linestyle=:das
 plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:orange)
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
-# One of the key benefits of the standard problem interface is that we can very easily switch to
+# One of the key benefits of the standardized problem type interface is that we can very easily switch to
 # a different algorithm by changing a single line of code. Here, we solve the same inference problem
 # instead with the ensemble smoother w/ "multiple data assimilation" (ES-MDA).
-esmda_sol = solve(inference_prob, ESMDA(), ensemble_size=128, rng=rng);
+esmda_sol = @time solve(inference_prob, ESMDA(), ensemble_size=128, rng=rng);
 nothing #hide
 
 # Now we extract the posterior ensemble and compute the relevant statistics.
@@ -128,7 +130,7 @@ DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
 # We can again solve the same problem with the Ensemble Kalman Sampler of Garbuno-Inigo et al. (2020)
 # which yields very similar results (in this case).
-eks_sol = solve(inference_prob, EKS(), ensemble_size=128, rng=rng, verbose=false)
+eks_sol = @time solve(inference_prob, EKS(), ensemble_size=128, rng=rng, verbose=false)
 posterior_eks = get_transformed_ensemble(eks_sol)
 posterior_mean_eks = mean(posterior_eks, dims=2)
 posterior_obs_eks = get_observables(eks_sol).y
@@ -141,7 +143,7 @@ plt = scatter!(tsave, noisy_obs, label="Noisy observations", c=:black)
 DisplayAs.Text(DisplayAs.PNG(plt)) #hide
 
 # Now solve using the gold standard No U-turn sampler (NUTS). This will take a few minutes to run.
-# Note that this would generally not be feasible more expensive simulators.
+# Note that this would generally not be feasible for more expensive simulators.
 hmc_sol = @time solve(inference_prob, MCMC(NUTS()), num_samples=1000, rng=rng);
 posterior_hmc = transpose(Array(hmc_sol.result))
 posterior_mean_hmc = mean(posterior_hmc, dims=2)

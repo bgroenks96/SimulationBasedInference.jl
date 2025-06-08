@@ -21,22 +21,22 @@ Often, these parameters are not fully known *a priori*... but usually we know so
 Bayesian inference provides a natural framework for constraining this uncertainty using observed data:
 
 $$
-p(\boldsymbol{\theta} | \mathbf{y}) = \frac{p(\mathbf{y}|\boldsymbol{\theta})p(\boldsymbol{\theta})}{p(\mathbf{y})}
+p(\theta | \mathbf{y}) = \frac{p(\mathbf{y}|\theta)p(\theta)}{p(\mathbf{y})}
 $$
 
-The **posterior distribution** $p(\boldsymbol{\boldsymbol{\theta}} | \mathbf{y})$ represents our best estimate (with uncertainty) of the unknown parameters $\boldsymbol{\theta}$ after observing $\mathbf{y}$.
+The **posterior distribution** $p(\boldsymbol{\theta} | \mathbf{y})$ represents our best estimate (with uncertainty) of the unknown parameters $\theta$ after observing $\mathbf{y}$.
 
-**Simulation-based inference** (SBI) [1] refers to the problem of performing **statistical inference** (Bayesian or otherwise) of unknown parameters $\boldsymbol{\theta}$ where the forward model $\mathcal{M}$:
+**Simulation-based inference** (SBI) [1] refers to the problem of performing **statistical inference** (Bayesian or otherwise) of unknown parameters $\theta$ where the forward model $\mathcal{M}$:
 
 $$
-y = \mathcal{M}(\boldsymbol{\theta}) + \epsilon
+y = \mathcal{M}(\theta) + \epsilon
 $$
 
 is a dynamical model or physics-based *simulator* mapping from parameters to noisy ($\epsilon$) observations.
 
 There are two fundamental challenges with this problem:
 1. The forward model $\mathcal{M}$ is very often **nonlinear** and typically has no closed-form solution.
-2. Evaluating the forward map $\mathcal{M}(\boldsymbol{\theta})$ is usually non-trivial, i.e. **computationally expensive** or at least inconvenient.
+2. Evaluating the forward map $\mathcal{M}(\theta)$ is usually non-trivial, i.e. **computationally expensive** or at least inconvenient.
 
 Thus, classical statistical methods that rely on either analytical or numerical methods to derive the posterior distribution are generally difficult (or impossible) to apply.
 
