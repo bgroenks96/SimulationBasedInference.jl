@@ -1,14 +1,14 @@
 """
-    TuringSimulatorPrior{TM<:Turing.Model,axesType} <: AbstractSimulatorPrior
+    TuringSimulatorPrior{TM<:Model,axesType} <: AbstractSimulatorPrior
 
 Represents a prior distribution formulated as a `Turing` model. The Turing model
 can have any arbitrary structure, e.g. hierarchical or otherwise.
 """
-struct TuringSimulatorPrior{modelType<:Turing.Model,axesType} <: AbstractSimulatorPrior
+struct TuringSimulatorPrior{modelType<:Model,axesType} <: AbstractSimulatorPrior
     model::modelType
     axes::axesType
     chain_names::Vector{Symbol}
-    function TuringSimulatorPrior(model::Turing.Model)
+    function TuringSimulatorPrior(model::Model)
         axes = getaxes(ComponentArray(rand(model)))
         chain_names = extract_parameter_names(model)
         new{typeof(model),typeof(axes)}(model, axes, chain_names)
@@ -25,7 +25,7 @@ function (prior::TuringSimulatorPrior)(θ::AbstractVector{T}) where {T}
     return p
 end
 
-SimulationBasedInference.prior(model::Turing.Model) = TuringSimulatorPrior(model)
+SimulationBasedInference.prior(model::Model) = TuringSimulatorPrior(model)
 
 SimulationBasedInference.forward_map(prior::TuringSimulatorPrior, θ::AbstractVector) = prior(θ)
 
@@ -48,7 +48,7 @@ StatsBase.sample(rng::AbstractRNG, prior::TuringSimulatorPrior, n::Int, args...;
 
 Bijectors.bijector(prior::TuringSimulatorPrior) = bijector(prior.model)
 
-function extract_parameter_names(m::Turing.Model)
+function extract_parameter_names(m::Model)
     # sample chain to extract param names
     chain = sample(m, Prior(), 1, progress=false, verbose=false)
     return chain.name_map.parameters

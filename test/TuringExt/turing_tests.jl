@@ -12,7 +12,7 @@ using Turing
 @model function testmodel1()
     x ~ Normal(0,1)
     p ~ Beta(1,1)
-    return p*x
+    return [x,p]
 end
 
 @testset "Turing priors" begin

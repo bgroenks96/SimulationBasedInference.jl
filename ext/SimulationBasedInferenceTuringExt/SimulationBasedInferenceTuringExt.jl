@@ -4,6 +4,7 @@ using SimulationBasedInference
 
 using AbstractMCMC
 using Turing
+using Turing.DynamicPPL
 
 # common dependencies
 using CommonSolve
