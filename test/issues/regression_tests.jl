@@ -51,7 +51,7 @@ end
     n_obs = length(tsave)
     
     # Define observable and forward problem
-    observable = SimulatorObservable(:y, state -> state.u, (n_obs,))
+    observable = SimulatorObservable(:y, state -> state.u[1,:], (n_obs,))
     ode_solver = Tsit5()
     forward_prob = SimulatorForwardProblem(problem_factory(ode_func, tsave, ode_solver), α_true, observable)
     
@@ -117,5 +117,6 @@ end
     
     inference_prob = SimulatorInferenceProblem(forward_prob, ode_solver, model_prior, lik);
     
-    snpe_sol = solve(inference_prob, PySNE(), num_simulations=1000, rng=rng);    
+    snpe_sol = solve(inference_prob, PySNE(), num_simulations=100, rng=rng);
+    @test isa(snpe_sol.result, PySBI.SurrogatePosterior)     
 end
