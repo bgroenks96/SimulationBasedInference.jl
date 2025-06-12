@@ -12,7 +12,7 @@ and a set of `SimulatorLikelihood`s which relate the output of one or more obser
 the probability model,
 
 ```math
-p(\phi,\sigma_1,\dots,\sigma_n | y_1,\dots,y_n,\mathcal{M}) \propto p(\phi|\mathcal{M})\prod_{i=1}^n p(\sigma_i) \prod_{i=1}^n p(y_i|\phi,\sigma_i,\mathcal{M})
+p(\phi,\sigma_1,\dots,\sigma_n \mid y_1,\dots,y_n,\mathcal{M}) \propto p(\phi\mid\mathcal{M})\prod_{i=1}^n p(\sigma_i) \prod_{i=1}^n p(y_i\mid\phi,\sigma_i,\mathcal{M})
 ```
 
 for some forward model $\mathcal{M}$ with parameters $\phi$ and a set of observables mapping to data $y_i$ each with noise model parameters $\sigma_i$.
@@ -135,11 +135,11 @@ and the actual model parameter space. This distinction arises for three primary 
 We can express this more formally in terms of the above probability model as,
 
 ```math
-p(\phi | y,\pi) \propto p(y|\phi,\pi)p(\phi|\theta,\pi)p(\theta|\pi)
+p(\phi \mid y,\pi) \propto p(y\mid\phi,\pi)p(\phi\mid\theta,\pi)p(\theta\mid\pi)
 ```
 
 where $\phi = \pi(\theta)$ can be referred to as the *prior model* since it defines the statistical relationship between the sampled parameters $\theta$ and the "real" model parameters $\phi$. Note that the
-conditioning on the forward model $\mathcal{M}$ is here suppressed for brevity. In cases where $\pi$ is a deterministic mapping, the additional density terms $p(\phi|\theta)$ and $p(\theta)$ can be safely
+conditioning on the forward model $\mathcal{M}$ is here suppressed for brevity. In cases where $\pi$ is a deterministic mapping, the additional density terms $p(\phi\mid\theta)$ and $p(\theta)$ can be safely
 neglected.
 
 The *unconstrained* parameters $\xi \in \Xi$ represent a (typically nonlinear) bijection $\theta = f(\xi)$ of the sample space $\Theta$ onto the real numbers $\Xi = \mathbb{R}^d$ where $d$ is the number of parameters.

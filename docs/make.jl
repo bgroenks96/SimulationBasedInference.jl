@@ -67,7 +67,7 @@ makedocs(
                      "Inference problems" => "problems/inference_problem.md",
               ],
               "Inference algorithms" => [
-                     "Ensemble methods" => "inference/ensemble.md",
+                     "Partcile sampling" => "inference/particle.md",
                      "MCMC" => "inference/mcmc.md",
                      "PySBI" => "inference/pysbi.md",
               ],
