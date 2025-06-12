@@ -93,6 +93,12 @@ function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,ou
     show(io, mime, obs.coords)
 end
 
+"""
+    Transient <: SimulatorOutput
+
+Simple output type that stores a transient reference to an arbitrary state variable. The reference is
+overwritten on each subsequent call to `observe!`.
+"""
 mutable struct Transient <: SimulatorOutput
     state::Union{Missing,AbstractVecOrMat}
 end

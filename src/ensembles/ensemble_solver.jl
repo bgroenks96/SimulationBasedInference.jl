@@ -1,3 +1,8 @@
+"""
+    EnsembleState
+
+Base type for ensemble inference algorithm state implementations.
+"""
 abstract type EnsembleState end
 
 """
@@ -8,17 +13,17 @@ the SciML `EnsembleProblem` interface to automatically parallelize forward runs 
 the ensemble.
 """
 mutable struct EnsembleSolver{algType,probType,ensalgType,stateType<:EnsembleState,kwargTypes}
-    sol::SimulatorInferenceSolution{algType,probType}
-    alg::algType
-    ensalg::ensalgType
-    state::stateType
+    sol::SimulatorInferenceSolution{algType,probType} # solution
+    alg::algType # inference algorithm
+    ensalg::ensalgType # ensemble execution algorithm
+    state::stateType # algorithm state
     prob_func::Function # problem generator
     output_func::Function # output function
     pred_func::Function # prediction function
     itercallback::Function # iteration callback
-    verbose::Bool
-    retcode::ReturnCode.T
-    solve_kwargs::kwargTypes
+    verbose::Bool # true if verbose output should be printed to sdtout
+    retcode::ReturnCode.T # return code status
+    solve_kwargs::kwargTypes # keyword args passed to the forward solve
 end
 
 ################################
@@ -70,7 +75,7 @@ initialstate(
 ) = error("intialstate not implemented for $(typeof(alg))")
 
 """
-    ensemblestep!(solver::EnsembleSolver{algType})
+    ensemblestep!(solver::EnsembleSolver{algType}) where {algType}
 
 Executes a single ensemble step (forward solve + update) for the given algorithm type. Must be implemented
 by all ensemble algorithm implementations.

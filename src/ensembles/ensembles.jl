@@ -2,10 +2,10 @@ using EnsembleKalmanProcesses
 
 abstract type EnsembleInferenceAlgorithm <: SimulatorInferenceAlgorithm end
 
-export EnsembleSolver
+export EnsembleSolver, get_ensemble, initialstate, ensemblestep!, finalize!, ensemble_solve
 include("ensemble_solver.jl")
 
-export obscov, get_ensemble, get_transformed_ensemble, get_predictions, get_observables
+export obscov, get_transformed_ensemble, get_predictions, get_observables
 include("ensemble_utils.jl")
 
 export EnIS, PBS, importance_weights, get_weights

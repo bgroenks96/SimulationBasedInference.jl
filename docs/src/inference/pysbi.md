@@ -3,6 +3,7 @@
 ```@meta
 CurrentModule = SimulationBasedInference
 DocTestSetup = quote
+    using PythonCall
     using SimulationBasedInference
     using SimulationBasedInference.PySBI
 
@@ -14,9 +15,9 @@ end
 
 Modern methods for simulation-based inference (SBI) leverage powerful and expressive *density estimators*, often parameterized by neural networks. These algorithms are designed to solve inference problems of the form:
 
-$$
+$
 p(\theta \mid y) \propto p(\theta)\int_\mathcal{Z} p(y \mid z, \theta)p(z\mid\theta)dz
-$$
+$
 
 where $z$ corresponds to some set of latent variables internal to the simulator. In the context of dynamical systems, $z$ often represents the trajectory of the system state(s) over time.
 
@@ -35,7 +36,7 @@ import SimulationBasedInference.PySBI
 
 The python module `sbi` can be directly accessed via `PySBI.sbi`.
 
-The [PySNE](@ref) type wraps an `sbi` algorithm (by default `NPE_C`) which can then be used with the standard `CommonSolve` interface:
+The [PySBI.PySNE](@ref) type wraps an `sbi` algorithm (by default `NPE_C`) which can then be used with the standard `CommonSolve` interface:
 
 ```docs
 init(::SimulatorInferenceProblem, ::PySNE)
@@ -46,4 +47,5 @@ init(::SimulatorInferenceProblem, ::PySNE)
 ```@autodocs
 Modules = [PySBI]
 Order = [:type, :function]
+Private = false
 ```

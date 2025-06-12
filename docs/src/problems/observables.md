@@ -41,8 +41,17 @@ Observables are constructed using the `SimulatorObservable` type which consists 
 
 Currently, `SimulationBasedInference` provides two types of observable outputs:
 
-- [Transient](@ref) output types (with alias `TransientObservable`) which naively evaluate `g_i` and store a pointer to the return value. Repeated evaluations of the observable overwrite previous values.
-- [TimeSampled](@ref) output types (with alias `TimeSampledObservable`) for dynamical systems which define a sampling frequency and a set of save times. Outputs of `g_i` at each sample time are buffered and then aggregated at each save time according to some reducer function (e.g. `mean`, `sum`, etc.).
+[Transient](@ref) output types (with alias `TransientObservable`) which naively evaluate `g_i` and store a pointer to the return value. Repeated evaluations of the observable overwrite previous values.
+
+```@docs
+SBI.Transient
+```
+
+[TimeSampled](@ref) output types (with alias `TimeSampledObservable`) for dynamical systems which define a sampling frequency and a set of save times. Outputs of `g_i` at each sample time are buffered and then aggregated at each save time according to some reducer function (e.g. `mean`, `sum`, etc.).
+
+```@docs
+SBI.TimeSampled
+```
 
 Type specific dispatches of the `SimulatorObservable` constructor for each output type as a convenience.
 
@@ -113,4 +122,4 @@ setvalue!(obs::Observable, value)
 coordinates(obs::Observable)
 ```
 
-New subtypes of `Observable` should additionally implement [Base.nameof](@ref) to return a `Symbol` corresponding to the unique identifier of the observable.
+New subtypes of `Observable` should additionally implement `Base.nameof` to return a `Symbol` corresponding to the unique identifier of the observable.
