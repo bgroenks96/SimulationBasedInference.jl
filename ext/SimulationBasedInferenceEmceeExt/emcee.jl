@@ -1,15 +1,7 @@
-import AffineInvariantMCMC
-
-"""
-    Emcee
-
-Wrapper type for affine-invariant Markov-chain Monte Carlo, a.k.a "emcee".
-"""
-Base.@kwdef struct Emcee end
 
 function CommonSolve.solve(
     prob::SimulatorInferenceProblem,
-    mcmc::MCMC{<:Emcee};
+    emcee::typeof(AffineInvariantMCMC.sample);
     storage::SimulationData=SimulationArrayStorage(),
     num_samples = 1000,
     num_chains = 100,
@@ -22,8 +14,8 @@ function CommonSolve.solve(
     # sample prior and apply transform
     prior_samples = sample(rng, prob.prior, num_chains)
     ζ₀ = reduce(hcat, map(SBI.bijector(prob), prior_samples))
-    samples, logprobs = AffineInvariantMCMC.sample(f, num_chains, ζ₀, num_samples, thinning; rng)
+    samples, logprobs = emcee(f, num_chains, ζ₀, num_samples, thinning; rng)
     param_names = labels(prob.u0)
     chains = Chains(transpose(samples), param_names)
-    return SimulatorInferenceSolution(prob, mcmc, storage, chains)
+    return SimulatorInferenceSolution(prob, emcee, storage, chains)
 end

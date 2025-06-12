@@ -7,7 +7,6 @@ version = "0.1.12"
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
 AbstractMCMC = "80f14c24-f653-4e6a-9b94-39d6b0f70001"
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
-AffineInvariantMCMC = "a0f608ac-68d0-5108-ad9a-0cdca73324f3"
 Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
@@ -43,22 +42,24 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [weakdeps]
+AffineInvariantMCMC = "a0f608ac-68d0-5108-ad9a-0cdca73324f3"
 DynamicHMC = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [extensions]
+SimulationBasedInferenceEmceeExt = ["AffineInvariantMCMC"]
 SimulationBasedInferenceDynamicHMCExt = ["DynamicHMC"]
 SimulationBasedInferenceFluxExt = ["Flux"]
 SimulationBasedInferenceGenExt = ["Gen"]
 SimulationBasedInferenceTuringExt = ["Turing"]
 
 [compat]
+AffineInvariantMCMC = "1"
 AbstractGPs = "0.5"
 AbstractMCMC = "4, 5"
 Accessors = "=0.1.36"
-AffineInvariantMCMC = "1"
 Bijectors = "0.13, 0.14, 0.15"
 CommonSolve = "0.2"
 ComponentArrays = "0.15"
@@ -103,4 +104,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [targets]
-test = ["Gen", "KernelFunctions", "NonlinearSolve", "OrdinaryDiffEq", "PythonCall", "Test", "Turing"]
+test = ["AffineInvariantMCMC", "DynamicHMC", "Gen", "KernelFunctions", "NonlinearSolve", "OrdinaryDiffEq", "PythonCall", "Test", "Turing"]

@@ -10,7 +10,3 @@ end
 ```@docs; canonical=false
 MCMC
 ```
-
-```@docs; canonical=false
-Emcee
-```
