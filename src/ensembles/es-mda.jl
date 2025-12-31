@@ -65,7 +65,6 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
         param_map;
         prob_func=solver.prob_func,
         output_func=solver.output_func,
-        pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
     # Kalman update
@@ -91,7 +90,7 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     state.ens = Θ_post
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
-    store!(sol.storage, Θ, out.observables, iter=state.iter)
+    return out
 end
 
 """

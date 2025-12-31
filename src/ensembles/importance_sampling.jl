@@ -61,7 +61,6 @@ function ensemblestep!(solver::EnsembleSolver{<:EnIS})
         param_map;
         prob_func=solver.prob_func,
         output_func=solver.output_func,
-        pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
     # compute importance weights
@@ -71,7 +70,7 @@ function ensemblestep!(solver::EnsembleSolver{<:EnIS})
     state.weights = w
     state.Neff = Neff
     state.loglik = loglik
-    store!(sol.storage, state.ens, out.observables, iter=state.iter)
+    return out
 end
 
 finalize!(::EnsembleSolver{EnIS}) = nothing

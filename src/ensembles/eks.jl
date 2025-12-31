@@ -64,7 +64,6 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
         param_map;
         prob_func=solver.prob_func,
         output_func=solver.output_func,
-        pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
     # update ensemble
@@ -75,10 +74,10 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     # update ensemble solver state
     push!(state.loglik, loglik)
     push!(state.logprior, logprior)
-    store!(sol.storage, Θ, out.observables, iter=state.iter)
     # postamble
     # calculate change in error
     err = ekp.err[end]
     Δerr = length(ekp.err) > 1 ? err - ekp.err[end-1] : missing
     solver.verbose && @info "Finished iteration $(state.iter); err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
+    return out
 end

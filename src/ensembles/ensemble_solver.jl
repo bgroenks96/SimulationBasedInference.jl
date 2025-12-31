@@ -19,12 +19,13 @@ mutable struct EnsembleSolver{algType,probType,ensalgType,stateType<:EnsembleSta
     state::stateType # algorithm state
     prob_func::Function # problem generator
     output_func::Function # output function
-    pred_func::Function # prediction function
     itercallback::Function # iteration callback
     verbose::Bool # true if verbose output should be printed to sdtout
     retcode::ReturnCode.T # return code status
     solve_kwargs::kwargTypes # keyword args passed to the forward solve
 end
+
+@enum ValidationResult OK RunAgain Fail
 
 ################################
 # Ensemble algorithm interface #
@@ -99,7 +100,6 @@ function finalize!(solver::EnsembleSolver)
         param_map;
         prob_func=solver.prob_func,
         output_func=solver.output_func,
-        pred_func=solver.pred_func,
         solver.solve_kwargs...
     )
 
@@ -124,8 +124,7 @@ function CommonSolve.init(
     alg::EnsembleInferenceAlgorithm,
     ensalg::SciMLBase.EnsembleAlgorithm=EnsembleThreads();
     prob_func=(prob,p) -> remake(prob, p=p),
-    output_func=(sol,i,iter) -> (sol, false),
-    pred_func=default_pred_func(inference_prob),
+    output_func=default_output_func(inference_prob.forward_prob),
     obs_cov_func=obscov,
     initial_ens=nothing,
     ensemble_size::Integer=isnothing(initial_ens) ? 128 : size(initial_ens, 2),
@@ -162,7 +161,6 @@ function CommonSolve.init(
         state,
         prob_func,
         output_func,
-        pred_func,
         itercallback,
         verbose,
         ReturnCode.Default,
@@ -180,9 +178,11 @@ function CommonSolve.step!(solver::EnsembleSolver)
     state = solver.state
     state.iter += 1
     # ensemble step
-    ensemblestep!(solver)
+    out = ensemblestep!(solver)
     # set result
     sol.result = state
+    # store observables
+    store!(sol.storage, copy(get_ensemble(state)), out.observables, iter=state.iter)
     # iteration callback
     callback_retval = solver.itercallback(state)
     # check convergence
@@ -212,7 +212,7 @@ end
 
 """
     ensemble_solve(
-        ens::AbstractMatrix,
+        Θ::AbstractMatrix,
         initial_prob::SciMLBase.AbstractSciMLProblem,
         ensalg::SciMLBase.BasicEnsembleAlgorithm,
         dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
@@ -220,63 +220,56 @@ end
         iter::Integer=1,
         prob_func,
         output_func,
-        pred_func,
         solve_kwargs...
     )
 
-Performs a single step/iteration for the given ensemble and returns a named tuple
-`(; pred, sol)` where `sol` are the full ensemble forward solutions and `pred` is
-the prediction matrix produced by `pred_func`.
+Performs a single step/iteration for the given parameter ensemble `θ` and returns a named tuple
+`(; pred, sol)` where `sol` are the full ensemble forward solutions.
 """
 function ensemble_solve(
-    ens::AbstractMatrix,
+    Θ::AbstractMatrix,
     initial_prob::SciMLBase.AbstractSciMLProblem,
     ensalg::SciMLBase.BasicEnsembleAlgorithm,
     dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
     param_map;
     iter::Integer=1,
-    prob_func=(prob,p) -> remake(prob, p=p),
-    output_func=(sol,i,iter) -> (sol, false),
-    pred_func=default_pred_func(initial_prob),
+    prob_func=(prob, i, repeat) -> remake(prob, p=param_map(Θ[:,i])),
+    output_func=(sol, i, iter) -> (sol, false),
     solve_kwargs...
 )
-    Θ = ens
-    N_ens = size(Θ,2)
+    N_ens = size(Θ, 2)
     ensprob = EnsembleProblem(
         initial_prob;
-        prob_func=(prob,i,repeat) -> prob_func(prob, param_map(ens[:,i])),
+        prob_func,
         output_func=(sol,i) -> output_func(sol, i, iter)
     )
-
+    # run forward ensemble
     enssol = solve(ensprob, dealg, ensalg; trajectories=N_ens, solve_kwargs...)
-    pred = reduce(hcat, map((i,out) -> pred_func(out, i, iter), 1:N_ens, enssol.u))
-    observables = map(enssol) do sol
+    pred = map(enssol.u) do res
+        # retrieve observable for each likelihood and flatten into a vector
+        observables = map(name -> res.observables[name], keys(prob.likelihoods))
+        reduce(vcat, map(obs -> vec(getvalue(obs)), observables))
+    end
+    observables = map(enssol.u) do res
         # extract observables data
-        map(getvalue, sol.prob.observables)
+        map(getvalue, res.observables)
     end
     return (; pred, observables)
 end
 ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(get_ensemble(state), args...; iter=state.iter, kwargs...)
 
-function default_pred_func(prob::SimulatorInferenceProblem; verify_return_code=false)
-    function predict_likelihoods(sol::SimulatorForwardSolution, i, iter)
-        if isa(sol.sol, SciMLBase.AbstractSciMLSolution) && verify_return_code
-            # check forward solver return code
-            @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
+function default_output_func(::SimulatorForwardProblem; validator = (sol, i, iter) -> OK)
+    function output(sol::SimulatorForwardSolution, i, iter)
+        result = validator(sol, i, iter)
+        if result == OK
+            # retrieve observables and flatten into a vector
+            observables = reduce(vcat, map(obs -> vec(getvalue(obs)), sol.prob.observables))
+            return (; sol, observables), false
+        elseif result == RunAgain
+            observables = nothing
+            return (; sol, observables), true
+        elseif result == Fail
+            error("forward solution validation failed: $sol")
         end
-        # retrieve observable for each likelihood and flatten the results into a vector
-        observables = map(name -> sol.prob.observables[name], keys(prob.likelihoods))
-        return reduce(vcat, map(obs -> vec(getvalue(obs)), observables))
-    end
-end
-
-function default_pred_func(::SimulatorForwardProblem; verify_return_code=false)
-    function predict_likelihoods(sol::SimulatorForwardSolution, i, iter)
-        if isa(sol.sol, SciMLBase.AbstractSciMLSolution) && verify_return_code
-            # check forward solver return code
-            @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
-        end
-        # retrieve observable for each likelihood and flatten the results into a vector
-        return reduce(vcat, map(obs -> vec(getvalue(obs)), sol.prob.observables))
     end
 end

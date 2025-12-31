@@ -105,7 +105,6 @@ ensemble_solve(
     iter::Integer=1,
     prob_func,
     output_func,
-    pred_func,
     solve_kwargs...
 )
 ```
