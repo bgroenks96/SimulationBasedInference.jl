@@ -5,19 +5,24 @@ using Reexport
 # Utility
 using Dates
 using FileIO
-using ForwardDiff
 using LinearAlgebra
 using Requires
 
-# SciML/DiffEq
-using CommonSolve
-using DiffEqBase
+# SciML
+using SciMLBase
 
 # Stats
 using MCMCChains
 using Optim
 using Random
 using UnPack
+
+import CommonSolve: init, solve, solve!
+import SciMLBase: AbstractSciMLProblem, done
+import LogDensityProblems: logdensity
+
+# to suppress name collision warnings
+import SciMLBase: islinear
 
 # Re-exported packages
 @reexport using Bijectors
@@ -26,17 +31,9 @@ using UnPack
 @reexport using DimensionalData: dims, hasdim, rebuild
 @reexport using Distributions
 @reexport using PosteriorStats: PosteriorStats, summarize
-@reexport using SciMLBase
 @reexport using StatsBase
 @reexport using StatsFuns
 @reexport using Statistics
-
-# to suppress name collision warning
-using SciMLBase: islinear
-
-using LogDensityProblems
-
-import LogDensityProblems: logdensity
 
 export LogDensityProblems, logdensity
 
@@ -97,14 +94,8 @@ include("inference_problem.jl")
 # LogDensityProblems interface
 include("logdensity.jl")
 
-export SimulatorForwardSolver
+export ForwardSimulation
 include("forward_solve.jl")
-
-export SimulatorODEForwardSolver, ODEObservable
-include("forward_solve_ode.jl")
-
-include("emulators/Emulators.jl")
-using .Emulators
 
 # Inference algorithms; these files should
 # already export all relevant types/methods
@@ -118,7 +109,7 @@ using PackageExtensionCompat
 
 function __init__()
     @require PythonCall="6099a3de-0909-46bc-b1f4-468b9a2dfc0d" begin
-        include("../ext/pysbi/PySBI.jl")
+        include("../PySBI/PySBI.jl")
     end
     # Backwards comaptible extension loading
     @require_extensions
