@@ -1,9 +1,9 @@
 # Turing MCMC
 
-SimulationBasedInference.MCMC(alg::Turing.InferenceAlgorithm, strat; kwargs...) = error("invalid sampling strategy $(typeof(strat)) for Turing algorithm")
+SimulationBasedInference.MCMC(alg::AbstractMCMC.AbstractSampler, strat; kwargs...) = error("invalid sampling strategy $(typeof(strat)) for Turing algorithm")
 
 function SimulationBasedInference.MCMC(
-    alg::Turing.InferenceAlgorithm,
+    alg::AbstractMCMC.AbstractSampler,
     strat::AbstractMCMC.AbstractMCMCEnsemble=MCMCSerial();
     kwargs...,
 )
@@ -12,7 +12,7 @@ end
 
 function CommonSolve.solve(
     prob::SimulatorInferenceProblem,
-    mcmc::MCMC{<:Turing.InferenceAlgorithm};
+    mcmc::MCMC{<:AbstractMCMC.AbstractSampler};
     storage=SimulationArrayStorage(),
     num_samples=1000,
     num_chains=1,
@@ -67,7 +67,7 @@ function SimulationBasedInference.likelihood_model(
         lik_observables = map(l -> l.obs, inference_prob.likelihoods)
         # recreate forward problem with merged observables;
         observables = merge(lik_observables, forward_prob.observables)
-        forward_prob = SimulatorForwardProblem(forward_prob.prob, observables...)
+        forward_prob = SimulatorForwardProblem(forward_prob.simulator, observables...)
         # solve forward problem
         forward_sol = solve(forward_prob, forward_alg; p=ϕ.model, solve_kwargs...)
         retcode = forward_sol.sol.retcode
