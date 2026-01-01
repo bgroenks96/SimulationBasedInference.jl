@@ -1,4 +1,4 @@
-abstract type SimulatorOutput end
+abstract type SimulatorOutput{T} end
 
 """
     Observable{outputType<:SimulatorOutput}
@@ -94,63 +94,76 @@ function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,ou
 end
 
 """
-    Transient <: SimulatorOutput
+    Transient{T} <: SimulatorOutput
 
 Simple output type that stores a transient reference to an arbitrary state variable. The reference is
 overwritten on each subsequent call to `observe!`.
 """
-mutable struct Transient <: SimulatorOutput
-    state::Union{Missing,AbstractVecOrMat}
+mutable struct Transient{T} <: SimulatorOutput{T}
+    value::Union{Nothing, T}
 end
 
 """
-    SimulatorObservable(name::Symbol, f, coords::Tuple)
+    SimulatorObservable(name::Symbol, func, coords::Tuple, output::SimulatorOutput = Transient{T}(nothing))
 
-Constructs a `Transient` observable with state mapping function `f` and coordinates `coords`.
+Constructs an observable based on the given function `func(state)::T` and `output` type. Defaults to `Transient`
+output which simply saves the last observed value of `func`. The coordinates `coords` describe the shape of the output.
 """
-function SimulatorObservable(name::Symbol, f, coords::Tuple)
+function SimulatorObservable(name::Symbol, func, coords::Tuple, output::SimulatorOutput = Transient{Any}(nothing))
     ds = coordinates(coords)
-    return SimulatorObservable(name, f, Transient(missing), ds)
+    return SimulatorObservable(name, f, output, ds)
 end
 
 initialize!(obs::SimulatorObservable{N,Transient}, state) where {N} = observe!(obs, state)
 
 function observe!(obs::SimulatorObservable{N,Transient}, state) where {N}
     out = _coerce(obs.obsfunc(state), size(obs))
-    obs.output.state = out
+    obs.output.value = out
     return out
 end
 
 function getvalue(obs::SimulatorObservable{N,Transient}, ::Type{T}=Any) where {N,T}
-    data = obs.output.state
+    data = obs.output.value
     coords = coordinates(obs)
     return DimArray(data, coords)
 end
 
 function setvalue!(obs::SimulatorObservable{N,Transient}, value) where {N}
-    obs.output.state = value
+    obs.output.value = value
 end
 
 """
-    TimeSampled{timeType,storageType,reducerType} <: SimulatorOutput
+    TimeSampled{timeType,storageType,reducerType,converterType} <: SimulatorOutput
 
 `SimulatorOutput` which buffers samples taken from the simulator at preset times and applies a reduction operation at
 (lower frequency) save times. A simple example would be a windowed average or resampling operation that saves averages
 over higher frequency samples.
 """
-mutable struct TimeSampled{timeType,storageType<:SimulationData,reducerType} <: SimulatorOutput
+mutable struct TimeSampled{timeType,storageType<:SimulationData,reducerType,converterType} <: SimulatorOutput
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
+    tconvert::converterType # time converter
     reducer::reducerType # reducer function
     storage::storageType
     buffer::Union{Nothing,AbstractVector}
     sampleidx::Int
 end
 
+"""
+    TimeSampled(
+        t0::tType,
+        tsave::AbstractVector{tType};
+        reducer=mean,
+        samplerate=default_sample_rate(tsave),
+    ) where {tType}
+
+Constructs a `TimeSampled` simulator output which iteratively samples and stores outputs on each call to `observe!`.
+"""
 function TimeSampled(
     t0::tType,
     tsave::AbstractVector{tType};
+    time_converter = convert,
     reducer=mean,
     samplerate=default_sample_rate(tsave),
     storage::SimulationData=SimulationArrayStorage(),
@@ -167,60 +180,34 @@ function TimeSampled(
             push!(tsample, t)
         end
     end
-    return TimeSampled(extrema(tsample), tsample, collect(tsave), reducer, storage, nothing, 1)
+    return TimeSampled(extrema(tsample), tsample, collect(tsave), time_converter, reducer, storage, nothing, 1)
 end
 
 const TimeSampledObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeSampled}
 
 """
-    SimulatorObservable(
-        name::Symbol,
-        obsfunc,
-        t0::tType,
-        tsave::AbstractVector{tType},
-        output_shape_or_coords::Tuple;
-        reducer=mean,
-        samplerate=default_sample_rate(tsave),
-    ) where {tType}
-
-Constructs a `TimeSampled` observable which iteratively samples and stores outputs on each call to `observe!`.
-"""
-function SimulatorObservable(
-    name::Symbol,
-    obsfunc,
-    t0::tType,
-    tsave::AbstractVector{tType},
-    coords::Tuple;
-    reducer=mean,
-    samplerate=default_sample_rate(tsave),
-    storage::SimulationData=SimulationArrayStorage(),
-) where {tType}
-    return SimulatorObservable(
-        name,
-        obsfunc,
-        TimeSampled(t0, tsave; reducer, samplerate, storage),
-        (coordinates(coords)..., Ti(tsave)),
-    )
-end
-
-"""
     sampletimes(::TimeSampledObservable)
+    sampletimes(::Type{T}, obs::TimeSampledObservable) where {T}
 
 Return the time points at which the simulator should be sampled in order to compare to
 observations. Note that this may not exactly correspond to the observation time points;
 e.g. mean annual ground temperature observations would require the simulator to be sampled
 at appropriate intervals relative to the forcing. The implementation of `SimulatorObservable` is thus
-responsible for computing and storing the model state at each sample time.
+responsible for computing and storing the model state at each sample time. If a time type `T` is specified,
+the sample times are converted to `T` before returning.
 """
 sampletimes(obs::TimeSampledObservable) = obs.output.tsample
+sampletimes(::Type{T}, obs::TimeSampledObservable) where {T} = map(t -> obs.output.tconvert(T, t), sampletimes(obs))
 sampletimes(::SimulatorObservable) = []
-
 """
     savetimes(::TimeSampledObservable)
+    savetimes(::Type{T}, obs::TimeSampledObservable) where {T}
 
-Return the time points at which simulator outputs will be saved.
+Return the time points at which simulator outputs will be saved. If a time type `T` is specified,
+the sample times are converted to `T` before returning.
 """
 savetimes(obs::TimeSampledObservable) = obs.output.tsave
+savetimes(::Type{T}, obs::TimeSampledObservable) where {T} = map(t -> obs.output.tconvert(T, t), savetimes(obs))
 savetimes(::SimulatorObservable) = []
 
 default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
