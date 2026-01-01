@@ -18,11 +18,34 @@ struct SimulatorInferenceProblem{
     fwdSolverType,
     priorType<:JointPrior{modelPriorType}
 } <: SciMLBase.AbstractSciMLProblem
+    """
+    Initial parameter values
+    """
     u0::uType
+
+    """
+    Specification of the forward simulation
+    """
     forward_prob::fwdProbType
+
+    """
+    Solver/algorithm for the forward simulation
+    """
     forward_solver::fwdSolverType
+
+    """
+    Prior distribution over the simulator parameters
+    """
     prior::priorType
+    
+    """
+    NamedTuple of likelihoods corresponding to observables of the simulator
+    """
     likelihoods::NamedTuple
+    
+    """
+    Artbirary internal or user-specified metadata
+    """
     metadata::Dict
 end
 
@@ -176,12 +199,8 @@ may involve running the simulator.
 """
 function logdensityfunc(prob::SimulatorInferenceProblem, storage::SimulationData; transform=true, kwargs...)
     function logprob(θ)
-        # deep copy inference problem to prevent memory
-        # collisions between walkers; hopefully this doesn't
-        # cause too much allocation...
-        probcopy = deepcopy(prob)
         lp = sum(logjoint(prob, θ; transform=transform, kwargs...))
-        observables = probcopy.forward_prob.observables
+        observables = prob.forward_prob.observables
         store!(storage, θ, observables)
         return lp
     end
@@ -196,7 +215,7 @@ function Base.show(io::IO, ::MIME"text/plain", prob::SimulatorInferenceProblem)
     println(io, "    Parameters: $(labels(prob.u0))")
     println(io, "    Likelihoods: $(keys(prob.likelihoods))")
     println(io, "    Observables: $(keys(prob.observables))")
-    println(io, "    Forward problem type: $(typeof(prob.forward_prob.prob))")
+    println(io, "    Forward problem type: $(typeof(prob.forward_prob))")
     println(io, "    Forward solver: $(isnothing(prob.forward_solver) ? "none" : typeof(prob.forward_solver))")
     println(io, "    Prior type: $(typeof(prob.prior))")
     println(io, "    Metadata: $(prob.metadata)")
