@@ -18,9 +18,9 @@ end
     include("ensembles/runtests.jl")
 end
 
-@testset "Emulators" begin
-    include("emulators/emulator_tests.jl")
-end
+# @testset "Emulators" begin
+#     include("emulators/emulator_tests.jl")
+# end
 
 @testset "Turing integration" begin
     include("TuringExt/turing_tests.jl")

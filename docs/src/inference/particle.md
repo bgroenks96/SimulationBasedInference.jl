@@ -99,7 +99,7 @@ Internally, the algorithms use `ensemble_solve` to construct and solve an `Ensem
 ensemble_solve(
     ens::AbstractMatrix,
     initial_prob::SciMLBase.AbstractSciMLProblem,
-    ensalg::SciMLBase.BasicEnsembleAlgorithm,
+    ensalg::SciMLBase.EnsembleAlgorithm,
     dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
     param_map;
     iter::Integer=1,

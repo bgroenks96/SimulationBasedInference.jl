@@ -101,7 +101,7 @@ function set_up_Tsurf_forward_problem(
     prob = CryoGridProblem(tile, u0, tspan, saveat=convert_t.(saveat), savevars=savevars)
     Ts_observable = TemperatureProfileObservable(:Ts, obs_depths, tspan, Month(1), samplerate=Day(1))
     Ts_pred_observable = TemperatureProfileObservable(:Ts_pred, obs_depths, (tspan[end]-obs_period, tspan[end]), obs_period, samplerate=Day(1))
-    T_ub_observable = SimulatorObservable(:T_ub, integrator -> getstate(integrator).top.T_ub, tspan[1], tspan[1]+Day(1):Day(1):tspan[end], (1,), samplerate=Day(1))
+    T_ub_observable = SimulatorObservable(integrator -> getstate(integrator).top.T_ub, (1,), name=:T_ub, output=TimeSampled(tspan[1], tspan[1]+Day(1):Day(1):tspan[end], samplerate=Day(1)))
     # alt_observable = ActiveLayerThicknessObservable(:alt, extrema(saveat), samplerate=Day(1))
     forward_prob = SimulatorForwardProblem(prob, Ts_observable, Ts_pred_observable, T_ub_observable, observables...)
     return forward_prob

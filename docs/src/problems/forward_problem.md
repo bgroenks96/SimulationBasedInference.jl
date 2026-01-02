@@ -48,7 +48,7 @@ For example, a ODE-based simulator can be solved using algorithms from [Ordinary
 ```@example
 p = ComponentArray(α=0.1)
 odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), p)
-observable = SimulatorObservable(:u, state -> state.u, 0.0, 0.1:0.1:1.0, size(odeprob.u0), samplerate=0.01)
+observable = SimulatorObservable(state -> state.u, size(odeprob.u0), name = :u, output = TimeSampled(0.0, 0.1:0.1:1.0, samplerate=0.01))
 forward_prob = SimulatorForwardProblem(odeprob, observable)
 forward_sol = solve(forward_prob, Tsit5())
 ```

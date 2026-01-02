@@ -13,7 +13,7 @@ n_obs = 20
 p_true = ComponentVector(x₁=-0.42, x₂=0.35)
 p0 = p_true
 f(x) = x*ones(1,n_obs)
-observable = SimulatorObservable(:x, x -> x.u, (2,n_obs))
+observable = SimulatorObservable(identity, (2,n_obs), name=:x)
 forward_prob = SimulatorForwardProblem(f, p0, observable)
 
 # Set univariate normal distributions as priors

@@ -32,9 +32,8 @@ u2 = odedata[2,:]
 Nt = length(u1)
 
 ### Define observables
-# observable = ODEObservable(:y, odeprob, tsave, samplerate=0.01)
-y1 = SimulatorObservable(:u1, state -> state.u[1,:], tspan[1], tsave, (1,), samplerate=minimum(diff(tsave)))
-y2 = SimulatorObservable(:u2, state -> state.u[2,:], tspan[1], tsave, (1,), samplerate=minimum(diff(tsave)))
+y1 = SimulatorObservable(state -> state.u[1,:], (1,), name = :u1, output = TimeSampled(tspan[1], tsave, samplerate=minimum(diff(tsave))))
+y2 = SimulatorObservable(state -> state.u[2,:], (1,), name = :u2, output = TimeSampled(tspan[1], tsave, samplerate=minimum(diff(tsave))))
 
 forward_prob = SimulatorForwardProblem(odeprob, y1, y2)
 sol = solve(forward_prob, Tsit5())

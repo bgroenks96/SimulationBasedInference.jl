@@ -93,9 +93,6 @@ end
 export GaussianLikelihood, IsotropicGaussianLikelihood, DiagonalGaussianLikelihood
 include("gaussian_likelihood.jl")
 
-export GPLikelihood
-include("gp_likelihood.jl")
-
 export ImplicitLikelihood
 include("implicit_likelihood.jl")
 

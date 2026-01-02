@@ -17,3 +17,20 @@ function ntreduce(f, xs::AbstractVector{<:NamedTuple})
         (; map(k -> k => f(acc[k], xᵢ[k]), keys(acc))...)
     end
 end
+
+"""
+    tupleinsert(tuple, i, x)
+
+Insert value `x` into `tuple` at index `i`. This function is fully type-stable and allocation-free.
+"""
+function tupleinsert(tuple::Tuple{Vararg{Any, N}}, i, x) where {N}
+    return map(ntuple(identity, Val{N+1}())) do j
+        if j < i
+            tuple[j]
+        elseif j == i
+            x
+        else
+            tuple[j-1]
+        end
+    end
+end
