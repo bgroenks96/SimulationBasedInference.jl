@@ -4,7 +4,7 @@ using Reexport
 
 # Utility
 using Dates
-using FileIO
+using ForwardDiff
 using LinearAlgebra
 using Requires
 
@@ -17,12 +17,10 @@ using Optim
 using Random
 using UnPack
 
-import CommonSolve: init, solve, solve!
-import SciMLBase: AbstractSciMLProblem, done
-import LogDensityProblems: logdensity
-
-# to suppress name collision warnings
-import SciMLBase: islinear
+# Imported interface types/methods
+import CommonSolve: init, step!, solve, solve!
+import SciMLBase: AbstractSciMLProblem, AbstractDEProblem, EnsembleAlgorithm, done
+import LogDensityProblems: LogDensityProblems, logdensity
 
 # Re-exported packages
 @reexport using Bijectors
@@ -35,7 +33,8 @@ import SciMLBase: islinear
 @reexport using StatsFuns
 @reexport using Statistics
 
-export LogDensityProblems, logdensity
+# to suppress name collision warnings
+import SciMLBase: islinear
 
 export SimulatorInferenceAlgorithm
 
@@ -72,7 +71,7 @@ export SimulationData, SimulationArrayStorage
 export store!, getinputs, getoutputs, getmetadata
 include("simulation_data.jl")
 
-export SimulatorObservable, TimeSampledObservable, TransientObservable
+export SimulatorObservable, TimeSampledObservable, TransientObservable, TimeSampled
 export observe!, getvalue, coordinates
 include("observables.jl")
 
@@ -84,18 +83,22 @@ include("priors/priors.jl")
 export SimulatorLikelihood
 include("likelihoods/likelihoods.jl")
 
+export SimulatorKind
+include("simulator_interface.jl")
+
 export SimulatorForwardProblem, SimulatorForwardSolution
 export get_observable, get_observables
 include("forward_problem.jl")
+
+export SimulatorForwardSolution
+include("forward_solve.jl")
 
 export SimulatorInferenceProblem, SimulatorInferenceSolution
 include("inference_problem.jl")
 
 # LogDensityProblems interface
+export LogDensityProblems, logdensity
 include("logdensity.jl")
-
-export ForwardSimulation
-include("forward_solve.jl")
 
 # Inference algorithms; these files should
 # already export all relevant types/methods
@@ -105,14 +108,10 @@ include("mcmc/mcmc.jl")
 export SBI # alias for base module
 const SBI = SimulationBasedInference
 
-using PackageExtensionCompat
-
 function __init__()
     @require PythonCall="6099a3de-0909-46bc-b1f4-468b9a2dfc0d" begin
-        include("../PySBI/PySBI.jl")
+        include("../ext/pysbi/PySBI.jl")
     end
-    # Backwards comaptible extension loading
-    @require_extensions
 end
 
 end
