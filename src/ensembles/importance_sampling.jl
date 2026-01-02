@@ -48,21 +48,9 @@ function initialstate(
 end
 
 function ensemblestep!(solver::EnsembleSolver{<:EnIS})
-    sol = solver.sol
     state = solver.state
-    # model parameter forward map
-    param_map = unconstrained_forward_map(sol.prob.prior.model)
     # generate ensemble predictions
-    out = ensemble_solve(
-        state,
-        sol.prob.forward_prob,
-        solver.ensalg,
-        sol.prob.forward_solver,
-        param_map;
-        prob_func=solver.prob_func,
-        output_func=solver.output_func,
-        solver.solve_kwargs...
-    )
+    out = ensemble_forward(solver)
     # compute importance weights
     w, Neff = importance_weights(state.obs_mean, out.pred, state.obs_cov)
     # compute likelihoods

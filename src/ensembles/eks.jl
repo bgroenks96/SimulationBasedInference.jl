@@ -47,25 +47,13 @@ function initialstate(
 end
 
 function ensemblestep!(solver::EnsembleSolver{EKS})
-    sol = solver.sol
     state = solver.state
     alg = solver.alg
     ekp = state.ekp
     solver.verbose && @info "Starting iteration $(state.iter) (maxiters=$(alg.maxiters))"
     Θ = get_u_final(ekp)
-    # model parameter forward map
-    param_map = unconstrained_forward_map(sol.prob.prior.model)
     # generate ensemble predictions
-    out = ensemble_solve(
-        state,
-        sol.prob.forward_prob,
-        solver.ensalg,
-        sol.prob.forward_solver,
-        param_map;
-        prob_func=solver.prob_func,
-        output_func=solver.output_func,
-        solver.solve_kwargs...
-    )
+    out = ensemble_forward(solver)
     # update ensemble
     update_ensemble!(ekp, out.pred)
     # compute likelihoods and prior prob
