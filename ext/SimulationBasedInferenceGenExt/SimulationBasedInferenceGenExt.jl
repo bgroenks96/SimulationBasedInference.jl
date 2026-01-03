@@ -7,8 +7,7 @@ using Random
 
 include("gen_utils.jl")
 
+export GenSimulatorPrior
 include("gen_prior.jl")
-
-include("gen_models.jl")
 
 end

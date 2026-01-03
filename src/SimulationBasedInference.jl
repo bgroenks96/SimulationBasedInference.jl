@@ -43,27 +43,6 @@ Base type for all simulator-based inference algorithms.
 """
 abstract type SimulatorInferenceAlgorithm end
 
-# Probabilistic model constructors
-
-"""
-    likelihood_model(prob::SimulatorInferenceProblem, forward_alg; solve_kwargs...)
-
-Constructs a function or type which represents the forward map and/or likelihood
-component of the probailistic model. Can be implemented by extensions for specific
-probabilistic programming languages or modeling tools.
-"""
-function likelihood_model end
-
-"""
-    joint_model(prob::SimulatorInferenceProblem, forward_alg; solve_kwargs...)
-
-Constructs a function or type which represents the full joint model (prior + likelihood).
-Can be implemented by extensions for specific probabilistic programming languages or modeling tools.
-"""
-function joint_model end
-
-##################################
-
 export autoprior, from_moments
 include("utils.jl")
 
