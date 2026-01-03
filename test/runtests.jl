@@ -1,9 +1,9 @@
 using Test
 
-include("testcases.jl")
+include("test_problems.jl")
 
 @testset "Observables" begin
-    include("observable_tests.jl")
+    include("observables_tests.jl")
 end
 
 @testset "Priors" begin

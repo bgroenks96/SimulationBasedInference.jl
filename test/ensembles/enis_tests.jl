@@ -20,34 +20,22 @@ end
     x_true = 1.0
     b_true = 0.2
     ensemble_size = 1024
-    x_prior = Normal(0,1)
-    # log-normal with mean 0.1 and stddev 0.2
-    b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
+    x_prior = Normal(0, 2)
+    # log-normal with mean 0.5 and stddev 1
+    b_prior = autoprior(0.5, 0.5, lower=0.0, upper=Inf)
     rng = Random.MersenneTwister(1234)
-    testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
-    # model parameter forward map
-    param_map = unconstrained_forward_map(testprob.prior.model)
-    bij = bijector(testprob.prior.model)
+    testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior, σ_y=0.1)
     # sample initial ensemble from model prior (excluding likelihood parameters)
     initial_ens = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
-    initial_ens_uconstrained = reduce(hcat, map(bij, eachcol(initial_ens)))
-    y_pred, _ = SimulationBasedInference.ensemble_solve(
-        initial_ens_uconstrained,
-        testprob.forward_prob,
-        EnsembleThreads(),
-        nothing,
-        param_map,
-        iter=1,
-    )
+    enssol = solve(testprob.forward_prob, EnsembleThreads(), p=initial_ens)
+    y_pred = mapreduce(res -> vec(res.observables.y), hcat, enssol.u)
     y_obs = testprob.likelihoods.y.data
     y_lik = mean(testprob.prior.lik.y)
     w, Neff = importance_weights(y_obs, y_pred, y_lik.σ^2)
     posterior_mean = initial_ens*w
     @test sum(w) ≈ 1.0
     @test abs(posterior_mean[1] - x_true) < 0.1
-    # doesn't seem to work reliably for this parameter in this case...
-    # probably would need to use an iterative approach..?
-    # @test abs(posterior_mean[2] - b_true) < 0.01
+    @test abs(posterior_mean[2] - b_true) < 0.1
 end
 
 @testset "EnIS: solver inteface" begin

@@ -9,7 +9,7 @@ using Random
 using Test
 using Turing
 
-@model function testmodel1()
+@model function turing_test_model()
     x ~ Normal(0,1)
     p ~ Beta(1,1)
     return [x,p]
@@ -17,7 +17,7 @@ end
 
 @testset "Turing priors" begin
     rng = Random.MersenneTwister(1234)
-    m = testmodel1()
+    m = turing_test_model()
     m_prior = prior(m)
     draw = rand(m_prior)
     @test isa(draw, ComponentVector)

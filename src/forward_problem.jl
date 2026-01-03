@@ -96,6 +96,18 @@ Rebuilds a `SimulatorForwardProblem` from its individual components. If `copy_ob
 then `remake` will `deepcopy` the observables to ensure independence. The default setting is `true`.
 """
 function SciMLBase.remake(
+    forward_prob::SimulatorForwardProblem;
+    p=forward_prob.p,
+    simulator=forward_prob.simulator,
+    observables=forward_prob.observables,
+    rng_seed=forward_prob.rng_seed,
+    copy_observables=true,
+    kwargs...
+)
+    new_observables = copy_observables ? deepcopy(observables) : observables
+    return SimulatorForwardProblem(simulator, p, new_observables, rng_seed)
+end
+function SciMLBase.remake(
     forward_prob::SciMLForwardProblem;
     p=forward_prob.p,
     prob=forward_prob.simulator,
@@ -104,8 +116,9 @@ function SciMLBase.remake(
     copy_observables=true,
     kwargs...
 )
+    newprob = remake(prob; p, kwargs...)
     new_observables = copy_observables ? deepcopy(observables) : observables
-    return SimulatorForwardProblem(remake(prob; p, kwargs...), p, new_observables, rng_seed)
+    return SimulatorForwardProblem(newprob, p, new_observables, rng_seed)
 end
 SciMLBase.remaker_of(forward_prob::SciMLForwardProblem) = (;kwargs...) -> remake(forward_prob; kwargs...)
 SciMLBase.isinplace(prob::SciMLForwardProblem) = DiffEqBase.isinplace(prob.prob)

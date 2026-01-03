@@ -3,9 +3,9 @@ module PySBI
 using ..PythonCall
 
 using Bijectors
-using CommonSolve
 using SimulationBasedInference
 
+import CommonSolve: init, solve, solve!, step!
 import Random
 
 const torch = pyimport("torch")

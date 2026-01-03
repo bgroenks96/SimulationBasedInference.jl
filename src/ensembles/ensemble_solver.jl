@@ -88,22 +88,10 @@ ensemblestep!(::EnsembleSolver{algType}) where {algType} = error("not implemente
     finalize!(solver::EnsembleSolver)
 
 Finalizes the solver state after iteration has completed. Default implementation runs `ensemble_solve`
-on the current ensemble state and pushes the results to `sol.outputs`.
+on the current ensemble state and stores the results in `sol.storage`.
 """
 function finalize!(solver::EnsembleSolver)
-    # model parameter forward map
-    param_map = unconstrained_forward_map(solver.sol.prob.prior.model)
-    out = ensemble_solve(
-        solver.state,
-        solver.sol.prob.forward_prob,
-        solver.sol.prob.forward_solver,
-        solver.ensalg,
-        param_map;
-        prob_func=(prob, i, repeat) -> solver.prob_func,
-        output_func=solver.output_func,
-        solver.solve_kwargs...
-    )
-
+    out = ensemble_forward(solver)
     if isiterative(solver.alg)
         store!(solver.sol.storage, get_ensemble(solver.state), out.observables, iter=solver.state.iter+1)
     else
@@ -127,8 +115,8 @@ function init(
     alg::EnsembleInferenceAlgorithm,
     ensalg::Union{Nothing, EnsembleAlgorithm}=EnsembleThreads(),
     solve_args...;
-    prob_func=(prob,p) -> remake(prob, p=p),
-    output_func=default_output_func(inference_prob.forward_prob),
+    prob_func=(prob, p) -> remake(prob; p),
+    output_func=ensemble_output_func(inference_prob.forward_prob),
     obs_cov_func=obscov,
     initial_ens=nothing,
     ensemble_size::Integer=isnothing(initial_ens) ? 128 : size(initial_ens, 2),
@@ -187,7 +175,7 @@ function step!(solver::EnsembleSolver)
     # set result
     sol.result = state
     # store observables
-    store!(sol.storage, copy(get_ensemble(state)), out.observables, iter=state.iter)
+    store!(sol.storage, get_ensemble(state), out.observables, iter=state.iter)
     # iteration callback
     callback_retval = solver.itercallback(state)
     # check convergence
@@ -224,30 +212,28 @@ function ensemble_forward(solver::EnsembleSolver)
     p = reduce(hcat, map(param_map, eachcol(θ)))
     # rebuild forward problem with the constrained parameter ensemble
     forward_prob = remake(inference_prob.forward_prob, p=p)
-    # initialize the ensemble forward problem
-    ens = init(forward_prob, solver.forward_alg, solver.ensalg, solver.solve_args...; solver.solve_kwargs...)
     # solve the ensemble forward problem
-    enssol = solve!(ens)
-    return ensemble_outputs(enssol)
+    enssol = solve(forward_prob, inference_prob.forward_solver, solver.ensalg, solver.solve_args...; solver.solve_kwargs...)
+    return ensemble_outputs(inference_prob, enssol)
 end
 
 # Non-batched simulator, ensemble solve
-function ensemble_outputs(sol::EnsembleSolution)
+function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::EnsembleSolution)
     # extract prediction vector for combined likelihoods
     pred = mapreduce(hcat, sol.u) do result
         # retrieve observable for each likelihood and flatten into a vector
-        observables = map(name -> result.observables[name], keys(prob.likelihoods))
-        reduce(vcat, map(obs -> vec(getvalue(obs)), observables))
+        observables = map(name -> result.observables[name], keys(inference_prob.likelihoods))
+        reduce(vcat, map(obs -> vec(obs), observables))
     end
     # extract observable values
-    observables = ntreduce(hcat, map(result -> map(getvalue, result.observables), sol.u))
+    observables = ntreduce(enscat, map(result -> result.observables, sol.u))
     return (; pred, observables)
 end
 
 # Batched simulator
-function ensemble_outputs(sol::SimulatorForwardSolution)
+function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::SimulatorForwardSolution)
     # extract prediction vector for combined likelihoods
-    pred = mapreduce(vcat, keys(prob.likelihoods)) do name
+    pred = mapreduce(vcat, keys(inference_prob.likelihoods)) do name
         arr = getvalue(sol.prob.observables[name])
         # flatten all but the last (batch) axis
         reshape(arr, :, length(last(axes(arr))))

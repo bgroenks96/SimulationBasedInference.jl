@@ -56,7 +56,7 @@ function ensemblestep!(solver::EnsembleSolver{<:ESMDA})
     # generate ensemble predictions
     out = ensemble_forward(solver)
     # Kalman update
-    @unpack ρ_AB, ρ_BB, stochastic, dosvd, svd_thresh = alg
+    (; ρ_AB, ρ_BB, stochastic, dosvd, svd_thresh) = alg
     Θ = state.ens
     Θ_post = ensemble_kalman_analysis(
         Θ,

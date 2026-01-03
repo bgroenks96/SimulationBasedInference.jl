@@ -27,59 +27,41 @@ function obscov(likelihoods::SimulatorLikelihood{<:Union{IsoNormal,DiagNormal}}.
     return Diagonal(reduce(vcat, cov_diags))
 end
 
-function iterationindices(storage::SimulationData, alg::EnsembleInferenceAlgorithm, iter::Int)
-    if isiterative(alg)
-        iters = map(m -> m.iter, getmetadata(storage))
-        iter = iter > 0 ? iter : maximum(iters)
-        inds = findall(==(iter), iters)
-    else
-        inds = 1:length(storage)
-    end
-    return inds
-end
-
 """
-    get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+    get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
 
 Fetches the state of the ensemble from the given solution object. For iterative algorithms, the
 optinal argument `iter` may be provided, which then retrieves the ensemble at the given iteration.
 """
-function get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
-    # find indices matching for iteration
-    inds = iterationindices(sol.storage, sol.alg, iter)
-    # retrieve ensemble from storage and concatenate
-    return reduce(hcat, getinputs(sol.storage, inds))
+function get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
+    # retrieve ensemble from storage
+    return getinputs(sol.storage, iter)
 end
 
 """
-    get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+    get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
     
 Fetches the transformed ensemble from the given solution object. For iterative algorithms, the
 optinal argument `iter` may be provided, which then retrieves the ensemble at the given iteration.
 """
-function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
     # get transform
     prob = sol.prob
     inverse_transform = inverse(bijector(prob.prior.model))
-    # find indices matching iteration
-    inds = iterationindices(sol.storage, sol.alg, iter)
     # retrieve ensemble from storage
-    ens = getinputs(sol.storage, inds)
-    return reduce(hcat, map(inverse_transform, ens))
+    ens = getinputs(sol.storage, iter)
+    return mapslices(inverse_transform, ens, dims=1)
 end
 
 """
-    get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
+    get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
 
-Returns a `NamedTuple` of concatenated observables at iteration `iter`.
+Returns a `NamedTuple` of the ensemble simulated observables at iteration `iter`.
 """
-function get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=-1)
-    # find indices matching iteration
-    inds = iterationindices(sol.storage, sol.alg, iter)
+function get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
     # retrieve ensemble from storage
-    out = getoutputs(sol.storage, inds)
-    # reduce over named tuples, concatenating each observable
-    return ntreduce(enscat, convert(Vector{NamedTuple}, out))
+    out = getoutputs(sol.storage, iter)
+    return out
 end
 
 enscat(x::AbstractVecOrMat, y::AbstractVector) = hcat(x, y)

@@ -109,11 +109,10 @@ function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R_cov)
     return importance_weights(obs, pred, R)
 end
 
-function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::Diagonal)
+function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::AbstractMatrix)
     n_obs, ensemble_size = size(pred)
     @assert n_obs == length(obs)
-    residual = obs .- pred
-    loglik = sum(-0.5*inv(R)*residual.^2, dims=1)[1,:]
+    loglik = mapslices(x -> logpdf(MvNormal(obs, R), x), pred, dims=1)[1,:]
 
     # Log of normalizing constant
     log_z = logsumexp(loglik)
@@ -126,7 +125,7 @@ function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::Diagon
     @assert length(weights) == ensemble_size "weight vector has incorrect dimensions: $(size(weights))"
     @assert abs(sum(weights) - 1.0) < sqrt(eps()) "particle weights do not sum to unity! ∑w=$(sum(weights))"
 
-    Neff = round(1/sum(weights.^2))
+    Neff = round(Int, 1/sum(weights.^2))
 
     return weights, Neff
 end

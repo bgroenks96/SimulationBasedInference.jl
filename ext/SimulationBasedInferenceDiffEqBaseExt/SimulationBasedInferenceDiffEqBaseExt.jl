@@ -6,8 +6,10 @@ using SimulationBasedInference: DynamicalSimulation
 using DiffEqBase
 using SciMLBase: AbstractODEProblem, AbstractODEIntegrator
 
+import CommonSolve: init, step!, solve!
+
 const SciMLForwardProblem = SimulationBasedInference.SciMLForwardProblem
-const ODESimulation{probType} = DynamicalSimulation{probType} where {probType<:AbstractODEIntegrator}
+const ODESimulation = DynamicalSimulation{probType, timeType, integratorType} where {probType<:AbstractODEProblem, timeType, integratorType<:AbstractODEIntegrator}
 
 # DiffEqBase dispatches to make solve/init interface work correctly
 DiffEqBase.check_prob_alg_pairing(prob::SciMLForwardProblem, alg) = DiffEqBase.check_prob_alg_pairing(prob.prob, alg)
@@ -24,7 +26,7 @@ function Base.getproperty(sim::ODESimulation, sym::Symbol)
         return getproperty(getfield(sim, :integrator), sym)
     end
 end
-function Base.setproperty!(integrator::SimulatorODEForwardSolver, sym::Symbol, value)
+function Base.setproperty!(integrator::ODESimulation, sym::Symbol, value)
     if sym ∈ fieldnames(typeof(integrator))
         return setfield!(integrator, sym, value)
     else
@@ -40,25 +42,26 @@ end
 Initializes a `DynamicalSimulation` for the given forward problem and ODE integrator algorithm. Additional keyword arguments are
 passed through to the integrator `init` implementation.
 """
-function CommonSolve.init(
+function init(
     forward_prob::SimulatorForwardProblem{<:AbstractODEProblem},
+    ode_alg::SciMLBase.AbstractDEAlgorithm,
     args...;
-    p=forward_prob.simulator.p,
+    p=forward_prob.p,
     saveat=[],
     save_everystep=false,
     copy_observables=false,
     solve_kwargs...
 )
-    return init(forward_prob, SimulatorKind(forward_prob), args...; p, saveat, save_everystep, copy_observables, solve_kwargs...)
+    return init(SimulatorKind(forward_prob.simulator), forward_prob, ode_alg, args...; p, saveat, save_everystep, copy_observables, solve_kwargs...)
 end
 
 """
-    solve!(sim::ODESimulation, stop_at_tdt=true, args... ; kwargs...)
+    solve!(sim::ODESimulation, args... ; stop_at_tdt=true, kwargs...)
 
 Solves the forward problem using the given diffeq algorithm and parameters `p`.
 """
-function CommonSolve.solve!(sim::ODESimulation, stop_at_tdt=true, args...; kwargs...)
-    while !done(sim.integrator)
+function solve!(sim::ODESimulation, args...; stop_at_tdt=true, kwargs...)
+    while !SciMLBase.done(sim.integrator)
         step!(sim, stop_at_tdt, args...; kwargs...)
     end
     sol = solve!(sim.integrator)

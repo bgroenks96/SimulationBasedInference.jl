@@ -23,7 +23,7 @@ function pysimulator(inference_prob::SimulatorInferenceProblem, data::Simulation
         end
     end
     simulator(ζ::PyIterable, return_py::Bool=true) = simulator(pyconvert(Vector, ζ), return_py)
-    simulator(ζ::PyMatrix) = Py(transpose(reduce(hcat, map(x -> simulator(x, false), eachrow(ζ))))).to_numpy()
+    simulator(ζ::PyArray{T,2}) where {T} = Py(transpose(reduce(hcat, map(x -> simulator(x, false), eachrow(ζ))))).to_numpy()
     return simulator
 end
 

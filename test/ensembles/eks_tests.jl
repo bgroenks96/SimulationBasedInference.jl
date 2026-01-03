@@ -1,7 +1,6 @@
 using SimulationBasedInference
 
 using Bijectors
-using EnsembleKalmanProcesses
 using LinearAlgebra
 using OrdinaryDiffEq
 using Test
@@ -11,7 +10,7 @@ import Random
 @testset "EKS: solver inteface" begin
     rng = Random.MersenneTwister(1234)
     testprob = evensen_scalar_nonlinear(;rng)
-    solver = init(testprob, EKS())
+    solver = init(testprob, EKS(), verbose=false)
     test_ensemble_alg_interface(solver)
 end
 
@@ -25,9 +24,9 @@ end
     # solve inference problem with EKS
     eks_sol = solve(inference_prob, eks, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
     # check results
-    u_ens = get_u_final(eks_sol.result.ekp)
+    posterior_ens = get_ensemble(eks_sol)
     constrained_to_unconstrained = bijector(prior)
-    posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
+    posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(posterior_ens)))
     posterior_mean = mean(posterior_ens, dims=2)
     @test abs(posterior_mean[1] - 0.2) < 0.01
 end
