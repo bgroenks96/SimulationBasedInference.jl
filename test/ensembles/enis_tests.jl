@@ -20,11 +20,11 @@ end
 @testset "importance_weights: evensen_scalar_nonlinear" begin
     x_true = 1.0
     b_true = 0.3
-    ensemble_size = 1024
+    ensemble_size = 2048
     x_prior = Normal(0, 2)
-    b_prior = LogNormal(log(0.5), 0.5)
+    b_prior = LogNormal(log(0.5), 1.0)
     rng = Random.MersenneTwister(1234)
-    testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior, σ_y=0.1)
+    testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior, σ_y=1.0)
     # sample initial ensemble from model prior (excluding likelihood parameters)
     initial_ens = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
     enssol = solve(testprob.forward_prob, EnsembleThreads(), p=initial_ens)
@@ -34,7 +34,9 @@ end
     w, Neff = importance_weights(y_obs, y_pred, y_lik.σ^2)
     prior_mean = mean(initial_ens, dims=2)[:,1]
     posterior_mean = initial_ens*w
+    @show posterior_mean - prior_mean
     @test sum(w) ≈ 1.0
+    @test Neff > 10
     # Single-round importance sampling is not very reliable on this problem, even for large ensemble
     # sizes due to degeneracy of the weights. Rather than testing for accuracy, we instead just check
     # that we moved in the right direction; i.e. the posterior mean is closer to the true value than
@@ -52,21 +54,20 @@ end
 
 @testset "EnIS: evensen_scalar_nonlinear" begin
     x_true = 1.0
-    b_true = 0.1
+    b_true = 0.3
     σ_y = 0.1
-    ensemble_size = 1024
-    x_prior = Normal(0,1)
-    # log-normal with mean 0.1 and stddev 0.2
-    # b_prior = autoprior(0.1, 0.2, lower=0.0, upper=Inf)
-    b_prior = Bijectors.TransformedDistribution(Normal(0.0, 1.0), Base.Fix1(broadcast, exp))
+    ensemble_size = 2048
+    x_prior = Normal(0, 2)
+    b_prior = LogNormal(log(0.5), 1.0)
     rng = Random.MersenneTwister(1234)
-    testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior)
+    testprob = evensen_scalar_nonlinear(x_true, b_true; n_obs=100, rng, x_prior, b_prior, σ_y=1.0)
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     testsol = solve(testprob, EnIS(), EnsembleThreads(); ensemble_size, rng)
     unconstrained_prior = get_ensemble(testsol.result)
     prior_ens = reduce(hcat, map(inverse_transform, eachcol(unconstrained_prior)))
     w = get_weights(testsol.result)
+    @test sum(w) ≈ 1
     prior_mean = mean(prior_ens, dims=2)[:,1]
     posterior_mean = prior_ens*w
     @test abs(posterior_mean[1] - x_true) < abs(prior_mean[1] - x_true)
