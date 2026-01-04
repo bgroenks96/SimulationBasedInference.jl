@@ -203,6 +203,7 @@ the sample times are converted to `T` before returning.
 sampletimes(obs::TimeSampledObservable) = obs.output.tsample
 sampletimes(::Type{T}, obs::TimeSampledObservable) where {T} = map(t -> obs.output.tconvert(T, t), sampletimes(obs))
 sampletimes(::SimulatorObservable) = []
+sampletimes(::Type{T}, ::SimulatorObservable) where{T} = []
 
 """
     savetimes(::TimeSampledObservable)
@@ -214,6 +215,8 @@ the sample times are converted to `T` before returning.
 savetimes(obs::TimeSampledObservable) = obs.output.tsave
 savetimes(::Type{T}, obs::TimeSampledObservable) where {T} = map(t -> obs.output.tconvert(T, t), savetimes(obs))
 savetimes(::SimulatorObservable) = []
+savetimes(::Type{T}, ::SimulatorObservable) where{T} = []
+
 
 default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
