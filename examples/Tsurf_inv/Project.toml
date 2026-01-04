@@ -21,3 +21,6 @@ SimulationBasedInference = "78927d98-f421-490e-8789-96b006983a5c"
 TimeSeries = "9e3dc215-6440-5c97-bce1-76c03772f85e"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+
+[sources]
+SimulationBasedInference = {path = "../.."}
