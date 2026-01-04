@@ -15,7 +15,6 @@ using SciMLBase
 using MCMCChains
 using Optim
 using Random
-using UnPack
 
 # Imported interface types/methods
 import CommonSolve: init, step!, solve, solve!
