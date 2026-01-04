@@ -50,8 +50,8 @@ function init(
     copy_observables=false,
     kwargs...
 )
-    newprob = remake(prob; p, copy_observables)
-    return ForwardMapSolver(newprob, args, kwargs)
+    prob = remake(prob; p, copy_observables)
+    return ForwardMapSolver(prob, args, kwargs)
 end
 
 step!(::ForwardMapSolver, args...; kwargs...) = error("step! not defined for non-iterative simulators")
@@ -101,17 +101,17 @@ function init(
     maxiters=1000,
     kwargs...
 )
-    newprob = remake(prob; p, copy_observables)
+    prob = remake(prob; p, copy_observables)
     sim = if isnothing(prob.rng_seed)
-        init(newprob.simulator, forward_alg, args...; kwargs...)
+        init(prob.simulator, forward_alg, args...; p, kwargs...)
     else
-        init(newprob.simulator, forward_alg, args...; seed = prob.rng_seed, kwargs...)
+        init(prob.simulator, forward_alg, args...; seed = prob.rng_seed, p, kwargs...)
     end
     # initialize observables
-    for obs in newprob.observables
+    for obs in prob.observables
         initialize!(obs, sim)
     end
-    return IterativeSolver(newprob, sim, 1, maxiters)
+    return IterativeSolver(prob, sim, 1, maxiters)
 end
 
 function step!(solver::IterativeSolver, args...; kwargs...)
@@ -171,9 +171,9 @@ function init(
     copy_observables=false,
     kwargs...
 )
-    newprob = remake(prob; p, copy_observables)
+    prob = remake(prob; p, copy_observables)
     # initialize dynamical simulation
-    sim = init(newprob.simulator, forward_alg, args...; kwargs...)
+    sim = init(prob.simulator, forward_alg, args...; p, kwargs...)
     t = current_time(sim)
     tspan = timespan(sim)
     ttype = typeof(t)
@@ -186,10 +186,10 @@ function init(
         t_sample_all
     end
     # initialize observables
-    for obs in newprob.observables
+    for obs in prob.observables
         initialize!(obs, sim)
     end
-    return DynamicalSolver(newprob, sim, t_stops, 1)
+    return DynamicalSolver(prob, sim, t_stops, 1)
 end
 
 function step!(solver::DynamicalSolver, args...; kwargs...)
@@ -242,8 +242,8 @@ function solve(
     p::AbstractMatrix = forward_prob.p,
     kwargs...
 )
-    newprob = remake(prob; p)
-    return solve(newprob, nothing, ensalg, args...; kwargs...)
+    prob = remake(prob; p)
+    return solve(prob, nothing, ensalg, args...; kwargs...)
 end
 
 function solve(
@@ -254,8 +254,8 @@ function solve(
     p::AbstractMatrix = forward_prob.p,
     kwargs...
 )
-    newprob = remake(prob; p)
-    return solve(newprob, forward_alg, ensalg, args...; kwargs...)
+    prob = remake(prob; p)
+    return solve(prob, forward_alg, ensalg, args...; kwargs...)
 end
 
 function solve(
