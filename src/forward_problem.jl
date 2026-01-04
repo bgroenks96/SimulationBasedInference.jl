@@ -41,12 +41,12 @@ end
 """
 Type alias for `SimulatorForwardProblem`s where the forward map is defined by a SciML problem type.
 """
-const SciMLForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:AbstractSciMLProblem}
+const SciMLForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:SciMLBase.AbstractSciMLProblem}
 
 """
 Type alias for `SimulatorForwardProblem`s where the forward map is defined by a SciML differential equations problem type.
 """
-const SciMLDiffEqForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:AbstractDEProblem}
+const SciMLDiffEqForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:SciMLBase.AbstractDEProblem}
 
 # Functions
 

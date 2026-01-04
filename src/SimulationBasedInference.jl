@@ -16,12 +16,7 @@ using MCMCChains
 using Optim
 using Random
 
-# Imported interface types/methods
-import CommonSolve: init, step!, solve, solve!
-import SciMLBase: AbstractSciMLProblem, AbstractDEProblem, EnsembleAlgorithm, done
-import LogDensityProblems: LogDensityProblems, logdensity
-
-# Re-exported packages
+# Re-exported namespaces
 @reexport using Bijectors
 @reexport using ComponentArrays
 @reexport using DimensionalData: DimensionalData, Dimension, Dim, DimArray, X, Y, Z, Ti
@@ -32,8 +27,14 @@ import LogDensityProblems: LogDensityProblems, logdensity
 @reexport using StatsFuns
 @reexport using Statistics
 
+@reexport import CommonSolve: init, solve, solve!, step!
+@reexport import LogDensityProblems: LogDensityProblems, logdensity
+
+import SciMLBase: EnsembleAlgorithm
 # to suppress name collision warnings
 import SciMLBase: islinear
+
+export init, solve, solve!, step!
 
 export SimulatorInferenceAlgorithm
 
@@ -61,7 +62,7 @@ include("priors/priors.jl")
 export SimulatorLikelihood
 include("likelihoods/likelihoods.jl")
 
-export SimulatorKind
+export Simulator
 include("simulator_interface.jl")
 
 export SimulatorForwardProblem, SimulatorForwardSolution
