@@ -4,7 +4,7 @@
 CurrentModule = SimulationBasedInference
 DocTestSetup = quote
     using SimulationBasedInference
-    using SimulationBasedInference: EnsembleInferenceAlgorithm, ensemble_solve
+    using SimulationBasedInference: EnsembleInferenceAlgorithm, ensemble_forward
 end
 ```
 
@@ -93,18 +93,8 @@ get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgo
 get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int)
 ```
 
-Internally, the algorithms use `ensemble_solve` to construct and solve an `EnsembleProblem` over the parameter ensemble.
+Internally, the algorithms use the method `ensemble_forward` to apply the necessary parameter transforms and call `solve` on the resulting ensemble:
 
 ```@docs; canonical=false
-ensemble_solve(
-    ens::AbstractMatrix,
-    initial_prob::SciMLBase.AbstractSciMLProblem,
-    ensalg::SciMLBase.EnsembleAlgorithm,
-    dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
-    param_map;
-    iter::Integer=1,
-    prob_func,
-    output_func,
-    solve_kwargs...
-)
+ensemble_forward(solver::EnsembleSolver)
 ```
