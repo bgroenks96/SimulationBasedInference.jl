@@ -56,14 +56,18 @@ end
 
 step!(::ForwardMapSolver, args...; kwargs...) = error("step! not defined for non-iterative simulators")
 
-function solve!(sim::ForwardMapSolver)
-    output = sim.prob.simulator(sim.prob.p, sim.args...; sim.kwargs...)
+function solve!(solver::ForwardMapSolver)
+    output = if isnothing(solver.prob.rng_seed)
+        solver.prob.simulator(solver.prob.p, solver.args...; solver.kwargs...)
+    else
+        solver.prob.simulator(solver.prob.p, solver.args...; seed = solver.prob.rng_seed, solver.kwargs...)
+    end
     # compute observables
-    for obs in sim.prob.observables
+    for obs in solver.prob.observables
         initialize!(obs, output)
         observe!(obs, output)
     end
-    return SimulatorForwardSolution(sim.prob, output)
+    return SimulatorForwardSolution(solver.prob, output)
 end
 
 ## Iterative simulations
@@ -173,7 +177,11 @@ function init(
 )
     prob = remake(prob; p, copy_observables)
     # initialize dynamical simulation
-    sim = init(prob.simulator, forward_alg, args...; p, kwargs...)
+    sim = if isnothing(prob.rng_seed)
+        init(prob.simulator, forward_alg, args...; p, kwargs...)
+    else
+        init(prob.simulator, forward_alg, args...; seed = prob.rng_seed, p, kwargs...)
+    end
     t = current_time(sim)
     tspan = timespan(sim)
     ttype = typeof(t)
@@ -196,8 +204,8 @@ function step!(solver::DynamicalSolver, args...; kwargs...)
     # extract fields from forward integrator and compute dt
     prob = solver.prob
     sim = solver.sim
-    t = solver.tstops[solver.iter]
-    dt = t - current_time(sim)
+    t = solver.iter <= length(solver.tstops) ? solver.tstops[solver.iter] : last(solver.tstops)
+    dt = max(zero(t), t - current_time(sim))
     # if there are no more stopping points, just forward to the integrator and return
     if solver.iter > length(solver.tstops)
         return step!(sim)
@@ -207,7 +215,7 @@ function step!(solver::DynamicalSolver, args...; kwargs...)
     if dt > zero(dt)
         # if sim is a DEIntegrator, always set `stop_at_tdt` to true
         args = isa(sim, SciMLBase.DEIntegrator) ? (true, args...) : args
-        step!(sim, dt, args...; kwargs...)
+        retval = step!(sim, dt, args...; kwargs...)
     end
     # iterate over observables and update those for which t is a sample point
     for obs in prob.observables
@@ -229,6 +237,8 @@ function solve!(solver::DynamicalSolver, args...; kwargs...)
 end
 
 # Ensemble forward problems
+
+@enum ValidationResult OK RunAgain Skip Fail
 
 """
 Alias for `SimulatorForwardProblem` with matrix-valued parameters.
@@ -291,25 +301,27 @@ function solve(
     p::AbstractMatrix=forward_prob.p,
     ensdim::Int=2,
     prob_func::Function=(prob, i, repeat) -> remake(prob, p=p[:,i]),
-    output_func::Function=ensemble_output_func(forward_prob),
+    validator_func::Function=(sol, i) -> OK,
+    safetycopy=false,
     kwargs...
 )
-    ensprob = EnsembleProblem(forward_prob; prob_func, output_func)
+    output_func = ensemble_output_func(validator_func)
+    ensprob = EnsembleProblem(forward_prob; prob_func, output_func, safetycopy)
     return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p, ensdim), kwargs...)
 end
 
-function ensemble_output_func(::SimulatorForwardProblem; validator = (sol, i) -> OK)
+function ensemble_output_func(validator = (sol, i) -> OK)
     function output(sol::SimulatorForwardSolution, i)
         result = validator(sol, i)
         if result == OK
             # retrieve observables and flatten into a vector
             observables = map(obs -> getvalue(obs), sol.prob.observables)
             return (; sol, observables), false
-        elseif result == RunAgain
-            observables = nothing
-            return (; sol, observables), true
         elseif result == Fail
             error("forward solution validation failed: $sol")
+        else
+            observables = nothing
+            return (; sol, observables), result == RunAgain
         end
     end
 end

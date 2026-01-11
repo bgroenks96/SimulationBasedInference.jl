@@ -26,8 +26,6 @@ mutable struct EnsembleSolver{algType, probType, ensalgType, stateType<:Ensemble
     solve_kwargs::kwargTypes # keyword args passed to the forward solve
 end
 
-@enum ValidationResult OK RunAgain Fail
-
 ################################
 # Ensemble algorithm interface #
 ################################
