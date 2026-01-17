@@ -1,23 +1,23 @@
 """
-    EKS <: EnsembleInferenceAlgorithm
+    EKS{NF} <: EnsembleInferenceAlgorithm
 
 Represents a proxy for the Ensemble Kalman Sampler (Garbuno-Inigo et al. 2020) implementation provided by `EnsembleKalmanProcesses`.
 """
-Base.@kwdef struct EKS <: EnsembleInferenceAlgorithm
+Base.@kwdef struct EKS{NF} <: EnsembleInferenceAlgorithm
     prior_approx::GaussianApproximationMethod = LaplaceMethod()
     maxiters::Int = 30
-    minΔt::Float64 = 2.0
+    minΔt::NF = 2.0
 end
 
 isiterative(alg::EKS) = true
 
 # State type for Ensemble Kalman Processes
 
-mutable struct EKPState{ekpType<:EnsembleKalmanProcess} <: EnsembleState
+mutable struct EKPState{NF, ekpType<:EnsembleKalmanProcess} <: EnsembleState
     ekp::ekpType
     iter::Int  # iteration step
-    loglik::Vector # log likelihoods
-    logprior::Vector # log prior prob
+    loglik::Vector{NF} # log likelihoods for each iteration
+    logprior::Vector{NF} # log prior probabilities for each iteration
 end
 
 get_ensemble(state::EKPState) = get_u_final(state.ekp)

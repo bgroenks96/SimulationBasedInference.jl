@@ -1,4 +1,11 @@
-function pysimulator(inference_prob::SimulatorInferenceProblem, data::SimulationData, transform, pred_transform, ::Type{T}=Vector; rng::Random.AbstractRNG=Random.default_rng()) where {T}
+function pysimulator(
+    inference_prob::SimulatorInferenceProblem,
+    data::SimulationData,
+    transform,
+    pred_transform,
+    ::Type{T}=Vector;
+    rng::Random.AbstractRNG=Random.default_rng()
+) where {T}
     # helper method to convert scalars to 1D arrays
     lift(x::Number) = [x]
     lift(x::AbstractVector) = x

@@ -1,28 +1,33 @@
 """
-    ESMDA <: EnsembleInferenceAlgorithm
+    ESMDA{NF} <: EnsembleInferenceAlgorithm
 
 Implementation of the ensemble-smother multiple data assimilation algorithm of Emerick et al. 2013.
 
 Emerick, Alexandre A., and Albert C. Reynolds. "Ensemble smoother with multiple data assimilation." Computers & Geosciences 55 (2013): 3-15.
 """
-Base.@kwdef struct ESMDA <: EnsembleInferenceAlgorithm
+Base.@kwdef struct ESMDA{NF} <: EnsembleInferenceAlgorithm
     prior_approx::GaussianApproximationMethod = LaplaceMethod()
     maxiters::Int = 4
-    alpha::Float64 = maxiters
-    ρ_AB::Float64 = 1.0
-    ρ_BB::Float64 = 1.0
+    alpha::NF = maxiters
+    ρ_AB::NF = 1.0
+    ρ_BB::NF = 1.0
     stochastic::Bool = true
     dosvd::Bool = true
-    svd_thresh::Float64 = 0.90
+    svd_thresh::NF = 0.90
 end
 
-mutable struct ESMDAState{ensType,meanType,covType} <: EnsembleState
+mutable struct ESMDAState{
+    NF,
+    ensType<:AbstractMatrix{NF},
+    meanType,
+    covType
+} <: EnsembleState
     ens::ensType
     obs_mean::meanType
     obs_cov::covType
     prior::MvNormal
-    loglik::Vector # log likelihoods
-    logprior::Vector # log prior prob
+    loglik::Vector{NF} # log likelihoods
+    logprior::Vector{NF} # log prior prob
     iter::Int  # iteration step
     rng::AbstractRNG
 end
@@ -38,15 +43,15 @@ get_obs_cov(state::ESMDAState) = state.obs_cov
 hasconverged(alg::ESMDA, state::ESMDAState) = state.iter >= alg.maxiters
 
 function initialstate(
-    esmda::ESMDA,
+    esmda::ESMDA{NF},
     prior::AbstractSimulatorPrior,
-    ens::AbstractMatrix,
-    obs::AbstractVector,
-    obs_cov::AbstractMatrix;
+    ens::AbstractMatrix{NF},
+    obs::AbstractVector{NF},
+    obs_cov::AbstractMatrix{NF};
     rng::AbstractRNG=Random.default_rng(),
-)
+) where {NF}
     unconstrained_prior = gaussian_approx(esmda.prior_approx, prior; rng)
-    return ESMDAState(ens, obs, obs_cov, unconstrained_prior, [], [], 0, rng)
+    return ESMDAState(ens, obs, obs_cov, unconstrained_prior, NF[], NF[], 0, rng)
 end
 
 function ensemblestep!(solver::EnsembleSolver{<:ESMDA})

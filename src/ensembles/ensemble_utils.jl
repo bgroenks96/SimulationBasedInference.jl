@@ -28,23 +28,23 @@ function obscov(likelihoods::SimulatorLikelihood{<:Union{IsoNormal,DiagNormal}}.
 end
 
 """
-    get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
+    get_ensemble(sol::EnsembleInferenceSolution, iter::Int=length(sol.storage))
 
 Fetches the state of the ensemble from the given solution object. For iterative algorithms, the
 optinal argument `iter` may be provided, which then retrieves the ensemble at the given iteration.
 """
-function get_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
+function get_ensemble(sol::EnsembleInferenceSolution, iter::Int=length(sol.storage))
     # retrieve ensemble from storage
     return getinputs(sol.storage, iter)
 end
 
 """
-    get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
+    get_transformed_ensemble(sol::EnsembleInferenceSolution, iter::Int=length(sol.storage))
     
 Fetches the transformed ensemble from the given solution object. For iterative algorithms, the
 optinal argument `iter` may be provided, which then retrieves the ensemble at the given iteration.
 """
-function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
+function get_transformed_ensemble(sol::EnsembleInferenceSolution, iter::Int=length(sol.storage))
     # get transform
     prob = sol.prob
     inverse_transform = inverse(bijector(prob.prior.model))
@@ -54,11 +54,11 @@ function get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInfe
 end
 
 """
-    get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
+    get_observables(sol::EnsembleInferenceSolution, iter::Int=length(sol.storage))
 
 Returns a `NamedTuple` of the ensemble simulated observables at iteration `iter`.
 """
-function get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int=length(sol.storage))
+function get_observables(sol::EnsembleInferenceSolution, iter::Int=length(sol.storage))
     # retrieve ensemble from storage
     out = getoutputs(sol.storage, iter)
     return out
@@ -77,7 +77,7 @@ function enscat(acc::DimArray, x::DimArray)
 end
 
 function sample_ensemble_predictive(
-    sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm},
+    sol::EnsembleInferenceSolution,
     new_storage::SimulationData=SimulationArrayStorage();
     num_samples_per_sim::Int=1,
     pred_transform=identity,
@@ -121,7 +121,7 @@ function PosteriorStats.summarize(samples::AbstractMatrix, args...; kwargs...)
     return PosteriorStats.summarize(reshape(samples, size(samples, 1), 1, size(samples, 2)), args...; kwargs...)
 end
 
-function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, args...; iter=-1, kwargs...)
+function PosteriorStats.summarize(sol::EnsembleInferenceSolution, args...; iter=-1, kwargs...)
     ens = get_transformed_ensemble(sol, iter)
     # transpose to get N x k where N is the number of ensemble members (samples)
     ens_transpose = transpose(ens)
@@ -131,7 +131,7 @@ function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnsembleInfe
     return PosteriorStats.summarize(reshape(ens_transpose, size(ens_transpose, 1), 1, size(ens_transpose, 2)), args...; var_names=param_names, kwargs...)
 end
 
-function MCMCChains.Chains(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}; iter=-1)
+function MCMCChains.Chains(sol::EnsembleInferenceSolution; iter=-1)
     ens = get_transformed_ensemble(sol, iter)
     # transpose to get N x k where N is the number of ensemble members (samples)
     ens_transpose = transpose(ens)

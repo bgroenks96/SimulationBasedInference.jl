@@ -19,7 +19,7 @@ Constructs an `sbi` compatible prior distribution which wraps the given
 applies the `bijector` for the given prior to map samples to and from the unconstrained
 space. This avoids the need to define the constraints in `sbi`.
 """
-function PyPrior(prior::AbstractSimulatorPrior)
+function PyPrior(prior::AbstractSimulatorPrior; rng=Random.default_rng())
     function pylogprob(x)
         x = collect(PyArray(x))
         binv = inverse(bijector(prior))
@@ -47,7 +47,7 @@ function PyPrior(prior::AbstractSimulatorPrior)
 
     function pysample(shape)
         b = bijector(prior)
-        samples = transpose(reduce(hcat, map(b, eachcol(SBI.sample(prior, shape)))))
+        samples = transpose(reduce(hcat, map(b, eachcol(SBI.sample(rng, prior, shape)))))
         samples = reshape(samples, (shape..., size(samples)[end]))
         @assert shape == size(samples)[1:end-1] "batch dimensions do not match $(size(samples)[1:end-1]) != $shape)"
         return Py(samples).to_numpy()
@@ -68,7 +68,7 @@ pyprior(d::LogitNormal) = torch.distributions.LogisticNormal(torch.Tensor([d.μ]
 pyprior(d::MvNormal) = torch.distributions.MultivariateNormal(torch.Tensor(d.μ), torch.Tensor(Py(d.Σ).to_numpy()))
 
 # wrapper for generic priors
-pyprior(prior::AbstractSimulatorPrior) = PyPrior(prior)
+pyprior(prior::AbstractSimulatorPrior; rng=Random.default_rng()) = PyPrior(prior; rng)
 
 """
     pyprior(prior::AbstractSimulatorPrior, approx::GaussianApproximationMethod)

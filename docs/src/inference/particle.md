@@ -86,11 +86,11 @@ EnsembleSolver{algType,probType,ensalgType,stateType<:EnsembleState,kwargTypes}
 The following utility methods are also provided 
 
 ```@docs; canonical=false
-get_transformed_ensemble(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int)
+get_transformed_ensemble(sol::EnsembleInferenceSolution, iter::Int)
 ```
 
 ```@docs; canonical=false
-get_observables(sol::SimulatorInferenceSolution{<:EnsembleInferenceAlgorithm}, iter::Int)
+get_observables(sol::EnsembleInferenceSolution, iter::Int)
 ```
 
 Internally, the algorithms use the method `ensemble_forward` to apply the necessary parameter transforms and call `solve` on the resulting ensemble:

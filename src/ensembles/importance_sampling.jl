@@ -16,12 +16,17 @@ function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnIS}, args.
     error("summarize on EnIS solution is not currently supported")
 end
 
-mutable struct EnISState{ensType,meanType,covType} <: EnsembleState
+mutable struct EnISState{
+    NF,
+    ensType<:AbstractMatrix{NF},
+    meanType<:AbstractMatrix{NF},
+    covType<:AbstractMatrix{NF}
+} <: EnsembleState
     ens::ensType
     obs_mean::meanType
     obs_cov::covType
-    loglik::Vector{Float64} # log likelihoods
-    weights::Vector{Float64} # importance weights
+    loglik::Vector{NF} # log likelihoods
+    weights::Vector{NF} # importance weights
     Neff::Int # effective sample size
     iter::Int  # iteration step
 end
@@ -37,14 +42,14 @@ get_weights(state::EnISState) = state.weights
 get_weights(sol::SimulatorInferenceSolution{EnIS}) = get_weights(sol.result)
 
 function initialstate(
-    pbs::EnIS,
-    prior::AbstractSimulatorPrior,
-    ens::AbstractMatrix,
-    obs::AbstractVector,
-    obs_cov::AbstractMatrix;
+    ::EnIS,
+    ::AbstractSimulatorPrior,
+    ens::AbstractMatrix{NF},
+    obs::AbstractVector{NF},
+    obs_cov::AbstractMatrix{NF};
     rng::AbstractRNG=Random.default_rng(),
-)
-    return EnISState(ens, obs, obs_cov, Float64[], Float64[], -1, 0)
+) where {NF}
+    return EnISState(ens, obs, obs_cov, NF[], NF[], -1, 0)
 end
 
 function ensemblestep!(solver::EnsembleSolver{<:EnIS})
