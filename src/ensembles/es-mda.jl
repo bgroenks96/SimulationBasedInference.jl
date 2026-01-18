@@ -19,8 +19,8 @@ end
 mutable struct ESMDAState{
     NF,
     ensType<:AbstractMatrix{NF},
-    meanType,
-    covType
+    meanType<:AbstractVector{NF},
+    covType<:AbstractMatrix{NF}
 } <: EnsembleState
     ens::ensType
     obs_mean::meanType

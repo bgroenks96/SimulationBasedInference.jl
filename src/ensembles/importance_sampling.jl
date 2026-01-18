@@ -19,7 +19,7 @@ end
 mutable struct EnISState{
     NF,
     ensType<:AbstractMatrix{NF},
-    meanType<:AbstractMatrix{NF},
+    meanType<:AbstractVector{NF},
     covType<:AbstractMatrix{NF}
 } <: EnsembleState
     ens::ensType
