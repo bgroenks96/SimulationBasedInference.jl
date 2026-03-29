@@ -18,11 +18,34 @@ struct SimulatorInferenceProblem{
     fwdSolverType,
     priorType<:JointPrior{modelPriorType}
 } <: SciMLBase.AbstractSciMLProblem
+    """
+    Initial parameter values
+    """
     u0::uType
+
+    """
+    Specification of the forward simulation
+    """
     forward_prob::fwdProbType
+
+    """
+    Solver/algorithm for the forward simulation
+    """
     forward_solver::fwdSolverType
+
+    """
+    Prior distribution over the simulator parameters
+    """
     prior::priorType
+    
+    """
+    NamedTuple of likelihoods corresponding to observables of the simulator
+    """
     likelihoods::NamedTuple
+    
+    """
+    Artbirary internal or user-specified metadata
+    """
     metadata::Dict
 end
 
@@ -176,12 +199,8 @@ may involve running the simulator.
 """
 function logdensityfunc(prob::SimulatorInferenceProblem, storage::SimulationData; transform=true, kwargs...)
     function logprob(θ)
-        # deep copy inference problem to prevent memory
-        # collisions between walkers; hopefully this doesn't
-        # cause too much allocation...
-        probcopy = deepcopy(prob)
         lp = sum(logjoint(prob, θ; transform=transform, kwargs...))
-        observables = probcopy.forward_prob.observables
+        observables = prob.forward_prob.observables
         store!(storage, θ, observables)
         return lp
     end
@@ -196,24 +215,31 @@ function Base.show(io::IO, ::MIME"text/plain", prob::SimulatorInferenceProblem)
     println(io, "    Parameters: $(labels(prob.u0))")
     println(io, "    Likelihoods: $(keys(prob.likelihoods))")
     println(io, "    Observables: $(keys(prob.observables))")
-    println(io, "    Forward problem type: $(typeof(prob.forward_prob.prob))")
+    println(io, "    Forward problem type: $(typeof(prob.forward_prob))")
     println(io, "    Forward solver: $(isnothing(prob.forward_solver) ? "none" : typeof(prob.forward_solver))")
     println(io, "    Prior type: $(typeof(prob.prior))")
     println(io, "    Metadata: $(prob.metadata)")
 end
 
 """
-    SimulatorInferenceSolution{algType,probType,storageType}
+    SimulatorInferenceSolution{algType,resultType,probType,storageType}
 
 Generic container for solutions to `SimulatorInferenceProblem`s. The type of `result` is method dependent
-and should generally correspond to the final state or product of the inference algorithm (e.g. posterior sampels).
-The field `output` should be an instance of `SimulationData`
+and should generally correspond to the final state or product of the inference algorithm (e.g. posterior samples).
+The field `storage` should be an instance of `SimulationData`.
 """
-mutable struct SimulatorInferenceSolution{algType,probType,storageType}
+mutable struct SimulatorInferenceSolution{algType,resultType,probType,storageType}
+    "Inference problem"
     prob::probType
+
+    "Inference algorithm"
     alg::algType
+
+    "Simulation data storage"
     storage::storageType
-    result::Any
+
+    "Inference result (varies by algorithm)"
+    result::resultType
 end
 
 getinputs(sol::SimulatorInferenceSolution, args...) = getinputs(sol.storage, args...)

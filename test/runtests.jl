@@ -1,9 +1,9 @@
 using Test
 
-include("testcases.jl")
+include("test_problems.jl")
 
 @testset "Observables" begin
-    include("observable_tests.jl")
+    include("observables_tests.jl")
 end
 
 @testset "Priors" begin
@@ -16,10 +16,6 @@ end
 
 @testset "Ensembles" begin
     include("ensembles/runtests.jl")
-end
-
-@testset "Emulators" begin
-    include("emulators/emulator_tests.jl")
 end
 
 @testset "Turing integration" begin

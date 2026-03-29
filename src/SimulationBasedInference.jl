@@ -4,41 +4,37 @@ using Reexport
 
 # Utility
 using Dates
-using FileIO
 using ForwardDiff
 using LinearAlgebra
 using Requires
 
-# SciML/DiffEq
-using CommonSolve
-using DiffEqBase
+# SciML
+using SciMLBase
 
 # Stats
 using MCMCChains
 using Optim
 using Random
-using UnPack
 
-# Re-exported packages
+# Re-exported namespaces
 @reexport using Bijectors
 @reexport using ComponentArrays
 @reexport using DimensionalData: DimensionalData, Dimension, Dim, DimArray, X, Y, Z, Ti
 @reexport using DimensionalData: dims, hasdim, rebuild
 @reexport using Distributions
 @reexport using PosteriorStats: PosteriorStats, summarize
-@reexport using SciMLBase
 @reexport using StatsBase
 @reexport using StatsFuns
 @reexport using Statistics
 
-# to suppress name collision warning
-using SciMLBase: islinear
+@reexport import CommonSolve: init, solve, solve!, step!
+@reexport import LogDensityProblems: LogDensityProblems, logdensity
 
-using LogDensityProblems
+import SciMLBase: EnsembleAlgorithm
+# to suppress name collision warnings
+import SciMLBase: islinear
 
-import LogDensityProblems: logdensity
-
-export LogDensityProblems, logdensity
+export init, solve, solve!, step!
 
 export SimulatorInferenceAlgorithm
 
@@ -47,27 +43,6 @@ Base type for all simulator-based inference algorithms.
 """
 abstract type SimulatorInferenceAlgorithm end
 
-# Probabilistic model constructors
-
-"""
-    likelihood_model(prob::SimulatorInferenceProblem, forward_alg; solve_kwargs...)
-
-Constructs a function or type which represents the forward map and/or likelihood
-component of the probailistic model. Can be implemented by extensions for specific
-probabilistic programming languages or modeling tools.
-"""
-function likelihood_model end
-
-"""
-    joint_model(prob::SimulatorInferenceProblem, forward_alg; solve_kwargs...)
-
-Constructs a function or type which represents the full joint model (prior + likelihood).
-Can be implemented by extensions for specific probabilistic programming languages or modeling tools.
-"""
-function joint_model end
-
-##################################
-
 export autoprior, from_moments
 include("utils.jl")
 
@@ -75,7 +50,7 @@ export SimulationData, SimulationArrayStorage
 export store!, getinputs, getoutputs, getmetadata
 include("simulation_data.jl")
 
-export SimulatorObservable, TimeSampledObservable, TransientObservable
+export SimulatorObservable, TimeSampledObservable, TransientObservable, TimeSampled
 export observe!, getvalue, coordinates
 include("observables.jl")
 
@@ -87,24 +62,22 @@ include("priors/priors.jl")
 export SimulatorLikelihood
 include("likelihoods/likelihoods.jl")
 
+export Simulator
+include("simulator_interface.jl")
+
 export SimulatorForwardProblem, SimulatorForwardSolution
 export get_observable, get_observables
 include("forward_problem.jl")
+
+export SimulatorForwardSolution
+include("forward_solve.jl")
 
 export SimulatorInferenceProblem, SimulatorInferenceSolution
 include("inference_problem.jl")
 
 # LogDensityProblems interface
+export LogDensityProblems, logdensity
 include("logdensity.jl")
-
-export SimulatorForwardSolver
-include("forward_solve.jl")
-
-export SimulatorODEForwardSolver, ODEObservable
-include("forward_solve_ode.jl")
-
-include("emulators/Emulators.jl")
-using .Emulators
 
 # Inference algorithms; these files should
 # already export all relevant types/methods
@@ -114,14 +87,12 @@ include("mcmc/mcmc.jl")
 export SBI # alias for base module
 const SBI = SimulationBasedInference
 
-using PackageExtensionCompat
-
 function __init__()
-    @require PythonCall="6099a3de-0909-46bc-b1f4-468b9a2dfc0d" begin
+    @require PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d" begin
+        using CondaPkg
         include("../ext/pysbi/PySBI.jl")
     end
-    # Backwards comaptible extension loading
-    @require_extensions
+    return nothing
 end
 
 end

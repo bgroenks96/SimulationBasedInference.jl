@@ -10,7 +10,11 @@ using Test
 @testset "Forward ODEProblem" begin
     p = ComponentArray(α=0.1)
     odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), p)
-    observable = SimulatorObservable(:u, state -> state.u, 0.0, 0.1:0.1:1.0, size(odeprob.u0), samplerate=0.01)
+    observable = SimulatorObservable(
+        state -> state.u,
+        size(odeprob.u0),
+        output = TimeSampled(0.0, 0.1:0.1:1.0, samplerate=0.01)
+    )
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     forward_sol = solve(forwardprob, Tsit5())
     @test forward_sol.sol.retcode == ReturnCode.Success
@@ -24,7 +28,7 @@ end
     # find zero of a polynomial
     p = ComponentArray(a=0.1, b=2.0, c=-0.5, d=1.0)
     nlprob = NonlinearProblem((u,p) -> p.a.*u.^3 .+ p.b.*u.^2 .+ p.c.*u .+ p.d, [0.0], p)
-    observable = SimulatorObservable(:u, state -> state.u, size(nlprob.u0))
+    observable = SimulatorObservable(state -> state.u, size(nlprob.u0))
     forwardprob = SimulatorForwardProblem(nlprob, observable)
     forward_sol = solve(forwardprob, NewtonRaphson(), abstol=1e-6, reltol=1e-8)
     @test forward_sol.sol.retcode == ReturnCode.Success
@@ -37,7 +41,12 @@ end
 @testset "Inference problem" begin
     ode_p = ComponentArray(α=0.1)
     odeprob = ODEProblem((u,p,t) -> -p[1]*u, [1.0], (0.0,1.0), ode_p)
-    observable = SimulatorObservable(:obs, state -> state.u, 0.0, 0.1:0.1:1.0, size(odeprob.u0), samplerate=0.01)
+    observable = SimulatorObservable(
+        state -> state.u,
+        size(odeprob.u0),
+        name = :obs,
+        output = TimeSampled(0.0, 0.1:0.1:1.0, samplerate=0.01)
+    )
     forwardprob = SimulatorForwardProblem(odeprob, observable)
     α_prior = prior(:α, LogNormal(0,1))
     noise_scale_prior = prior(:σ, Exponential(1.0))

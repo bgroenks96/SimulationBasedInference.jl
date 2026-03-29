@@ -37,7 +37,7 @@ function set_up_Tsurf_inference_problem(
     noise_scale=0.05,
     model_kwargs...,
 )
-    tile = Tile(forward_prob.prob.f)
+    tile = Tile(forward_prob.simulator.f)
     p0 = ustrip.(vec(CryoGrid.parameters(tile)))
     # use simple prior for exact Kneier '18 stratigraphy,
     # otherwise use "robust" method that includes soil parameters.

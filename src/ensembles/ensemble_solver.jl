@@ -12,17 +12,19 @@ Generic implementation of an iterative solver for any ensemble-based algorithm. 
 the SciML `EnsembleProblem` interface to automatically parallelize forward runs over
 the ensemble.
 """
-mutable struct EnsembleSolver{algType,probType,ensalgType,stateType<:EnsembleState,kwargTypes}
-    sol::SimulatorInferenceSolution{algType,probType} # solution
+mutable struct EnsembleSolver{algType, probType, ensalgType, stateType <: EnsembleState, argTypes, kwargTypes}
+    sol::SimulatorInferenceSolution{algType, probType} # solution
     alg::algType # inference algorithm
     ensalg::ensalgType # ensemble execution algorithm
     state::stateType # algorithm state
+    loglik::Vector # log likelihoods for each iteration
+    logprior::Vector # log prior probabilities for each iteration
     prob_func::Function # problem generator
     output_func::Function # output function
-    pred_func::Function # prediction function
     itercallback::Function # iteration callback
     verbose::Bool # true if verbose output should be printed to sdtout
     retcode::ReturnCode.T # return code status
+    solve_args::argTypes # positional args passed to the forward solve
     solve_kwargs::kwargTypes # keyword args passed to the forward solve
 end
 
@@ -71,7 +73,7 @@ initialstate(
     ens::AbstractMatrix,
     obs::AbstractVector,
     obscov::AbstractMatrix;
-    rng::AbstractRNG=Random.GLOBAL_RNG
+    rng::AbstractRNG = Random.GLOBAL_RNG
 ) = error("intialstate not implemented for $(typeof(alg))")
 
 """
@@ -86,31 +88,20 @@ ensemblestep!(::EnsembleSolver{algType}) where {algType} = error("not implemente
     finalize!(solver::EnsembleSolver)
 
 Finalizes the solver state after iteration has completed. Default implementation runs `ensemble_solve`
-on the current ensemble state and pushes the results to `sol.outputs`.
+on the current ensemble state and stores the results in `sol.storage`.
 """
 function finalize!(solver::EnsembleSolver)
-    # model parameter forward map
-    param_map = unconstrained_forward_map(solver.sol.prob.prior.model)
-    out = ensemble_solve(
-        solver.state,
-        solver.sol.prob.forward_prob,
-        solver.ensalg,
-        solver.sol.prob.forward_solver,
-        param_map;
-        prob_func=solver.prob_func,
-        output_func=solver.output_func,
-        pred_func=solver.pred_func,
-        solver.solve_kwargs...
-    )
-
-    if isiterative(solver.alg)
-        store!(solver.sol.storage, get_ensemble(solver.state), out.observables, iter=solver.state.iter+1)
+    out = ensemble_forward(solver)
+    return if isiterative(solver.alg)
+        store!(solver.sol.storage, get_ensemble(solver.state), out.observables, iter = solver.state.iter + 1)
     else
         store!(solver.sol.storage, get_ensemble(solver.state), out.observables)
     end
 end
 
 ################################
+
+init(inference_prob::SimulatorInferenceProblem, alg::EnsembleInferenceAlgorithm, args...; kwargs...) = init(inference_prob, alg, nothing, args...; kwargs...)
 
 """
     init(::SimulatorInferenceProblem, ::EKS, ensemble_alg; kwargs...)
@@ -119,22 +110,22 @@ Initializes EKS for the given `SimulatorInferenceProblem` using the Ensemble Kal
 constructs an `EnsembleKalmanProcess` from the given inference problem and `named_data` pairs. If `initial_ens` is not provided,
 the initial ensemble is sampled from the prior.
 """
-function CommonSolve.init(
-    inference_prob::SimulatorInferenceProblem,
-    alg::EnsembleInferenceAlgorithm,
-    ensalg::SciMLBase.EnsembleAlgorithm=EnsembleThreads();
-    prob_func=(prob,p) -> remake(prob, p=p),
-    output_func=(sol,i,iter) -> (sol, false),
-    pred_func=default_pred_func(inference_prob),
-    obs_cov_func=obscov,
-    initial_ens=nothing,
-    ensemble_size::Integer=isnothing(initial_ens) ? 128 : size(initial_ens, 2),
-    itercallback=state -> true,
-    storage=SimulationArrayStorage(),
-    verbose=true,
-    rng=Random.default_rng(),
-    solve_kwargs...
-)
+function init(
+        inference_prob::SimulatorInferenceProblem,
+        alg::EnsembleInferenceAlgorithm,
+        ensalg::Union{Nothing, EnsembleAlgorithm} = EnsembleThreads(),
+        solve_args...;
+        prob_func = (prob, p) -> remake(prob; p),
+        output_func = ensemble_output_func(inference_prob.forward_prob),
+        obs_cov_func = obscov,
+        initial_ens = nothing,
+        ensemble_size::Integer = isnothing(initial_ens) ? 128 : size(initial_ens, 2),
+        itercallback = state -> true,
+        storage = SimulationArrayStorage(),
+        verbose = true,
+        rng = Random.default_rng(),
+        solve_kwargs...
+    )
     # extract model prior (i.e. ignoring likelihood parameters)
     model_prior = inference_prob.prior.model
     # construct transform from model prior
@@ -154,23 +145,25 @@ function CommonSolve.init(
     ensemble_size = size(initial_ens, 2)
     # construct initial state
     state = initialstate(alg, model_prior, initial_ens, obs_mean, obs_cov; rng)
-    inference_sol = SimulatorInferenceSolution(inference_prob, alg, storage, nothing)
+    inference_sol = SimulatorInferenceSolution(inference_prob, alg, storage, state)
     return EnsembleSolver(
         inference_sol,
         alg,
         ensalg,
         state,
+        [],
+        [],
         prob_func,
         output_func,
-        pred_func,
         itercallback,
         verbose,
         ReturnCode.Default,
+        solve_args,
         solve_kwargs,
     )
 end
 
-function CommonSolve.step!(solver::EnsembleSolver)
+function step!(solver::EnsembleSolver)
     # if retcode is already set to a terminal value, return immediately
     if solver.retcode != ReturnCode.Default
         return false
@@ -180,9 +173,11 @@ function CommonSolve.step!(solver::EnsembleSolver)
     state = solver.state
     state.iter += 1
     # ensemble step
-    ensemblestep!(solver)
+    out = ensemblestep!(solver)
     # set result
     sol.result = state
+    # store observables
+    store!(sol.storage, get_ensemble(state), out.observables, iter = state.iter)
     # iteration callback
     callback_retval = solver.itercallback(state)
     # check convergence
@@ -201,82 +196,51 @@ function CommonSolve.step!(solver::EnsembleSolver)
     return retcode == ReturnCode.Default
 end
 
-function CommonSolve.solve!(solver::EnsembleSolver)
+function solve!(solver::EnsembleSolver)
     # step until convergence
-    while CommonSolve.step!(solver) end
+    while step!(solver) end
     # finalize
     finalize!(solver)
     # return inference solution
     return solver.sol
 end
 
-"""
-    ensemble_solve(
-        ens::AbstractMatrix,
-        initial_prob::SciMLBase.AbstractSciMLProblem,
-        ensalg::SciMLBase.BasicEnsembleAlgorithm,
-        dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
-        param_map;
-        iter::Integer=1,
-        prob_func,
-        output_func,
-        pred_func,
-        solve_kwargs...
-    )
+function ensemble_forward(solver::EnsembleSolver)
+    inference_prob = solver.sol.prob
+    # get current parameter ensemble
+    θ = get_ensemble(solver.state)
+    # map unconstrained parameters to constrained space
+    param_map = unconstrained_forward_map(inference_prob.prior.model)
+    p = reduce(hcat, map(param_map, eachcol(θ)))
+    # rebuild forward problem with the constrained parameter ensemble
+    forward_prob = remake(inference_prob.forward_prob, p = p)
+    # solve the ensemble forward problem
+    enssol = solve(forward_prob, inference_prob.forward_solver, solver.ensalg, solver.solve_args...; solver.solve_kwargs...)
+    return ensemble_outputs(inference_prob, enssol)
+end
 
-Performs a single step/iteration for the given ensemble and returns a named tuple
-`(; pred, sol)` where `sol` are the full ensemble forward solutions and `pred` is
-the prediction matrix produced by `pred_func`.
-"""
-function ensemble_solve(
-    ens::AbstractMatrix,
-    initial_prob::SciMLBase.AbstractSciMLProblem,
-    ensalg::SciMLBase.BasicEnsembleAlgorithm,
-    dealg::Union{Nothing,SciMLBase.AbstractSciMLAlgorithm},
-    param_map;
-    iter::Integer=1,
-    prob_func=(prob,p) -> remake(prob, p=p),
-    output_func=(sol,i,iter) -> (sol, false),
-    pred_func=default_pred_func(initial_prob),
-    solve_kwargs...
-)
-    Θ = ens
-    N_ens = size(Θ,2)
-    ensprob = EnsembleProblem(
-        initial_prob;
-        prob_func=(prob,i,repeat) -> prob_func(prob, param_map(ens[:,i])),
-        output_func=(sol,i) -> output_func(sol, i, iter)
-    )
-
-    enssol = solve(ensprob, dealg, ensalg; trajectories=N_ens, solve_kwargs...)
-    pred = reduce(hcat, map((i,out) -> pred_func(out, i, iter), 1:N_ens, enssol.u))
-    observables = map(enssol) do sol
-        # extract observables data
-        map(getvalue, sol.prob.observables)
+# Non-batched simulator, ensemble solve
+function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::EnsembleSolution)
+    # extract prediction vector for combined likelihoods
+    pred = mapreduce(hcat, sol.u) do result
+        # retrieve observable for each likelihood and flatten into a vector
+        observables = map(name -> result.observables[name], keys(inference_prob.likelihoods))
+        reduce(vcat, map(obs -> vec(obs), observables))
     end
+    # extract observable values
+    observables = ntreduce(enscat, map(result -> result.observables, sol.u))
     return (; pred, observables)
 end
-ensemble_solve(state::EnsembleState, args...; kwargs...) = ensemble_solve(get_ensemble(state), args...; iter=state.iter, kwargs...)
 
-function default_pred_func(prob::SimulatorInferenceProblem; verify_return_code=false)
-    function predict_likelihoods(sol::SimulatorForwardSolution, i, iter)
-        if isa(sol.sol, SciMLBase.AbstractSciMLSolution) && verify_return_code
-            # check forward solver return code
-            @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
-        end
-        # retrieve observable for each likelihood and flatten the results into a vector
-        observables = map(name -> sol.prob.observables[name], keys(prob.likelihoods))
-        return reduce(vcat, map(obs -> vec(getvalue(obs)), observables))
+# Batched simulator
+function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::SimulatorForwardSolution)
+    # extract prediction vector for combined likelihoods
+    pred = mapreduce(vcat, keys(inference_prob.likelihoods)) do name
+        arr = getvalue(sol.prob.observables[name])
+        # flatten all but the last (batch) axis
+        reshape(arr, :, length(last(axes(arr))))
     end
-end
-
-function default_pred_func(::SimulatorForwardProblem; verify_return_code=false)
-    function predict_likelihoods(sol::SimulatorForwardSolution, i, iter)
-        if isa(sol.sol, SciMLBase.AbstractSciMLSolution) && verify_return_code
-            # check forward solver return code
-            @assert sol.sol.retcode ∈ (ReturnCode.Default, ReturnCode.Success) "$(sol.sol.retcode)"
-        end
-        # retrieve observable for each likelihood and flatten the results into a vector
-        return reduce(vcat, map(obs -> vec(getvalue(obs)), sol.prob.observables))
-    end
+    # extract observable values
+    observables = map(getvalue, result.observables)
+    return (; pred, observables)
 end

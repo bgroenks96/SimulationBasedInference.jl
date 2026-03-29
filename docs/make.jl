@@ -38,8 +38,7 @@ mkpath(examples_output_dir)
 linearode_example_doc = Literate.markdown(
        joinpath(examples_dir, "linearode", "linearode.jl"),
        examples_output_dir,
-       execute=!IS_DRAFT,
-       documenter=true
+       execute=!IS_DRAFT
 )
 
 makedocs(
@@ -67,14 +66,14 @@ makedocs(
                      "Inference problems" => "problems/inference_problem.md",
               ],
               "Inference algorithms" => [
-                     "Partcile sampling" => "inference/particle.md",
+                     "Particle sampling" => "inference/particle.md",
                      "MCMC" => "inference/mcmc.md",
                      "PySBI" => "inference/pysbi.md",
               ],
               "Utilities" => "utils.md",
               "API Reference" => [
                      "SimulationBasedInference" => "api/sbi.md",
-                     "Emulators" => "api/emulators.md",
+                     # "Emulators" => "api/emulators.md",
               ]
        ],
 )

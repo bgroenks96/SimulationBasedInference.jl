@@ -1,62 +1,91 @@
 #### Forward problems ####
 
 """
-    SimulatorForwardProblem{probType,obsType,configType,names} <: SciMLBase.AbstractSciMLProblem
+    SimulatorForwardProblem{simType, paramType, seedType, obsTypes, names} <: SciMLBase.AbstractSciMLProblem
 
 Represents a "forward" problem from parameters/initial conditions to output `SimulatorObservable`s.
-This type wraps an underlying `SciMLProblem`, a set of `Observable`s, and an optional, probelm-dependent
-configuration type.
+This type wraps an underlying simulator, a set of `Observable`s, and an optional RNG seed for stochastic
+forward models.
+
+    SimulatorForwardProblem(f, p::AbstractVector, observables::SimulatorObservable...)
+
+Creates a forward problem from the given function or callable type `f` with parameters `p` and
+the given `observables`.
+
+    SimulatorForwardProblem(f, 0::AbstractVector)
+
+Creates a forward problem from the given function or callable type `f` with parameters `p` and
+a default transient observable. Note that this constructor calls `f(p)` in order to determine
+the shape of the observable. If `f` is very costly and this is undesirable, it is recommended
+to use the explicit constructor.
 
     SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
 
 Constructs a generic simulator forward problem from the given `AbstractSciMLProblem`; note that this could be any
 problem type, e.g. an optimization problem, nonlinear system, quadrature, etc.
-
-    SimulatorForwardProblem(f, p0::AbstractVector, observables::SimulatorObservable...)
-
-Creates a forward problem from the given function or callable type `f` with initial
-parameters `p0` and the given `observables`.
-
-    SimulatorForwardProblem(f, p0::AbstractVector)
-
-Creates a forward problem from the given function or callable type `f` with initial
-parameters `p0` and a default transient observable. Note that this constructor calls `f(p0)`
-in order to determine the shape of the observable. If `f` is very costly and this is
-undesirable, it is recommended to use the explicit constructor.
 """
-struct SimulatorForwardProblem{probType,obsType,configType,names} <: SciMLBase.AbstractSciMLProblem
-    prob::probType
-    observables::NamedTuple{names,obsType}
-    config::configType
+struct SimulatorForwardProblem{simType, paramType, seedType, obsTypes, names} <: SciMLBase.AbstractSciMLProblem
+    "Simulator function or type"
+    simulator::simType
+
+    "Parameters for the forward simulation"
+    p::paramType
+
+    "Observables derived from the simulator output"
+    observables::NamedTuple{names, obsTypes}
+
+    "Random number generator for stochastic simulators"
+    rng_seed::seedType
 end
 
-const SimulatorSciMLForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:SciMLBase.AbstractSciMLProblem}
+"""
+Type alias for `SimulatorForwardProblem`s where the forward map is defined by a SciML problem type.
+"""
+const SciMLForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:SciMLBase.AbstractSciMLProblem}
 
 """
-    SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
+Type alias for `SimulatorForwardProblem`s where the forward map is defined by a SciML differential equations problem type.
+"""
+const SciMLDiffEqForwardProblem{probType} = SimulatorForwardProblem{probType} where {probType<:SciMLBase.AbstractDEProblem}
+
+# Functions
+
+"""
+    SimulatorForwardProblem(simulator, p::AbstractVector, observables::SimulatorObservable...; rng_seed)
+
+Constructs a `SimulatorForwardProblem` from the given simulator, parameters `p`, and observables.
+"""
+function SimulatorForwardProblem(
+    simulator,
+    p::AbstractVecOrMat,
+    observables::SimulatorObservable...;
+    rng_seed = nothing
+)
+    named_observables = (; map(x -> nameof(x) => x, observables)...)
+    return SimulatorForwardProblem(simulator, p, named_observables, rng_seed)
+end
+
+"""
+    SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...; rng_seed)
 
 Constructs a `SimulatorForwardProblem` from the given SciML problem and observables.
 """
-function SimulatorForwardProblem(prob::SciMLBase.AbstractSciMLProblem, observables::SimulatorObservable...)
+function SimulatorForwardProblem(
+    prob::SciMLBase.AbstractSciMLProblem,
+    observables::SimulatorObservable...;
+    p::AbstractVecOrMat = prob.p,
+    rng_seed = nothing
+)
     named_observables = (; map(x -> nameof(x) => x, observables)...)
-    return SimulatorForwardProblem(prob, named_observables, nothing)
+    return SimulatorForwardProblem(prob, p, named_observables, rng_seed)
 end
 
-"""
-    SimulatorForwardProblem(f, p0::AbstractVector, observables::SimulatorObservable...)
-
-Constructs a `SimulatorForwardProblem` from the callable/function `f(x)` and observables. The base problem
-will be a `SimpleForwardProblem` which wraps `f(x)` and uses `p0` as the default parameter/input values for `x`.
-"""
-function SimulatorForwardProblem(f, p0::AbstractVector, observables::SimulatorObservable...)
-    named_observables = (; map(x -> nameof(x) => x, observables)...)
-    return SimulatorForwardProblem(SimpleForwardProblem(f, p0), named_observables, nothing)
-end
+# SciML method dispatches
 
 """
     SciMLBase.remake(
         forward_prob::SimulatorForwardProblem;
-        prob=forward_prob.prob,
+        prob=forward_prob.simulator,
         observables=forward_prob.observables,
         config=forward_prob.config,
         copy_observables=true,
@@ -68,73 +97,41 @@ then `remake` will `deepcopy` the observables to ensure independence. The defaul
 """
 function SciMLBase.remake(
     forward_prob::SimulatorForwardProblem;
-    prob=forward_prob.prob,
+    p=forward_prob.p,
+    simulator=forward_prob.simulator,
     observables=forward_prob.observables,
-    config=forward_prob.config,
+    rng_seed=forward_prob.rng_seed,
     copy_observables=true,
     kwargs...
 )
     new_observables = copy_observables ? deepcopy(observables) : observables
-    return SimulatorForwardProblem(remake(prob; kwargs...), new_observables, config)
+    return SimulatorForwardProblem(simulator, p, new_observables, rng_seed)
 end
-
-SciMLBase.remaker_of(forward_prob::SimulatorForwardProblem) = (;kwargs...) -> remake(forward_prob; kwargs...)
-
-# DiffEqBase dispatches to make solve/init interface work correctly
-DiffEqBase.check_prob_alg_pairing(prob::SimulatorSciMLForwardProblem, alg) = DiffEqBase.check_prob_alg_pairing(prob.prob, alg)
-DiffEqBase.isinplace(prob::SimulatorSciMLForwardProblem) = DiffEqBase.isinplace(prob.prob)
-
-# Overload property methods to forward properties from `prob` field
-Base.propertynames(prob::SimulatorSciMLForwardProblem) = (:prob, :observables, :config, propertynames(prob.prob)...)
-function Base.getproperty(prob::SimulatorSciMLForwardProblem, sym::Symbol)
-    if sym ∈ (:prob,:observables,:config)
+function SciMLBase.remake(
+    forward_prob::SciMLForwardProblem;
+    p=forward_prob.p,
+    prob=forward_prob.simulator,
+    observables=forward_prob.observables,
+    rng_seed=forward_prob.rng_seed,
+    copy_observables=true,
+    kwargs...
+)
+    newprob = remake(prob; p, kwargs...)
+    new_observables = copy_observables ? deepcopy(observables) : observables
+    return SimulatorForwardProblem(newprob, p, new_observables, rng_seed)
+end
+SciMLBase.remaker_of(forward_prob::SciMLForwardProblem) = (;kwargs...) -> remake(forward_prob; kwargs...)
+SciMLBase.isinplace(prob::SciMLForwardProblem) = DiffEqBase.isinplace(prob.prob)
+# Overload property methods to forward properties from underlying SciML problem
+Base.propertynames(prob::SciMLForwardProblem) = (:simulator, :observables, :rng_seed, propertynames(getfield(prob, :simulator))...)
+function Base.getproperty(prob::SciMLForwardProblem, sym::Symbol)
+    if sym ∈ (:simulator, :observables, :rng_seed)
         return getfield(prob, sym)
     end
-    return getproperty(getfield(prob, :prob), sym)
+    return getproperty(prob.simulator, sym)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", prob::SimulatorForwardProblem)
-    println(io, "SimulatorForwardProblem ($(nameof(typeof(prob.prob)))) with $(length(prob.observables)) observables $(keys(prob.observables))")
+    println(io, "SimulatorForwardProblem for $(nameof(typeof(prob.simulator))) with $(length(prob.observables)) observables $(keys(prob.observables))")
 end
 
-"""
-    SimulatorForwardSolution{solType,probType}
-
-Solution for a `SimulatorForwardProblem` that wraps the underlying forward solution.
-"""
-struct SimulatorForwardSolution{solType,probType}
-    prob::probType
-    sol::solType
-end
-
-get_observables(sol::SimulatorForwardSolution) = sol.prob.observables
-
-get_observable(sol::SimulatorForwardSolution, name::Symbol) = getvalue(getproperty(get_observables(sol), name))
-
-# Simple forward function wrapper
-
-"""
-    SimpleForwardProblem{funcType,pType}
-
-Wrapper type for generic forward models `M` of the form: `y = M(p)` where `p` are the parameters
-and `y` are the outputs.
-"""
-struct SimpleForwardProblem{funcType,pType}
-    f::funcType
-    p::pType
-end
-
-function SciMLBase.remaker_of(prob::SimpleForwardProblem)
-    function remake(; f=prob.f, p=prob.p)
-        return SimpleForwardProblem(f, p)
-    end
-end
-
-mutable struct SimpleForwardEval{uType}
-    prob::SimpleForwardProblem
-    u::uType
-end
-
-CommonSolve.init(prob::SimpleForwardProblem, ::Nothing=nothing; p=prob.p) = SimpleForwardEval(SimpleForwardProblem(prob.f, p), prob.f(p))
-
-CommonSolve.solve!(solver::SimpleForwardEval) = solver.u

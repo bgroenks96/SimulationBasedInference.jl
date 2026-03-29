@@ -40,13 +40,18 @@ odeprob = ODEProblem(ode_func, [1.0], tspan, ode_p)
 # to something comparable to data.
 #
 # In this case, we can simply define a function that extracts the current
-# state from the ODE integrator. The `SimulatorObservable(name, func, t0, tsave, coords)` additionally takes
+# state from the ODE integrator. The `TimeSampled` output type additionally takes
 # an initial time point, a vector of observed time points, and a tuple specifying the shape or coordiantes of
 # the observable at each time point. Here, `(1,)` indicates that the state is a one-dimensional vector.
 dt = 0.2
 tsave = tspan[begin]+dt:dt:tspan[end];
 n_obs = length(tsave);
-observable = ODEObservable(:y, odeprob, tsave, samplerate=0.01);
+observable = SimulatorObservable(
+    integrator -> integrator.u,
+    size(odeprob.u0),
+    name =:y,
+    output = TimeSampled(first(odeprob.tspan), tsave, samplerate=0.01)
+);
 forward_prob = SimulatorForwardProblem(odeprob, observable)
 
 # In order to set up our synthetic example, we need some data to condition on.

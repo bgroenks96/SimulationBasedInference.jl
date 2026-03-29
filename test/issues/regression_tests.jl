@@ -51,7 +51,7 @@ end
     n_obs = length(tsave)
     
     # Define observable and forward problem
-    observable = SimulatorObservable(:y, state -> state.u[1,:], (n_obs,))
+    observable = SimulatorObservable(state -> state[1,:], (n_obs,), name = :y)
     ode_solver = Tsit5()
     forward_prob = SimulatorForwardProblem(problem_factory(ode_func, tsave, ode_solver), α_true, observable)
     
@@ -100,7 +100,12 @@ end
     
     tsave = tspan[1]+0.1:0.2:tspan[end];
     n_obs = length(tsave);
-    observable = SimulatorObservable(:y, integrator -> integrator.u, tspan[1], tsave, size(odeprob.u0), samplerate=0.01);
+    observable = SimulatorObservable(
+        integrator -> integrator.u,
+        size(odeprob.u0),
+        name = :y,
+        output = TimeSampled(tspan[1], tsave, samplerate=0.01)
+    );
     
     forward_prob = SimulatorForwardProblem(odeprob, observable)
     ode_solver = Tsit5();

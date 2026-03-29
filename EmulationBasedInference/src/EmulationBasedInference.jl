@@ -1,4 +1,4 @@
-module Emulators
+module EmulationBasedInference
 
 using SimulationBasedInference
 
@@ -8,6 +8,7 @@ using Statistics, StatsBase
 
 # common solve interface
 import CommonSolve
+import SciMLBase
 
 export Emulator
 

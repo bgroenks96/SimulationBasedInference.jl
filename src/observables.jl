@@ -1,4 +1,4 @@
-abstract type SimulatorOutput end
+abstract type SimulatorOutput{T} end
 
 """
     Observable{outputType<:SimulatorOutput}
@@ -85,6 +85,7 @@ struct SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType<:Tu
 end
 
 coordinates(obs::SimulatorObservable) = obs.coords
+coordinates(obs::SimulatorObservable, batch_size::Int) = (obs.coords..., Dim{:ens}(1:batch_size))
 
 Base.nameof(obs::SimulatorObservable) = obs.name
 
@@ -94,67 +95,81 @@ function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,ou
 end
 
 """
-    Transient <: SimulatorOutput
+    Transient{T} <: SimulatorOutput
 
 Simple output type that stores a transient reference to an arbitrary state variable. The reference is
 overwritten on each subsequent call to `observe!`.
 """
-mutable struct Transient <: SimulatorOutput
-    state::Union{Missing,AbstractVecOrMat}
+mutable struct Transient{T} <: SimulatorOutput{T}
+    value::Union{Nothing, T}
 end
 
 """
-    SimulatorObservable(name::Symbol, f, coords::Tuple)
+    SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient{T}(nothing), name::Symbol = :obs)
 
-Constructs a `Transient` observable with state mapping function `f` and coordinates `coords`.
+Constructs an observable based on the given function `func(state)::T` and `output` type. Defaults to `Transient`
+output which simply saves the last observed value of `func`. The coordinates `coords` describe the shape of the output.
 """
-function SimulatorObservable(name::Symbol, f, coords::Tuple)
+function SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient{Any}(nothing), name::Symbol = :obs)
     ds = coordinates(coords)
-    return SimulatorObservable(name, f, Transient(missing), ds)
+    return SimulatorObservable(name, func, output, ds)
 end
 
-initialize!(obs::SimulatorObservable{N,Transient}, state) where {N} = observe!(obs, state)
+initialize!(obs::SimulatorObservable{N, <:Transient}, state) where {N} = observe!(obs, state)
 
-function observe!(obs::SimulatorObservable{N,Transient}, state) where {N}
+function observe!(obs::SimulatorObservable{N, <:Transient}, state) where {N}
     out = _coerce(obs.obsfunc(state), size(obs))
-    obs.output.state = out
+    obs.output.value = out
     return out
 end
 
-function getvalue(obs::SimulatorObservable{N,Transient}, ::Type{T}=Any) where {N,T}
-    data = obs.output.state
+function getvalue(obs::SimulatorObservable{N, <:Transient}) where {N}
+    data = obs.output.value
     coords = coordinates(obs)
     return DimArray(data, coords)
 end
 
-function setvalue!(obs::SimulatorObservable{N,Transient}, value) where {N}
-    obs.output.state = value
+function setvalue!(obs::SimulatorObservable{N, <:Transient}, value) where {N}
+    obs.output.value = value
 end
 
 """
-    TimeSampled{timeType,storageType,reducerType} <: SimulatorOutput
+    TimeSampled{timeType, storageType, reducerType, converterType} <: SimulatorOutput
 
 `SimulatorOutput` which buffers samples taken from the simulator at preset times and applies a reduction operation at
 (lower frequency) save times. A simple example would be a windowed average or resampling operation that saves averages
 over higher frequency samples.
 """
-mutable struct TimeSampled{timeType,storageType<:SimulationData,reducerType} <: SimulatorOutput
+mutable struct TimeSampled{timeType, outputType, storageType<:SimulationData{timeType, outputType}, reducerType, converterType} <: SimulatorOutput{outputType}
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
+    tconvert::converterType # time converter
     reducer::reducerType # reducer function
     storage::storageType
-    buffer::Union{Nothing,AbstractVector}
+    buffer::Union{Nothing, Vector{outputType}}
     sampleidx::Int
 end
 
+"""
+    TimeSampled(
+        t0::tType,
+        tsave::AbstractVector{tType};
+        reducer=mean,
+        samplerate=default_sample_rate(tsave),
+    ) where {tType}
+
+Constructs a `TimeSampled` simulator output which iteratively samples and stores outputs on each call to `observe!`.
+"""
 function TimeSampled(
-    t0::tType,
-    tsave::AbstractVector{tType};
+    t0::timeType,
+    tsave::AbstractVector{timeType};
+    time_converter = convert,
     reducer=mean,
     samplerate=default_sample_rate(tsave),
-    storage::SimulationData=SimulationArrayStorage(),
-) where {tType}
+    output_type=Any,
+    storage::SimulationData=SimulationArrayStorage(; input_type=timeType, output_type),
+) where {timeType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
     @assert length(tsave) == 1 || minimum(diff(tsave)) >= samplerate "sample frequency must be >= save frequency"
@@ -167,61 +182,41 @@ function TimeSampled(
             push!(tsample, t)
         end
     end
-    return TimeSampled(extrema(tsample), tsample, collect(tsave), reducer, storage, nothing, 1)
+    return TimeSampled(extrema(tsample), tsample, collect(tsave), time_converter, reducer, storage, nothing, 1)
 end
 
 const TimeSampledObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeSampled}
 
-"""
-    SimulatorObservable(
-        name::Symbol,
-        obsfunc,
-        t0::tType,
-        tsave::AbstractVector{tType},
-        output_shape_or_coords::Tuple;
-        reducer=mean,
-        samplerate=default_sample_rate(tsave),
-    ) where {tType}
-
-Constructs a `TimeSampled` observable which iteratively samples and stores outputs on each call to `observe!`.
-"""
-function SimulatorObservable(
-    name::Symbol,
-    obsfunc,
-    t0::tType,
-    tsave::AbstractVector{tType},
-    coords::Tuple;
-    reducer=mean,
-    samplerate=default_sample_rate(tsave),
-    storage::SimulationData=SimulationArrayStorage(),
-) where {tType}
-    return SimulatorObservable(
-        name,
-        obsfunc,
-        TimeSampled(t0, tsave; reducer, samplerate, storage),
-        (coordinates(coords)..., Ti(tsave)),
-    )
-end
+coordinates(obs::TimeSampledObservable) = (obs.coords..., Ti(savetimes(obs)))
 
 """
     sampletimes(::TimeSampledObservable)
+    sampletimes(::Type{T}, obs::TimeSampledObservable) where {T}
 
 Return the time points at which the simulator should be sampled in order to compare to
 observations. Note that this may not exactly correspond to the observation time points;
 e.g. mean annual ground temperature observations would require the simulator to be sampled
 at appropriate intervals relative to the forcing. The implementation of `SimulatorObservable` is thus
-responsible for computing and storing the model state at each sample time.
+responsible for computing and storing the model state at each sample time. If a time type `T` is specified,
+the sample times are converted to `T` before returning.
 """
 sampletimes(obs::TimeSampledObservable) = obs.output.tsample
+sampletimes(::Type{T}, obs::TimeSampledObservable) where {T} = map(t -> obs.output.tconvert(T, t), sampletimes(obs))
 sampletimes(::SimulatorObservable) = []
+sampletimes(::Type{T}, ::SimulatorObservable) where{T} = []
 
 """
     savetimes(::TimeSampledObservable)
+    savetimes(::Type{T}, obs::TimeSampledObservable) where {T}
 
-Return the time points at which simulator outputs will be saved.
+Return the time points at which simulator outputs will be saved. If a time type `T` is specified,
+the sample times are converted to `T` before returning.
 """
 savetimes(obs::TimeSampledObservable) = obs.output.tsave
+savetimes(::Type{T}, obs::TimeSampledObservable) where {T} = map(t -> obs.output.tconvert(T, t), savetimes(obs))
 savetimes(::SimulatorObservable) = []
+savetimes(::Type{T}, ::SimulatorObservable) where{T} = []
+
 
 default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
@@ -234,8 +229,9 @@ if they do not match.
 """
 function initialize!(obs::TimeSampledObservable, state)
     # Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    clear!(obs.output.storage)
-    obs.output.buffer = []
+    storage = obs.output.storage
+    clear!(storage)
+    obs.output.buffer = similar(storage.outputs, 0)
     obs.output.sampleidx = 1
     return nothing
 end
@@ -251,7 +247,7 @@ function observe!(obs::TimeSampledObservable, state)
     push!(obs.output.buffer, Y_t)
     # if t ∈ save points, compute and store reduced output
     if first(idx) == last(idx) && inbounds && length(obs.output.buffer) > 0
-        store!(obs.output.storage, [t], obs.output.reducer(obs.output.buffer))
+        store!(obs.output.storage, t, obs.output.reducer(obs.output.buffer))
         # empty buffer
         resize!(obs.output.buffer, 0)
     end
@@ -260,34 +256,79 @@ function observe!(obs::TimeSampledObservable, state)
     return Y_t
 end
 
-function getvalue(obs::TimeSampledObservable, ::Type{TT}=Float64) where {TT}
+function getvalue(obs::TimeSampledObservable)
     @assert !isnothing(obs.output.buffer) "observable not yet initialized"
     @assert length(obs.output.storage) > 0 "output buffer is empty; check for errors in the model evaluation"
-    out = reduce(hcat, getoutputs(obs.output.storage))
+    outputs = getoutputs(obs.output.storage)
+    # time is always the last coordinate of the observable (excluding batch dimension)
+    t_idx = length(size(obs))
+    # get first output
+    y0 = first(outputs)
+    out = foldl(outputs, init=similar(y0, tupleinsert(size(y0), t_idx, 0))) do out, yᵢ
+        cat(out, reshape(yᵢ, tupleinsert(size(yᵢ), t_idx, 1)), dims=t_idx)
+    end
     coords = coordinates(obs)
     darr = DimArray(reshape(out, size(obs)), coords)
     singleton_dims = filter(c -> length(c) == 1, coords)
     return dropdims(darr, dims=singleton_dims)
 end
 
-function setvalue!(obs::TimeSampledObservable, values::AbstractMatrix)
-    @assert size(values, 2) == length(savetimes(obs))
-    obs.output.buffer = []
-    obs.output.storage = SimulationArrayStorage()
-    store!(obs.output.storage, reshape(savetimes(obs), 1, :), values)
+function setvalue!(obs::TimeSampledObservable, values::AbstractArray)
+    @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
+    resize!(obs.output.buffer, 0)
+    clear!(obs.output.storage)
+    ts = savetimes(obs)
+    for (i, vals) in enumerate(eachslice(values, dims=length(size(values))))
+        store!(obs.output.storage, ts[i], vals)
+    end
 end
 
 setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(obs, reduce(hcat, values))
 
 unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.storage)), length(obs.output.storage))
 
-_coerce(output::AbstractArray{T,N}, shape::Dims{N}) where {T,N} = reshape(output, shape)
+"""
+    ODEObservable(
+        func,
+        prob::SciMLBase.AbstractODEProblem,
+        coords = size(func(prob.u0, prob.tspan[1]));
+        tsave = [prob.tspan[1], prob.tspan[2]],
+        name=:u,
+        kwargs...
+    )
+
+Convenience constructor for `SimulatorObservable` that automatically constructs a `TimeSampled` output
+object from the information in the given `AbstractODEProblem`. The observable function should have the
+signature `func(u, t)` where `u` is the ODE state and `t` is the timestep. By default, the coordinates
+of the output are inferred by evaluating `func` on `u0` and `tspan[1]`.
+"""
+function ODEObservable(
+    func,
+    prob::SciMLBase.AbstractODEProblem,
+    coords = size(func(prob.u0, prob.tspan[1]));
+    tsave = [prob.tspan[1], prob.tspan[2]],
+    name=:u,
+    kwargs...
+)
+    output = TimeSampled(prob.tspan[1], tsave; kwargs...)
+    return SimulatorObservable(integrator -> func(integrator.u, integrator.t), coords; name, output)
+end
+
+_coerce(output, shape) = error("output of observable function must be a scalar or array! expected $shape but got $output")
 _coerce(output::Number, ::Tuple{}) = [output] # lift to single element vector
-_coerce(output, shape) = error("output of observable function must be a scalar or array! expected: $(shape), got $(typeof(output)) with $(size(output))")
 function _coerce(output::Number, shape::Dims{1})
     if shape[1] == 1
         return [output]
     else
         error("scalar output does not match expected dimensions $shape")
+    end
+end
+function _coerce(output::AbstractArray{T,N}, shape::Dims{M}) where {T,N,M}
+    if N > M && size(output)[1:length(shape)] == shape
+        reshape(output, tuple(shape..., :))
+    elseif N == M && size(output)[1:length(shape)] == shape
+        output
+    else
+        error("expected: $(shape) or $(tuple(shape..., :)), got $(typeof(output)) with $(size(output))")
     end
 end

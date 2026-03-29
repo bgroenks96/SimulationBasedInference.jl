@@ -53,27 +53,9 @@ SBI.Transient
 SBI.TimeSampled
 ```
 
-Type specific dispatches of the `SimulatorObservable` constructor for each output type as a convenience.
+`coords` are a `Tuple` of dimension sizes (e.g. `(2,)` for a 2-dimensional output) or coordinates (e.g. `(1:2,)`) that index the dimensions of the output. Dimensions from `DimensionalData` can also be directly supplied (e.g. `(X(1:10),Y(1:10))`). Note that the output of `g_i` must match the shape specified by `output_dims`.
 
-```@docs; canonical=false
-SimulatorObservable(name::Symbol, f, coords::Tuple)
-```
-
-where `coords` are a `Tuple` of dimension sizes (e.g. `(2,)` for a 2-dimensional output) or coordinates (e.g. `(1:2,)`) that index the dimensions of the output. Dimensions from `DimensionalData` can also be directly supplied (e.g. `(X(1:10),Y(1:10))`). Note that the output of `g_i` must match the shape specified by `output_dims`.
-
-For time sampled observables of dynamical systems, it is necessary to additionally provide an initial time stamp `t0` and a vector of timestamps `ts` which specify the time points at which the the buffered observable values should be saved.
-
-```@docs; canonical=false
-SimulatorObservable(
-    name::Symbol,
-    obsfunc,
-    t0::tType,
-    tsave::AbstractVector{tType},
-    output_shape_or_coords::Tuple;
-    reducer=mean,
-    samplerate=default_sample_rate(tsave),
-) where {tType}
-```
+For time sampled observables of dynamical systems, it is necessary to additionally provide an initial time stamp `t0` and a vector of timestamps `ts` to `TimeSampled` which specify the time points at which the the buffered observable values should be saved.
 
 Here is a simple example for a generic `ODEProblem` from the `SciML` package ecosystem:
 
@@ -83,7 +65,7 @@ output_dims = size(u0)
 t0 = tspan[1]
 ts = LinRange(tspan[1], tspan[2], 100)
 # this observable will simply save the full state at each save point in `ts`
-obs = SimulatorObservable(:yt, state -> state.u, t0, ts, output_dims)
+obs = SimulatorObservable(state -> state.u, output_dims, name = :yt, output = TimeSampled(t0, ts))
 ```
 
 For time sampled observables, `output_dims` represents the shape of the output **at each time step**, i.e. without the time dimension which is imlicitly defined by the number of save points.

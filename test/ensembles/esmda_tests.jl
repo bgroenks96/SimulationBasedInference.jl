@@ -1,6 +1,7 @@
 using SimulationBasedInference
 
 using OrdinaryDiffEq
+using Random
 using SciMLBase
 using Test
 
@@ -33,23 +34,17 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     # sample initial ensemble from model prior (excluding likelihood parameters)
-    prior = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
-    unconstrained_prior = reduce(hcat, map(transform, eachcol(prior)))
-    y_pred, _ = SimulationBasedInference.ensemble_solve(
-        unconstrained_prior,
-        testprob.forward_prob,
-        EnsembleThreads(),
-        nothing,
-        param_map,
-        iter=1
-    )
+    prior_ens = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
+    enssol = solve(testprob.forward_prob, EnsembleThreads(), p=prior_ens)
+    y_pred = mapreduce(res -> vec(res.observables.y), hcat, enssol.u)
     y_obs = testprob.likelihoods.y.data
     y_lik = mean(testprob.prior.lik.y)
-    unconstrained_posterior = ensemble_kalman_analysis(unconstrained_prior, y_obs, y_pred, alpha, σ_y^2)
+    unconstrained_prior_ens = mapslices(transform, prior_ens, dims=1)
+    unconstrained_posterior = ensemble_kalman_analysis(unconstrained_prior_ens, y_obs, y_pred, alpha, σ_y^2)
     @test all(isfinite.(unconstrained_posterior))
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     # check that ensemble error decreased overall
-    @test mean(abs.(posterior .- [x_true, b_true])) < mean(abs.(prior .- [x_true, b_true]))
+    @test mean(abs.(posterior .- [x_true, b_true])) < mean(abs.(prior_ens .- [x_true, b_true]))
 end
 
 @testset "ES-MDA: solver inteface" begin
@@ -87,13 +82,13 @@ end
     # linear ODE test case with default parameter settings
     inference_prob = linear_ode(; rng)
     # parameter prior, excluding likelihood parameters
-    prior = inference_prob.prior.model
-    eks = ESMDA()
-    # solve inference problem with EKS
-    eks_sol = solve(inference_prob, eks, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
+    prior_model = inference_prob.prior.model
+    esmda = ESMDA()
+    # solve inference problem with ES-MDA
+    esmda_sol = solve(inference_prob, esmda, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
     # check results
-    u_ens = get_ensemble(eks_sol.result)
-    constrained_to_unconstrained = bijector(prior)
+    u_ens = get_ensemble(esmda_sol.result)
+    constrained_to_unconstrained = bijector(prior_model)
     posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
     posterior_mean = mean(posterior_ens, dims=2)
     @test abs(posterior_mean[1] - 0.2) < 0.01

@@ -56,7 +56,7 @@ mutable struct PySBISolver{algType,samplingType<:PySBISampling}
     estimator::Union{Missing,Py}
 end
 
-function CommonSolve.init(
+function init(
     inference_prob::SimulatorInferenceProblem,
     alg::PySNE,
     simdata::Union{Nothing,SimulationData}=nothing,
@@ -106,7 +106,7 @@ function CommonSolve.init(
     )
 end
 
-function CommonSolve.step!(solver::PySBISolver)
+function step!(solver::PySBISolver)
     if solver.iter > solver.maxiter
         return false
     end
@@ -132,7 +132,7 @@ function CommonSolve.step!(solver::PySBISolver)
     return solver.iter <= solver.maxiter
 end
 
-function CommonSolve.solve!(solver::PySBISolver)
+function solve!(solver::PySBISolver)
     while step!(solver) end
     posterior = SurrogatePosterior(solver.prob.prior, solver.proposal)
     return SimulatorInferenceSolution(solver.prob, solver.alg, solver.data, posterior)

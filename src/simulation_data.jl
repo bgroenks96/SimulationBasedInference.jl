@@ -1,21 +1,16 @@
 """
-    SimulationData
+    SimulationData{inputType, outputType}
 
 Base type representing storage for simulation data, i.e. input/output pairs.
 """
-abstract type SimulationData end
+abstract type SimulationData{inputType, outputType} end
 
 """
-    store!(::SimulationData, x::AbstractVector, y)
+    store!(::SimulationData, x, y)
 
 Stores the input/output pair x/y in the given forward map storage container.
 """
-store!(::SimulationData, x::AbstractVector, y) = error("not implemented")
-function store!(storage::SimulationData, X::AbstractMatrix, y::AbstractVector; attr...)
-    for (i, x) in enumerate(eachcol(X))
-        store!(storage, x, y[i]; attr...)
-    end
-end
+function store! end
 
 Base.length(storage::SimulationData) = length(storage.inputs)
 Base.lastindex(storage::SimulationData) = length(storage)
@@ -27,13 +22,17 @@ Base.firstindex(storage::SimulationData) = 1
 Simple implementation of `SimulationData` that stores all results in generically
 typed `Vector`s.
 """
-struct SimulationArrayStorage <: SimulationData
-    inputs::Vector
-    outputs::Vector
-    metadata::Vector
+struct SimulationArrayStorage{inputType, outputType, metaType} <: SimulationData{inputType, outputType}
+    inputs::Vector{inputType}
+    outputs::Vector{outputType}
+    metadata::Vector{metaType}
 end
 
-SimulationArrayStorage() = SimulationArrayStorage([], [], [])
+SimulationArrayStorage(;
+    input_type::Type = Any,
+    output_type::Type = Any,
+    metadata_type::Type = Any
+) = SimulationArrayStorage(input_type[], output_type[], metadata_type[])
 
 Base.getindex(storage::SimulationArrayStorage, i) = (storage.inputs[i], storage.outputs[i], storage.metadata[i])
 
@@ -49,7 +48,7 @@ getoutputs(storage::SimulationArrayStorage, i) = storage.outputs[i]
 getmetadata(storage::SimulationArrayStorage) = storage.metadata
 getmetadata(storage::SimulationArrayStorage, i) = storage.metadata[i]
 
-function store!(storage::SimulationArrayStorage, x::AbstractVector, y; attr...)
+function store!(storage::SimulationArrayStorage, x, y; attr...)
     push!(storage.inputs, x)
     push!(storage.outputs, y)
     push!(storage.metadata, (; attr...))

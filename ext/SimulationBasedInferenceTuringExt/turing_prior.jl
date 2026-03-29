@@ -16,9 +16,9 @@ struct TuringSimulatorPrior{modelType<:Model,axesType} <: AbstractSimulatorPrior
 end
 
 function (prior::TuringSimulatorPrior)(θ::AbstractVector{T}) where {T}
-    varinfo = Turing.DynamicPPL.VarInfo(prior.model);
-    context = prior.model.context;
-    new_vi = Turing.DynamicPPL.unflatten(varinfo, context, θ);
+    varinfo = Turing.DynamicPPL.VarInfo(prior.model)
+    context = prior.model.context
+    new_vi = Turing.DynamicPPL.unflatten(varinfo, context, θ)
     pvec = first(Turing.DynamicPPL.evaluate!!(prior.model, new_vi, context))
     p = similar(pvec, T)
     copyto!(p, pvec)
@@ -34,10 +34,9 @@ function SimulationBasedInference.logprob(prior::TuringSimulatorPrior, θ::Abstr
     ϕ = ComponentVector(getdata(θ), prior.axes)
     # here we have to do some nasty Turing manipulation to make sure this function is
     # autodiff compatible; basically we have to reconstruct `varinfo` based on the type of ϕ.
-    varinfo = Turing.DynamicPPL.VarInfo(prior.model);
-    context = prior.model.context;
+    varinfo = Turing.DynamicPPL.VarInfo(prior.model)
     # constructs a new VarInfo type from the parameter values
-    new_vi = Turing.DynamicPPL.unflatten(varinfo, context, ϕ);
+    new_vi = Turing.DynamicPPL.unflatten(varinfo, ϕ)
     return Turing.logprior(prior.model, new_vi)
 end
 

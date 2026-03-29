@@ -4,7 +4,7 @@ using Random
 using Test
 
 @testset "Joint Prior" begin
-    observable = SimulatorObservable(:test, identity, 0.0, 0.0:1.0, (1,))
+    observable = SimulatorObservable(identity, (1,), name = :test, output = TimeSampled(0.0, 0.0:1.0))
     p_prior = prior(:p, LogNormal(0,1))
     noise_scale_prior = prior(:σ, LogNormal(0,1))
     data = randn(MersenneTwister(1234), 10)

@@ -56,8 +56,8 @@ let fig = Makie.Figure(size=(1200,600)),
 end
 
 # Define observables with time coordinates
-y_obs_pred = SimulatorObservable(:y_obs, state -> state.u[data.idx,1], (Ti(data.ts[data.idx]),))
-y_pred = SimulatorObservable(:y, state -> state.u[:,1], (Ti(data.ts),))
+y_obs_pred = SimulatorObservable(state -> state.u[data.idx,1], (Ti(data.ts[data.idx]),), name = :y_obs)
+y_pred = SimulatorObservable(state -> state.u[:,1], (Ti(data.ts),), name = :y)
 
 # Construct forward problem;
 # first we need a function of *only* the parameters

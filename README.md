@@ -61,8 +61,10 @@ We can then define *observables* of the system which should be sampled over the 
 ```julia
 tsave = tspan[1]+0.1:0.2:tspan[end];
 n_obs = length(tsave);
-observable = SimulatorObservable(:y, integrator -> integrator.u, tspan[1], tsave, size(odeprob.u0), samplerate=0.01);
+observable = SimulatorObservable(integrator -> integrator.u, size(odeprob.u0), name = :y, output = TimeSampled(first(tspan), tsave, samplerate=0.01));
 ```
+where `size(odeprob.u0)` specifies the shape of the "observed" value, whhich in this case corresponds to the ODE state. The `output` argument defines the scheme for how and when the "observed" values are stored; here we use `TimeSampled` output which stores the observable at the times in `tsave` averaged over intermediate values sampled at the given `samplerate`.
+
 We are now ready to construct a forward problem from `odeprob` and `observable`:
 ```julia
 forward_prob = SimulatorForwardProblem(odeprob, observable)

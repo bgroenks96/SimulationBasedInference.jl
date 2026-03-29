@@ -1,6 +1,11 @@
-using EnsembleKalmanProcesses
+import EnsembleKalmanProcesses
+import EnsembleKalmanProcesses:
+    EnsembleKalmanProcess, Sampler,
+    get_u_final, get_obs, get_obs_noise_cov, get_error, update_ensemble!
 
 abstract type EnsembleInferenceAlgorithm <: SimulatorInferenceAlgorithm end
+
+const EnsembleInferenceSolution{algType} = SimulatorInferenceSolution{algType} where {algType<:EnsembleInferenceAlgorithm}
 
 export EnsembleSolver, get_ensemble, initialstate, ensemblestep!, finalize!, ensemble_solve
 include("ensemble_solver.jl")

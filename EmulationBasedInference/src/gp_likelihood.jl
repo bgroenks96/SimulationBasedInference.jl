@@ -1,5 +1,3 @@
-using AbstractGPs, KernelFunctions
-
 struct GPPrior{kernelType,priorType<:AbstractSimulatorPrior} <: AbstractSimulatorPrior
     kernel::kernelType
     prior::priorType
