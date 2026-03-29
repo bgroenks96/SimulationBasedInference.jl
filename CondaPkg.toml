@@ -1,6 +1,4 @@
 [deps]
 pip = ""
 python = ""
-
-[pip.deps]
 sbi = ">=0.23.0"
