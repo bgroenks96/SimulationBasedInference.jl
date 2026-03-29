@@ -12,20 +12,19 @@ Alias for EnIS.
 """
 const PBS = EnIS
 
-function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnIS}, args...; iter=-1, kwargs...)
+function PosteriorStats.summarize(sol::SimulatorInferenceSolution{<:EnIS}, args...; iter = -1, kwargs...)
     error("summarize on EnIS solution is not currently supported")
 end
 
 mutable struct EnISState{
-    NF,
-    ensType<:AbstractMatrix{NF},
-    meanType<:AbstractVector{NF},
-    covType<:AbstractMatrix{NF}
-} <: EnsembleState
+        NF,
+        ensType <: AbstractMatrix{NF},
+        meanType <: AbstractVector{NF},
+        covType <: AbstractMatrix{NF},
+    } <: EnsembleState
     ens::ensType
     obs_mean::meanType
     obs_cov::covType
-    loglik::Vector{NF} # log likelihoods
     weights::Vector{NF} # importance weights
     Neff::Int # effective sample size
     iter::Int  # iteration step
@@ -42,14 +41,14 @@ get_weights(state::EnISState) = state.weights
 get_weights(sol::SimulatorInferenceSolution{EnIS}) = get_weights(sol.result)
 
 function initialstate(
-    ::EnIS,
-    ::AbstractSimulatorPrior,
-    ens::AbstractMatrix{NF},
-    obs::AbstractVector{NF},
-    obs_cov::AbstractMatrix{NF};
-    rng::AbstractRNG=Random.default_rng(),
-) where {NF}
-    return EnISState(ens, obs, obs_cov, NF[], NF[], -1, 0)
+        ::EnIS,
+        ::AbstractSimulatorPrior,
+        ens::AbstractMatrix{NF},
+        obs::AbstractVector{NF},
+        obs_cov::AbstractMatrix{NF};
+        rng::AbstractRNG = Random.default_rng(),
+    ) where {NF}
+    return EnISState(ens, obs, obs_cov, NF[], -1, 0)
 end
 
 function ensemblestep!(solver::EnsembleSolver{<:EnIS})
@@ -62,7 +61,7 @@ function ensemblestep!(solver::EnsembleSolver{<:EnIS})
     loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(out.pred))
     state.weights = w
     state.Neff = Neff
-    state.loglik = loglik
+    solver.loglik = loglik
     return out
 end
 
@@ -110,14 +109,14 @@ many orders of magnitude.
 """
 function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R_cov)
     n_obs = size(pred, 1)
-    R = obscov(R_cov)*Diagonal(ones(n_obs))
+    R = obscov(R_cov) * Diagonal(ones(n_obs))
     return importance_weights(obs, pred, R)
 end
 
 function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::AbstractMatrix)
     n_obs, ensemble_size = size(pred)
     @assert n_obs == length(obs)
-    loglik = mapslices(x -> logpdf(MvNormal(obs, R), x), pred, dims=1)[1,:]
+    loglik = mapslices(x -> logpdf(MvNormal(obs, R), x), pred, dims = 1)[1, :]
 
     # Log of normalizing constant
     log_z = logsumexp(loglik)
@@ -130,7 +129,7 @@ function importance_weights(obs::AbstractVector, pred::AbstractMatrix, R::Abstra
     @assert length(weights) == ensemble_size "weight vector has incorrect dimensions: $(size(weights))"
     @assert abs(sum(weights) - 1.0) < sqrt(eps()) "particle weights do not sum to unity! ∑w=$(sum(weights))"
 
-    Neff = round(Int, 1/sum(weights.^2))
+    Neff = round(Int, 1 / sum(weights .^ 2))
 
     return weights, Neff
 end

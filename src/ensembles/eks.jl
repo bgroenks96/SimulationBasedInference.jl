@@ -13,11 +13,9 @@ isiterative(alg::EKS) = true
 
 # State type for Ensemble Kalman Processes
 
-mutable struct EKPState{NF, ekpType<:EnsembleKalmanProcess} <: EnsembleState
+mutable struct EKPState{NF, ekpType <: EnsembleKalmanProcess{NF}} <: EnsembleState
     ekp::ekpType
     iter::Int  # iteration step
-    loglik::Vector{NF} # log likelihoods for each iteration
-    logprior::Vector{NF} # log prior probabilities for each iteration
 end
 
 get_ensemble(state::EKPState) = get_u_final(state.ekp)
@@ -32,21 +30,21 @@ logdensity_prior(ekp::EnsembleKalmanProcess{<:Sampler}, θ) = logpdf(MvNormal(ek
 hasconverged(alg::EKS, state::EKPState) = length(state.ekp.Δt) > 1 ? sum(state.ekp.Δt[2:end]) >= alg.minΔt : false
 
 function initialstate(
-    eks::EKS,
-    prior::AbstractSimulatorPrior,
-    ens::AbstractMatrix,
-    obs::AbstractVector,
-    obs_cov::AbstractMatrix;
-    rng::AbstractRNG=Random.GLOBAL_RNG,
-    kwargs...
-)
+        eks::EKS,
+        prior::AbstractSimulatorPrior,
+        ens::AbstractMatrix,
+        obs::AbstractVector,
+        obs_cov::AbstractMatrix;
+        rng::AbstractRNG = Random.GLOBAL_RNG,
+        kwargs...
+    )
     unconstrained_prior = gaussian_approx(eks.prior_approx, prior; rng)
     sampler = Sampler{eltype(ens), EnsembleKalmanProcesses.EKS}(collect(mean(unconstrained_prior)), cov(unconstrained_prior))
     ekp = EnsembleKalmanProcess(ens, obs, Matrix(obs_cov), sampler; rng, kwargs...)
-    return EKPState(ekp, 0, [], [])
+    return EKPState(ekp, 0)
 end
 
-function ensemblestep!(solver::EnsembleSolver{EKS})
+function ensemblestep!(solver::EnsembleSolver{<:EKS})
     state = solver.state
     alg = solver.alg
     ekp = state.ekp
@@ -60,12 +58,12 @@ function ensemblestep!(solver::EnsembleSolver{EKS})
     loglik = map(y -> logpdf(MvNormal(get_obs(ekp), get_obs_noise_cov(ekp)), y), eachcol(out.pred))
     logprior = map(θᵢ -> logdensity_prior(ekp, θᵢ), eachcol(Θ))
     # update ensemble solver state
-    push!(state.loglik, loglik)
-    push!(state.logprior, logprior)
+    push!(solver.loglik, loglik)
+    push!(solver.logprior, logprior)
     # postamble
     # calculate change in error
     err = get_error(ekp)
-    Δerr = length(err) > 1 ? err[end] - err[end-1] : missing
+    Δerr = length(err) > 1 ? err[end] - err[end - 1] : missing
     solver.verbose && @info "Finished iteration $(state.iter); err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
     return out
 end
