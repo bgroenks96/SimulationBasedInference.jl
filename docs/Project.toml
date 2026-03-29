@@ -11,7 +11,7 @@ SimulationBasedInference = "78927d98-f421-490e-8789-96b006983a5c"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
-julia = "1.10, 1.11"
+julia = "1.10, 1.11, 1.12"
 
 [sources]
 SimulationBasedInference = {path = ".."}

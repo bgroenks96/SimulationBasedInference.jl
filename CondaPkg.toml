@@ -1,4 +1,9 @@
+channels = ["pytorch", "conda-forge"]
+
 [deps]
 pip = ""
 python = ""
+
+[pip.deps]
+torch = ""
 sbi = ">=0.23.0"

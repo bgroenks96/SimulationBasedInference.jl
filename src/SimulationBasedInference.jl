@@ -88,9 +88,11 @@ export SBI # alias for base module
 const SBI = SimulationBasedInference
 
 function __init__()
-    @require PythonCall="6099a3de-0909-46bc-b1f4-468b9a2dfc0d" begin
+    @require PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d" begin
+        using CondaPkg
         include("../ext/pysbi/PySBI.jl")
     end
+    return nothing
 end
 
 end
