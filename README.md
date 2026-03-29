@@ -5,14 +5,14 @@
 [docs-dev-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-dev-url]: https://bgroenks96.github.io/SimulationBasedInference.jl/dev/
 
-`SimulationBasedInference.jl` aims to bring together a variety of different methods for *simulation-based inference* (SBI), i.e. statistical inference with simulator-like models, in the Julia programming language. Although SBI can be applied to both Bayesian and Frequentist inference frameworks, this package focuses on the Bayesian approach.
+`SimulationBasedInference.jl` aims to bring together a variety of different methods for *simulation-based inference* (SBI), i.e. statistical inference for simulators and dynamical models, in the Julia programming language. Although SBI can be applied to both Bayesian and Frequentist inference frameworks, this package focuses on the Bayesian approach.
 
 Please note that this package is still very much under construction and things may break or change without prior notice.
 
-If you would like to use this package in your work, please let us know by creating an issue on GitHub or sending an email to [brian.groenke@awi.de](mailto:brian.groenke@awi.de).
+If you would like to use this package in your work, please let us know by creating an issue on GitHub or sending an email to [brian.groenke@pik-potsdam.de](mailto:brian.groenke@pik-potdsam.de).
 
 ## Introduction
-Simulator-type models are ubiquitous in science and engineering.
+Simulator models are ubiquitous in science and engineering.
 
 Most simulator-type models require some kind of input, e.g boundary conditions (forcings), physical properties or constants, etc.
 
@@ -21,10 +21,10 @@ Often, these parameters are not fully known *a priori*... but usually we know so
 Bayesian inference provides a natural framework for constraining this uncertainty using observed data:
 
 $$
-p(\theta | \mathbf{y}) = \frac{p(\mathbf{y}|\theta)p(\theta)}{p(\mathbf{y})}
+p(\theta \mid \mathbf{y}) = \frac{p(\mathbf{y} \mid \theta)p(\theta)}{p(\mathbf{y})}
 $$
 
-The **posterior distribution** $p(\boldsymbol{\theta} | \mathbf{y})$ represents our best estimate (with uncertainty) of the unknown parameters $\theta$ after observing $\mathbf{y}$.
+The **posterior distribution** $p(\boldsymbol{\theta} \mid \mathbf{y})$ represents our best estimate (with uncertainty) of the unknown parameters $\theta$ after observing $\mathbf{y}$.
 
 **Simulation-based inference** (SBI) [1] refers to the problem of performing **statistical inference** (Bayesian or otherwise) of unknown parameters $\theta$ where the forward model $\mathcal{M}$:
 
@@ -34,9 +34,15 @@ $$
 
 is a dynamical model or physics-based *simulator* mapping from parameters to noisy ($\epsilon$) observations.
 
+Furthermore, we often have the problem that the simulator itself samples from some series of internal states $\mathbf{z}$. If our primary goal is to estimate the parameters $\theta$, then we must *integrate out* these latent states,
+
+$$
+p(\theta | \mathbf{y}) \propto p(\theta) \int_z p(\mathbf{y} \mid \mathbf{z}, \theta)p(\mathbf{z} \mid \theta) dz
+$$
+
 There are two fundamental challenges with this problem:
-1. The forward model $\mathcal{M}$ is very often **nonlinear** and typically has no closed-form solution.
-2. Evaluating the forward map $\mathcal{M}(\theta)$ is usually non-trivial, i.e. **computationally expensive** or at least inconvenient.
+1. For stochastic simulators, the integral over latent states is almost always intractable.
+2. For deterministic simulators, the integral is tractable (since $p(\mathbf{z} \mid \theta)$ reduces to a Dirac density) but the simulator is still often **too expensive** to evaluate the likelihood many times.
 
 Thus, classical statistical methods that rely on either analytical or numerical methods to derive the posterior distribution are generally difficult (or impossible) to apply.
 
