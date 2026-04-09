@@ -6,4 +6,4 @@ python = ""
 
 [pip.deps]
 torch = ""
-sbi = ">=0.23.0,<0.25.0"
+sbi = ">=0.26.0"
