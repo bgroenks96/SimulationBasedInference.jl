@@ -15,9 +15,8 @@ import Pkg; Pkg.instantiate() #hide
 # First, we load the necessary packages
 using SimulationBasedInference
 using OrdinaryDiffEqTsit5
-
-import CairoMakie as Makie
-import Random
+using CairoMakie
+using Random
 
 # Loading `DynamicHMC` will load the corresponding extension module in `SimulationBasedInference`:
 using DynamicHMC
@@ -25,7 +24,7 @@ using DynamicHMC
 using DisplayAs #hide
 
 # and then initialize a random number generator for reproducibility.
-const rng = Random.MersenneTwister(1234);
+const rng = MersenneTwister(1234);
 
 # Now, we will define our simple dynamical system using the general SciML problem interface:
 ode_func(u,p,t) = -p[1]*u;
