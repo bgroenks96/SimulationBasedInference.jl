@@ -1,4 +1,5 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 DisplayAs = "0b91fe84-8a4c-11e9-3e1d-67c38462b6d6"
 DynamicHMC = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
