@@ -14,7 +14,7 @@ import Pkg; Pkg.instantiate() #hide
 
 # First, we load the necessary packages
 using SimulationBasedInference
-using OrdinaryDiffEq
+using OrdinaryDiffEqTsit5
 using Plots, StatsPlots
 import Random
 
