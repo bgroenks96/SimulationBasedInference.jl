@@ -222,13 +222,13 @@ function Base.show(io::IO, ::MIME"text/plain", prob::SimulatorInferenceProblem)
 end
 
 """
-    SimulatorInferenceSolution{algType,resultType,probType,storageType}
+    SimulatorInferenceSolution{algType, probType, storageType}
 
 Generic container for solutions to `SimulatorInferenceProblem`s. The type of `result` is method dependent
 and should generally correspond to the final state or product of the inference algorithm (e.g. posterior samples).
 The field `storage` should be an instance of `SimulationData`.
 """
-mutable struct SimulatorInferenceSolution{algType,resultType,probType,storageType}
+mutable struct SimulatorInferenceSolution{algType, probType, storageType}
     "Inference problem"
     prob::probType
 
@@ -239,7 +239,7 @@ mutable struct SimulatorInferenceSolution{algType,resultType,probType,storageTyp
     storage::storageType
 
     "Inference result (varies by algorithm)"
-    result::resultType
+    result
 end
 
 getinputs(sol::SimulatorInferenceSolution, args...) = getinputs(sol.storage, args...)
