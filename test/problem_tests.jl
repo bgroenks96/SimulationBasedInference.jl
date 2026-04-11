@@ -3,7 +3,7 @@ using SimulationBasedInference
 using LinearAlgebra
 using LogDensityProblems
 using NonlinearSolve
-using OrdinaryDiffEq
+using OrdinaryDiffEqTsit5
 using Random
 using Test
 

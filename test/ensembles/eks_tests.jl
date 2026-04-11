@@ -2,7 +2,7 @@ using SimulationBasedInference
 
 using Bijectors
 using LinearAlgebra
-using OrdinaryDiffEq
+using OrdinaryDiffEqTsit5
 using Test
 
 import Random

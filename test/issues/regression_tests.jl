@@ -21,7 +21,7 @@ end
     """
 
     using SimulationBasedInference
-    using OrdinaryDiffEq
+    using OrdinaryDiffEqTsit5
     import Random
     
     rng = Random.MersenneTwister(1234);
@@ -83,7 +83,7 @@ end
 @testset "Issue #12" begin
     using PythonCall
 
-    using OrdinaryDiffEq
+    using OrdinaryDiffEqTsit5
 
     using SimulationBasedInference
     using SimulationBasedInference.PySBI

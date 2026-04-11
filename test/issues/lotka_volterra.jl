@@ -1,4 +1,4 @@
-using OrdinaryDiffEq
+using OrdinaryDiffEqTsit5
 using SimulationBasedInference
 using Random
 

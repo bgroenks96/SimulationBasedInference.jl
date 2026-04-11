@@ -2,7 +2,7 @@ using SimulationBasedInference
 
 using LinearAlgebra
 using Plots, StatsPlots
-using OrdinaryDiffEq
+using OrdinaryDiffEqTsit5
 using Random
 
 const rng = Random.MersenneTwister(1234);

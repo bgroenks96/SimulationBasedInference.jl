@@ -1,6 +1,6 @@
 using SimulationBasedInference
 
-using OrdinaryDiffEq
+using OrdinaryDiffEqTsit5
 using Random
 using SciMLBase
 using Test
