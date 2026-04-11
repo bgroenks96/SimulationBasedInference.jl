@@ -1,6 +1,7 @@
 # SimulationBasedInference.jl
 
 [![][docs-dev-img]][docs-dev-url]
+[![CI](https://github.com/bgroenks96/SimulationBasedInference.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/bgroenks96/SimulationBasedInference.jl/actions/workflows/CI.yml)
 
 [docs-dev-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-dev-url]: https://bgroenks96.github.io/SimulationBasedInference.jl/dev/
