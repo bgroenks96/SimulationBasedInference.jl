@@ -23,7 +23,7 @@ using DynamicHMC
 
 using DisplayAs #hide
 
-# and then initialize a random number generator for reproducibility.
+# We also need to initialize a random number generator for reproducibility.
 const rng = MersenneTwister(1234);
 
 # Now, we will define our simple dynamical system using the general SciML problem interface:
