@@ -36,12 +36,12 @@ function SimulationBasedInference.logprob(prior::TuringSimulatorPrior, θ::Abstr
     # autodiff compatible; basically we have to reconstruct `varinfo` based on the type of ϕ.
     varinfo = Turing.DynamicPPL.VarInfo(prior.model)
     # constructs a new VarInfo type from the parameter values
-    new_vi = Turing.DynamicPPL.unflatten(varinfo, ϕ)
+    new_vi = Turing.DynamicPPL.unflatten!!(varinfo, ϕ)
     return Turing.logprior(prior.model, new_vi)
 end
 
 # mandatory sampling dispatches
-Base.rand(rng::AbstractRNG, prior::TuringSimulatorPrior) = ComponentArray(rand(rng, prior.model))
+Base.rand(rng::AbstractRNG, prior::TuringSimulatorPrior) = ComponentArray(NamedTuple(rand(rng, prior.model)))
 
 StatsBase.sample(rng::AbstractRNG, prior::TuringSimulatorPrior, n::Int, args...; kwargs...) = [rand(rng, prior) for i in 1:n]
 
