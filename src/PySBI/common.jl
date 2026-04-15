@@ -60,8 +60,8 @@ end
 
 StatsBase.sample(sp::SurrogatePosterior, n::Int; kwargs...) = sample(Random.default_rng(), sp, n; kwargs...)
 function StatsBase.sample(rng::Random.AbstractRNG, sp::SurrogatePosterior, n::Int; obs=nothing, transform=inverse(bijector(sp.prior)))
-    # TODO: check why posterior.sample doesn't take random seed...?
-    # seed = isa(rng, Random.TaskLocalRNG) ? Random.GLOBAL_SEED : seed.rng
+    seed = isa(rng, Random.TaskLocalRNG) ? Random.GLOBAL_SEED : rng.seed
+    torch.manual_seed(seed) # set global seed; not ideal since it changes global state...
     if isnothing(obs)
         raw_samples = pyconvert(Matrix, sp.posterior.sample((n,)))
     else
