@@ -221,7 +221,7 @@ function ensemble_forward(solver::EnsembleSolver)
         solver.solve_args...;
         p=p,
         prob_func=solver.prob_func,
-        validator_func=validator_func,
+        validator_func=solver.validator_func,
         solver.solve_kwargs...
     )
     return ensemble_outputs(inference_prob, enssol)
