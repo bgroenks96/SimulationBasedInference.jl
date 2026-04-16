@@ -159,7 +159,7 @@ function init(
         verbose,
         ReturnCode.Default,
         solve_args,
-        solve_kwargs...,
+        (; solve_kwargs...),
     )
 end
 
