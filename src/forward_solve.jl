@@ -299,12 +299,12 @@ function solve(
     ensalg::EnsembleAlgorithm,
     args...;
     p::AbstractMatrix=forward_prob.p,
-    prob_func=(prob, p) -> remake(prob; p),
+    prob_func=(prob, i) -> remake(prob; p=p[:, i]),
     validator_func=(sol, i) -> OK,
     safetycopy=false,
     kwargs...
 )
-    ens_prob_func(prob, i, repeat) = prob_func(prob, p[:, i])
+    ens_prob_func(prob, i, repeat) = prob_func(remake(prob; p=p[:, i]), i)
     output_func = ensemble_output_func(validator_func)
     ensprob = EnsembleProblem(forward_prob; prob_func=ens_prob_func, output_func, safetycopy)
     return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p, 2), kwargs...)
