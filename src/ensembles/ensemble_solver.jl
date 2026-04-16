@@ -215,7 +215,7 @@ function ensemble_forward(solver::EnsembleSolver)
     p = reduce(hcat, map(param_map, eachcol(θ)))
     # solve the ensemble forward problem
     enssol = solve(
-        forward_prob,
+        inference_prob.forward_prob,
         inference_prob.forward_solver,
         solver.ensalg,
         solver.solve_args...;
