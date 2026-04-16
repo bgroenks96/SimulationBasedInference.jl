@@ -3,7 +3,7 @@
 
 Solution for a `SimulatorForwardProblem` that wraps the underlying forward solution.
 """
-struct SimulatorForwardSolution{solType, probType<:SimulatorForwardProblem}
+struct SimulatorForwardSolution{solType,probType<:SimulatorForwardProblem}
     "Forward problem"
     prob::probType
 
@@ -15,7 +15,7 @@ get_observables(sol::SimulatorForwardSolution) = sol.prob.observables
 
 get_observable(sol::SimulatorForwardSolution, name::Symbol) = getvalue(getproperty(get_observables(sol), name))
 
-function init(prob::SimulatorForwardProblem, forward_alg = nothing, args...; kwargs...)
+function init(prob::SimulatorForwardProblem, forward_alg=nothing, args...; kwargs...)
     return init(Simulator(prob.simulator), prob, forward_alg, args...; kwargs...)
 end
 
@@ -60,7 +60,7 @@ function solve!(solver::ForwardMapSolver)
     output = if isnothing(solver.prob.rng_seed)
         solver.prob.simulator(solver.prob.p, solver.args...; solver.kwargs...)
     else
-        solver.prob.simulator(solver.prob.p, solver.args...; seed = solver.prob.rng_seed, solver.kwargs...)
+        solver.prob.simulator(solver.prob.p, solver.args...; seed=solver.prob.rng_seed, solver.kwargs...)
     end
     # compute observables
     for obs in solver.prob.observables
@@ -109,7 +109,7 @@ function init(
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
     else
-        init(prob.simulator, forward_alg, args...; seed = prob.rng_seed, p, kwargs...)
+        init(prob.simulator, forward_alg, args...; seed=prob.rng_seed, p, kwargs...)
     end
     # initialize observables
     for obs in prob.observables
@@ -180,7 +180,7 @@ function init(
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
     else
-        init(prob.simulator, forward_alg, args...; seed = prob.rng_seed, p, kwargs...)
+        init(prob.simulator, forward_alg, args...; seed=prob.rng_seed, p, kwargs...)
     end
     t = current_time(sim)
     tspan = timespan(sim)
@@ -243,13 +243,13 @@ end
 """
 Alias for `SimulatorForwardProblem` with matrix-valued parameters.
 """
-const EnsembleForwardProblem{simType} = SimulatorForwardProblem{simType, paramType} where {paramType<:AbstractMatrix}
+const EnsembleForwardProblem{simType} = SimulatorForwardProblem{simType,paramType} where {paramType<:AbstractMatrix}
 
 function solve(
     prob::SimulatorForwardProblem,
     ensalg::EnsembleAlgorithm,
     args...;
-    p::AbstractMatrix = forward_prob.p,
+    p::AbstractMatrix=forward_prob.p,
     kwargs...
 )
     prob = remake(prob; p)
@@ -261,7 +261,7 @@ function solve(
     forward_alg,
     ensalg::EnsembleAlgorithm,
     args...;
-    p::AbstractMatrix = forward_prob.p,
+    p::AbstractMatrix=forward_prob.p,
     kwargs...
 )
     prob = remake(prob; p)
@@ -284,8 +284,8 @@ end
         forward_alg,
         ensalg::EnsembleAlgorithm,
         args...;
-        prob_func=(prob, i, repeat) -> remake(prob, p=prob.p[:,i]),
-        output_func=ensemble_output_func(forward_prob),
+        prob_func=(prob, p) -> remake(prob; p),
+        validator_func=(sol, i) -> OK,
         kwargs...
     )
 
@@ -299,18 +299,18 @@ function solve(
     ensalg::EnsembleAlgorithm,
     args...;
     p::AbstractMatrix=forward_prob.p,
-    ensdim::Int=2,
-    prob_func::Function=(prob, i, repeat) -> remake(prob, p=p[:,i]),
-    validator_func::Function=(sol, i) -> OK,
+    prob_func=(prob, p) -> remake(prob; p),
+    validator_func=(sol, i) -> OK,
     safetycopy=false,
     kwargs...
 )
+    ens_prob_func(prob, i, repeat) = prob_func(prob, p[:, i])
     output_func = ensemble_output_func(validator_func)
-    ensprob = EnsembleProblem(forward_prob; prob_func, output_func, safetycopy)
-    return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p, ensdim), kwargs...)
+    ensprob = EnsembleProblem(forward_prob; prob_func=ens_prob_func, output_func, safetycopy)
+    return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p, 2), kwargs...)
 end
 
-function ensemble_output_func(validator = (sol, i) -> OK)
+function ensemble_output_func(validator=(sol, i) -> OK)
     function output(sol::SimulatorForwardSolution, i)
         result = validator(sol, i)
         if result == OK

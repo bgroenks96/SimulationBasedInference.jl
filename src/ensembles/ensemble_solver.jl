@@ -20,7 +20,7 @@ mutable struct EnsembleSolver{algType,probType,ensalgType,stateType<:EnsembleSta
     loglik::Vector # log likelihoods for each iteration
     logprior::Vector # log prior probabilities for each iteration
     prob_func::Function # problem generator
-    output_func::Function # output function
+    validator_func::Function # solution validator
     itercallback::Function # iteration callback
     verbose::Bool # true if verbose output should be printed to sdtout
     retcode::ReturnCode.T # return code status
@@ -117,7 +117,6 @@ function init(
     solve_args...;
     prob_func=(prob, p) -> remake(prob; p),
     validator_func=(sol, i) -> OK,
-    output_func=ensemble_output_func(inference_prob.forward_prob),
     obs_cov_func=obscov,
     initial_ens=nothing,
     ensemble_size::Integer=isnothing(initial_ens) ? 128 : size(initial_ens, 2),
@@ -155,12 +154,12 @@ function init(
         [],
         [],
         prob_func,
-        output_func,
+        validator_func,
         itercallback,
         verbose,
         ReturnCode.Default,
         solve_args,
-        (; prob_func, validator_func, solve_kwargs...),
+        solve_kwargs...,
     )
 end
 
@@ -214,10 +213,17 @@ function ensemble_forward(solver::EnsembleSolver)
     # map unconstrained parameters to constrained space
     param_map = unconstrained_forward_map(inference_prob.prior.model)
     p = reduce(hcat, map(param_map, eachcol(θ)))
-    # rebuild forward problem with the constrained parameter ensemble
-    forward_prob = remake(inference_prob.forward_prob, p=p)
     # solve the ensemble forward problem
-    enssol = solve(forward_prob, inference_prob.forward_solver, solver.ensalg, solver.solve_args...; solver.solve_kwargs...)
+    enssol = solve(
+        forward_prob,
+        inference_prob.forward_solver,
+        solver.ensalg,
+        solver.solve_args...;
+        p=p,
+        prob_func=solver.prob_func,
+        validator_func=validator_func,
+        solver.solve_kwargs...
+    )
     return ensemble_outputs(inference_prob, enssol)
 end
 
