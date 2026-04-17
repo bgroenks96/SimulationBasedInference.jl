@@ -307,7 +307,7 @@ function solve(
     ens_prob_func(prob, i, repeat) = prob_func(prob, p_ens[:, i], i)
     output_func = ensemble_output_func(validator_func)
     ensprob = EnsembleProblem(forward_prob; prob_func=ens_prob_func, output_func, safetycopy)
-    return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p, 2), kwargs...)
+    return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p_ens, 2), kwargs...)
 end
 
 function ensemble_output_func(validator=(sol, i) -> OK)
