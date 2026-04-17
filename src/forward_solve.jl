@@ -284,7 +284,7 @@ end
         forward_alg,
         ensalg::EnsembleAlgorithm,
         args...;
-        prob_func=(prob, p) -> remake(prob; p),
+        prob_func=(prob, p, i) -> remake(prob; p),
         validator_func=(sol, i) -> OK,
         kwargs...
     )
@@ -298,13 +298,13 @@ function solve(
     forward_alg,
     ensalg::EnsembleAlgorithm,
     args...;
-    p::AbstractMatrix=forward_prob.p,
-    prob_func=(prob, i) -> remake(prob; p=p[:, i]),
+    p_ens::AbstractMatrix=forward_prob.p,
+    prob_func=(prob, p, i) -> remake(prob; p=p),
     validator_func=(sol, i) -> OK,
     safetycopy=false,
     kwargs...
 )
-    ens_prob_func(prob, i, repeat) = prob_func(remake(prob; p=p[:, i]), i)
+    ens_prob_func(prob, i, repeat) = prob_func(prob, p_ens[:, i], i)
     output_func = ensemble_output_func(validator_func)
     ensprob = EnsembleProblem(forward_prob; prob_func=ens_prob_func, output_func, safetycopy)
     return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p, 2), kwargs...)

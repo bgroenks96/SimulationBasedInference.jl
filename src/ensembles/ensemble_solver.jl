@@ -115,7 +115,7 @@ function init(
     alg::EnsembleInferenceAlgorithm,
     ensalg::Union{Nothing,EnsembleAlgorithm}=EnsembleThreads(),
     solve_args...;
-    prob_func=(prob, p) -> remake(prob; p),
+    prob_func=(prob, p, i) -> remake(prob; p),
     validator_func=(sol, i) -> OK,
     obs_cov_func=obscov,
     initial_ens=nothing,
