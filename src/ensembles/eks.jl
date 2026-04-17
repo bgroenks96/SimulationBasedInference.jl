@@ -13,7 +13,7 @@ isiterative(alg::EKS) = true
 
 # State type for Ensemble Kalman Processes
 
-mutable struct EKPState{NF, ekpType <: EnsembleKalmanProcess{NF}} <: EnsembleState
+mutable struct EKPState{NF,ekpType<:EnsembleKalmanProcess{NF}} <: EnsembleState
     ekp::ekpType
     iter::Int  # iteration step
 end
@@ -30,16 +30,16 @@ logdensity_prior(ekp::EnsembleKalmanProcess{<:Sampler}, θ) = logpdf(MvNormal(ek
 hasconverged(alg::EKS, state::EKPState) = length(state.ekp.Δt) > 1 ? sum(state.ekp.Δt[2:end]) >= alg.minΔt : false
 
 function initialstate(
-        eks::EKS,
-        prior::AbstractSimulatorPrior,
-        ens::AbstractMatrix,
-        obs::AbstractVector,
-        obs_cov::AbstractMatrix;
-        rng::AbstractRNG = Random.GLOBAL_RNG,
-        kwargs...
-    )
+    eks::EKS,
+    prior::AbstractSimulatorPrior,
+    ens::AbstractMatrix,
+    obs::AbstractVector,
+    obs_cov::AbstractMatrix;
+    rng::AbstractRNG=Random.GLOBAL_RNG,
+    kwargs...
+)
     unconstrained_prior = gaussian_approx(eks.prior_approx, prior; rng)
-    sampler = Sampler{eltype(ens), EnsembleKalmanProcesses.EKS}(collect(mean(unconstrained_prior)), cov(unconstrained_prior))
+    sampler = Sampler{eltype(ens),EnsembleKalmanProcesses.EKS}(collect(mean(unconstrained_prior)), cov(unconstrained_prior))
     ekp = EnsembleKalmanProcess(ens, obs, Matrix(obs_cov), sampler; rng, kwargs...)
     return EKPState(ekp, 0)
 end
@@ -63,7 +63,7 @@ function ensemblestep!(solver::EnsembleSolver{<:EKS})
     # postamble
     # calculate change in error
     err = get_error(ekp)
-    Δerr = length(err) > 1 ? err[end] - err[end - 1] : missing
-    solver.verbose && @info "Finished iteration $(state.iter); err: $(err), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
+    Δerr = length(err) > 1 ? err[end] - err[end-1] : missing
+    solver.verbose && @info "Finished iteration $(state.iter); err: $(err[end]), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
     return out
 end
