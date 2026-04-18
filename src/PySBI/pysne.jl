@@ -77,7 +77,8 @@ function init(
     solve_kwargs...
 ) where {T}
     # set torch global RNG (sbi doesn't have a local option)
-    torch.manual_seed(rng.seed)
+    torch_seed = rand(rng, UInt32)
+    torch.manual_seed(torch_seed)
     if isnothing(simdata)
         simdata = SimulationArrayStorage()
         pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
