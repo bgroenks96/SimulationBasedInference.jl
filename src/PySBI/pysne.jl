@@ -62,9 +62,9 @@ function init(
     simdata::Union{Nothing,SimulationData}=nothing,
     param_type::Type{T} = Vector;
     pred_transform = identity,
-    prior = pyprior(inference_prob.prior),
     transform = SBI.unconstrained_forward_map(inference_prob.prior),
     rng::Random.AbstractRNG = Random.default_rng(),
+    prior = pyprior(inference_prob.prior; rng),
     # simulate kwargs
     num_simulations::Int = 1000,
     num_workers::Int = 1,
@@ -76,6 +76,8 @@ function init(
     # solve kwargs
     solve_kwargs...
 ) where {T}
+    # set torch global RNG (sbi doesn't have a local option)
+    torch.manual_seed(rng.seed)
     if isnothing(simdata)
         simdata = SimulationArrayStorage()
         pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
