@@ -165,9 +165,9 @@ function TimeSampled(
     t0::timeType,
     tsave::AbstractVector{timeType};
     time_converter = convert,
-    reducer=mean,
-    samplerate=default_sample_rate(tsave),
-    output_type=Any,
+    reducer = mean,
+    samplerate = default_sample_rate(tsave),
+    output_type = Any,
     storage::SimulationData=SimulationArrayStorage(; input_type=timeType, output_type),
 ) where {timeType}
     @assert length(tsave) > 0

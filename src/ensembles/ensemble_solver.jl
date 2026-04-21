@@ -229,10 +229,11 @@ end
 
 # Non-batched simulator, ensemble solve
 function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::EnsembleSolution)
+    names = keys(inference_prob.likelihoods)
     # extract prediction vector for combined likelihoods
     pred = mapreduce(hcat, sol.u) do result
         # retrieve observable for each likelihood and flatten into a vector
-        observables = map(name -> result.observables[name], keys(inference_prob.likelihoods))
+        observables = map(name -> isnothing(result.observables) ? nothing : result.observables[name], names)
         reduce(vcat, map(obs -> vec(obs), observables))
     end
     # extract observable values
