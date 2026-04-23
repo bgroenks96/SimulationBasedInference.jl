@@ -234,7 +234,7 @@ function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::Ensemb
     pred = mapreduce(hcat, sol.u) do result
         # retrieve observable for each likelihood and flatten into a vector
         observables = map(name -> isnothing(result.observables) ? nothing : result.observables[name], names)
-        reduce(vcat, map(obs -> vec(obs), observables))
+        reduce(vcat, map(obs -> isnothing(obs) ? nothing : vec(obs), observables))
     end
     # extract observable values
     observables = ntreduce(enscat, map(result -> result.observables, sol.u))
