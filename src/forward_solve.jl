@@ -304,15 +304,14 @@ function solve(
     safetycopy=false,
     kwargs...
 )
-    ens_prob_func(prob, ctx) = prob_func(prob, p_ens[:, ctx.sim_id], ctx.sim_id)
+    ens_prob_func(prob, i, repeat) = prob_func(prob, p_ens[:, i], i)
     output_func = ensemble_output_func(validator_func)
     ensprob = EnsembleProblem(forward_prob; prob_func=ens_prob_func, output_func, safetycopy)
     return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p_ens, 2), kwargs...)
 end
 
 function ensemble_output_func(validator=(sol, i) -> OK)
-    function output(sol::SimulatorForwardSolution, ctx)
-        i = ctx.sim_id
+    function output(sol::SimulatorForwardSolution, i)
         result = validator(sol, i)
         if result == OK
             # retrieve observables and flatten into a vector
