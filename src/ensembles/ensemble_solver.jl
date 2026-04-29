@@ -237,7 +237,9 @@ function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::Ensemb
         reduce(vcat, map(obs -> isnothing(obs) ? nothing : vec(obs), observables))
     end
     # extract observable values
-    observables = ntreduce(enscat, map(result -> result.observables, sol.u))
+    # TODO: improve handling of missing values
+    valid_results = filter(result -> !isnothing(result.observables), sol.u)
+    observables = ntreduce(enscat, map(result -> result.observables, valid_results))
     return (; pred, observables)
 end
 
