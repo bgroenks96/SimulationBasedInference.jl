@@ -49,7 +49,7 @@ mutable struct PySBISolver{algType,samplingType<:PySBISampling}
     simulate_kwargs::NamedTuple
     train_kwargs::NamedTuple
     sampling::samplingType
-    data::Union{Missing,SimulationData}
+    data::Union{Missing,SimulationDataSet}
     proposal::Py
     simulator::Py
     inference::Py
@@ -59,7 +59,7 @@ end
 function init(
     inference_prob::SimulatorInferenceProblem,
     alg::PySNE,
-    simdata::Union{Nothing,SimulationData}=nothing,
+    simdata::Union{Nothing,SimulationDataSet}=nothing,
     param_type::Type{T} = Vector;
     pred_transform = identity,
     transform = SBI.unconstrained_forward_map(inference_prob.prior),
@@ -80,7 +80,7 @@ function init(
     torch_seed = rand(rng, UInt32)
     torch.manual_seed(torch_seed)
     if isnothing(simdata)
-        simdata = SimulationArrayStorage()
+        simdata = SimulationDataSet()
         pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
         prepared_prior, num_params, returns_numpy = sbi_utils.user_input_checks.process_prior(prior)
         prepared_sim = sbi_utils.user_input_checks.process_simulator(pysim, prepared_prior, returns_numpy)

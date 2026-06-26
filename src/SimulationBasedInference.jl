@@ -6,6 +6,7 @@ using Reexport
 using Dates
 using ForwardDiff
 using LinearAlgebra
+using OrderedCollections
 using Requires
 
 # SciML
@@ -46,9 +47,12 @@ abstract type SimulatorInferenceAlgorithm end
 export autoprior, from_moments
 include("utils.jl")
 
-export SimulationData, SimulationArrayStorage
-export store!, getinputs, getoutputs, getmetadata
-include("simulation_data.jl")
+export StorageBackend, InMemoryStorage
+export DataSeries
+export SimulationData, SimulationDataSet, JLD2SimulationDataSet
+export store!, allocate!, getinputs, setinputs!, getoutputs, getoutput, getmetadata
+export getbuffer, make_buffer!, get_buffer, has_buffer, clear!, iterations, flush!
+include("simulation_data/simulation_data.jl")
 
 export SimulatorObservable, TimeSampledObservable, TransientObservable, TimeSampled
 export observe!, getvalue, coordinates

@@ -8,33 +8,37 @@ Base type for observables with the given `outputType`.
 abstract type Observable{outputType<:SimulatorOutput} end
 
 """
-    initialize!(::Observable, state)
+    initialize!(data::SimulationData, ::Observable, state)
 
-Initialize the `Observable` from the given simulator state.
+Initialize the `Observable` from the given simulator state, allocating any required storage
+(output and transient sample buffers) within the given [`SimulationData`](@ref). Observables
+are stateless; all per-simulation storage lives in `data`.
 """
-initialize!(obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
-
-"""
-    observe!(::Observable, state)
-
-Computes and stores the relevant state variables from the given simulator state.
-"""
-observe!(obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
+initialize!(::SimulationData, obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
 
 """
-    getvalue(::Observable, ::Type{T}=Any) where {T}
+    observe!(data::SimulationData, ::Observable, state)
 
-Retreive the obsevable at all coordinates.
+Computes the relevant state variables from the given simulator state and stores them in the
+given [`SimulationData`](@ref).
 """
-getvalue(obs::Observable, ::Type{T}=Any) where {T} = error("not implemented for observable of type $(typeof(obs))")
+observe!(::SimulationData, obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
 
 """
-    setvalue!(obs::Observable, value)
+    getvalue(data::SimulationData, ::Observable)
 
-Overwrites the value of this observable. The type of `value` will depend on the type of the observable.
-This should generally only be used for testing and emulation purposes.
+Retrieve the observable value (at all coordinates) from the given [`SimulationData`](@ref).
 """
-setvalue!(obs::Observable, value) = error("not implemented for observable of type $(typeof(obs))")
+getvalue(::SimulationData, obs::Observable) = error("not implemented for observable of type $(typeof(obs))")
+
+"""
+    setvalue!(data::SimulationData, obs::Observable, value)
+
+Overwrites the value of this observable in the given [`SimulationData`](@ref). The type of
+`value` will depend on the type of the observable. This should generally only be used for
+testing and emulation purposes.
+"""
+setvalue!(::SimulationData, obs::Observable, value) = error("not implemented for observable of type $(typeof(obs))")
 
 """
     coordinates(obs::Observable)
@@ -69,7 +73,7 @@ coordinates(dims::Tuple) = coordinates(dims...)
 coordinates(::Tuple{}) = coordinates(1)
 
 """
-    SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType} <: Observable{outputType}
+    SimulatorObservable{N, outputType<:SimulatorOutput, funcType, coordsType} <: Observable{outputType}
 
 Represents a named "observable" that stores output from a simulator. `obsfunc`
 defines a mapping from the simulator state to the observed quantity. The type
@@ -77,7 +81,9 @@ and implementation of `output` determines how the samples are stored. The simple
 output type is `Transient` which simply maintains a pointer to the last observed
 output.
 """
-struct SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType<:Tuple{Vararg{Dimension,N}}} <: Observable{outputType}
+struct SimulatorObservable{
+    N, outputType<:SimulatorOutput, funcType, coordsType<:Tuple{Vararg{Dimension,N}}
+} <: Observable{outputType}
     name::Symbol
     obsfunc::funcType
     output::outputType
@@ -97,40 +103,47 @@ end
 """
     Transient{T} <: SimulatorOutput
 
-Simple output type that stores a transient reference to an arbitrary state variable. The reference is
-overwritten on each subsequent call to `observe!`.
+Simple output type that retains only the last observed value of the observable function. The
+value itself is stored in the [`SimulationData`](@ref); `Transient` is a stateless marker.
 """
-mutable struct Transient{T} <: SimulatorOutput{T}
-    value::Union{Nothing, T}
-end
+struct Transient{T} <: SimulatorOutput{T} end
+
+Transient(::Type{T}=Any) where {T} = Transient{T}()
 
 """
-    SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient{T}(nothing), name::Symbol = :obs)
+    SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient(), name::Symbol = :obs)
 
 Constructs an observable based on the given function `func(state)::T` and `output` type. Defaults to `Transient`
 output which simply saves the last observed value of `func`. The coordinates `coords` describe the shape of the output.
 """
-function SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient{Any}(nothing), name::Symbol = :obs)
+function SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient(), name::Symbol = :obs)
     ds = coordinates(coords)
     return SimulatorObservable(name, func, output, ds)
 end
 
-initialize!(obs::SimulatorObservable{N, <:Transient}, state) where {N} = observe!(obs, state)
+initialize!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N} = observe!(data, obs, state)
 
-function observe!(obs::SimulatorObservable{N, <:Transient}, state) where {N}
+function observe!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N}
     out = _coerce(obs.obsfunc(state), size(obs))
-    obs.output.value = out
+    # retain only the last observed value
+    buffer = getbuffer(data, obs.name)
+    clear!(buffer)
+    store!(buffer, out)
     return out
 end
 
-function getvalue(obs::SimulatorObservable{N, <:Transient}) where {N}
-    data = obs.output.value
+function getvalue(data::SimulationData, obs::SimulatorObservable{N, <:Transient}) where {N}
+    buffer = getbuffer(data, obs.name)
+    @assert length(buffer) > 0 "observable $(obs.name) has not yet been observed"
     coords = coordinates(obs)
-    return DimArray(data, coords)
+    return DimArray(last(buffer), coords)
 end
 
-function setvalue!(obs::SimulatorObservable{N, <:Transient}, value) where {N}
-    obs.output.value = value
+function setvalue!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, value) where {N}
+    buffer = getbuffer(data, obs.name)
+    clear!(buffer)
+    store!(buffer, value)
+    return value
 end
 
 """
@@ -140,15 +153,12 @@ end
 (lower frequency) save times. A simple example would be a windowed average or resampling operation that saves averages
 over higher frequency samples.
 """
-mutable struct TimeSampled{timeType, outputType, storageType<:SimulationData{timeType, outputType}, reducerType, converterType} <: SimulatorOutput{outputType}
+struct TimeSampled{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
     tconvert::converterType # time converter
     reducer::reducerType # reducer function
-    storage::storageType
-    buffer::Union{Nothing, Vector{outputType}}
-    sampleidx::Int
 end
 
 """
@@ -168,7 +178,6 @@ function TimeSampled(
     reducer = mean,
     samplerate = default_sample_rate(tsave),
     output_type = Any,
-    storage::SimulationData=SimulationArrayStorage(; input_type=timeType, output_type),
 ) where {timeType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
@@ -182,7 +191,9 @@ function TimeSampled(
             push!(tsample, t)
         end
     end
-    return TimeSampled(extrema(tsample), tsample, collect(tsave), time_converter, reducer, storage, nothing, 1)
+    return TimeSampled{timeType, output_type, typeof(reducer), typeof(time_converter)}(
+        extrema(tsample), tsample, collect(tsave), time_converter, reducer,
+    )
 end
 
 const TimeSampledObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeSampled}
@@ -227,65 +238,77 @@ Initialize the given time-sampled observable with the initial simulator state. N
 checks whether the output of `obsfunc` actually matches the declared size `size(obs)` and will error
 if they do not match.
 """
-function initialize!(obs::TimeSampledObservable, state)
-    # Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    storage = obs.output.storage
-    clear!(storage)
-    obs.output.buffer = similar(storage.outputs, 0)
-    obs.output.sampleidx = 1
+function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
+    # allocate a fresh transient sample buffer (keyed by observable name) and reset the output
+    make_buffer!(data, obs.name)
+    clear!(getbuffer(data, obs.name))
     return nothing
 end
 
-function observe!(obs::TimeSampledObservable, state)
-    @assert !isnothing(obs.output.buffer) "observable not yet initialized"
-    inbounds = obs.output.sampleidx <= length(obs.output.tsample)
-    t = inbounds ? obs.output.tsample[obs.output.sampleidx] : obs.output.tsample[end]
-    # find index of time point
-    idx = searchsorted(obs.output.tsave, t)
-    # get observable vector at current state
+"""
+    _sample_window(output::TimeSampled, k::Int)
+
+Return the range of (1-based) sample indices belonging to the `k`-th save bucket, i.e. the
+samples whose time falls in `(tsave[k-1], tsave[k]]` (with `tsave[0]` taken as the start of
+the time span). Indices are into the non-clearing transient sample buffer, which mirrors
+`tsample`.
+"""
+function _sample_window(output::TimeSampled, k::Int)
+    save_idx = searchsortedfirst(output.tsample, output.tsave[k])
+    prev_idx = k == 1 ? 0 : searchsortedfirst(output.tsample, output.tsave[k-1])
+    return (prev_idx + 1):save_idx
+end
+
+function observe!(data::SimulationData, obs::TimeSampledObservable, state)
+    output = obs.output
+    buffer = get_buffer(data, obs.name)   # transient (non-clearing) sample buffer
+    out = getbuffer(data, obs.name)       # persistent output buffer
+    # current sample index = number of samples observed so far + 1
+    n = length(buffer) + 1
+    inbounds = n <= length(output.tsample)
+    t = inbounds ? output.tsample[n] : output.tsample[end]
+    # observe and buffer the current sample
     Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    push!(obs.output.buffer, Y_t)
-    # if t ∈ save points, compute and store reduced output
-    if first(idx) == last(idx) && inbounds && length(obs.output.buffer) > 0
-        store!(obs.output.storage, t, obs.output.reducer(obs.output.buffer))
-        # empty buffer
-        resize!(obs.output.buffer, 0)
+    store!(buffer, Y_t)
+    # if t is the next (not-yet-stored) save point, reduce its sample window and store
+    k = length(out) + 1
+    if inbounds && k <= length(output.tsave) && t == output.tsave[k]
+        window = _sample_window(output, k)
+        store!(out, output.reducer(buffer[window]))
     end
-    # update cached time
-    obs.output.sampleidx += 1
     return Y_t
 end
 
-function getvalue(obs::TimeSampledObservable)
-    @assert !isnothing(obs.output.buffer) "observable not yet initialized"
-    @assert length(obs.output.storage) > 0 "output buffer is empty; check for errors in the model evaluation"
-    outputs = getoutputs(obs.output.storage)
+function getvalue(data::SimulationData, obs::TimeSampledObservable)
+    out = getbuffer(data, obs.name)
+    @assert length(out) > 0 "output for observable $(obs.name) is empty; check for errors in the model evaluation"
+    outputs = collect(out)
     # time is always the last coordinate of the observable (excluding batch dimension)
     t_idx = length(size(obs))
     # get first output
     y0 = first(outputs)
-    out = foldl(outputs, init=similar(y0, tupleinsert(size(y0), t_idx, 0))) do out, yᵢ
-        cat(out, reshape(yᵢ, tupleinsert(size(yᵢ), t_idx, 1)), dims=t_idx)
+    result = foldl(outputs, init=similar(y0, tupleinsert(size(y0), t_idx, 0))) do acc, yᵢ
+        cat(acc, reshape(yᵢ, tupleinsert(size(yᵢ), t_idx, 1)), dims=t_idx)
     end
     coords = coordinates(obs)
-    darr = DimArray(reshape(out, size(obs)), coords)
+    darr = DimArray(reshape(result, size(obs)), coords)
     singleton_dims = filter(c -> length(c) == 1, coords)
     return dropdims(darr, dims=singleton_dims)
 end
 
-function setvalue!(obs::TimeSampledObservable, values::AbstractArray)
+function setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractArray)
     @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
-    resize!(obs.output.buffer, 0)
-    clear!(obs.output.storage)
-    ts = savetimes(obs)
-    for (i, vals) in enumerate(eachslice(values, dims=length(size(values))))
-        store!(obs.output.storage, ts[i], vals)
+    out = getbuffer(data, obs.name)
+    clear!(out)
+    for vals in eachslice(values, dims=length(size(values)))
+        store!(out, vals)
     end
+    return values
 end
 
-setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(obs, reduce(hcat, values))
+setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(data, obs, reduce(hcat, values))
 
-unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.storage)), length(obs.output.storage))
+unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, prod(size(obs)[1:end-1]), length(savetimes(obs)))
 
 """
     ODEObservable(

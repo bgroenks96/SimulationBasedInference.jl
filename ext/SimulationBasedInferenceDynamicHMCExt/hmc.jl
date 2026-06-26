@@ -20,7 +20,7 @@ function CommonSolve.init(
     num_chains=1,
     autodiff=:ForwardDiff,
     rng::Random.AbstractRNG=Random.default_rng(),
-    storage::SBI.SimulationData=SimulationArrayStorage(),
+    storage::SBI.SimulationDataSet=SimulationDataSet(),
     initialization=default_hmc_init(rng, prob),
     warmup_stages=DynamicHMC.default_warmup_stages(),
     warmup_reporter=DynamicHMC.NoProgressReport(),
@@ -45,9 +45,11 @@ function CommonSolve.step!(solver::DynamicHMCSolver)
     solver.Q, stats = DynamicHMC.mcmc_next_step(solver.steps, solver.Q)
     # extract the position
     q = solver.Q.q
-    # extract observables
-    obs = map(obs -> ForwardDiff.value.(getvalue(obs)), prob.forward_prob.observables)
-    store!(sol.storage, q, obs)
+    # allocate a fresh simulation record and run the forward map at the current position to
+    # populate its observable outputs, then record the sampled position as the input
+    simdata = allocate!(sol.storage)
+    SBI.logjoint(prob, q; transform=true, simdata=simdata)
+    setinputs!(simdata, q)
     push!(solver.stats, stats)
     return nothing
 end

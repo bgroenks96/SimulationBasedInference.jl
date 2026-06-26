@@ -55,7 +55,7 @@ function linear_ode(
     # generate "true" solution
     forward_sol = solve(forwardprob, Tsit5())
     @assert forward_sol.sol.retcode == ReturnCode.Success
-    true_obs = getvalue(observable)
+    true_obs = getvalue(forward_sol.simdata, observable)
     # specify priors
     α_prior = prior(α=α_prior)
     noise_scale = σ_y

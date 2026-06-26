@@ -85,18 +85,32 @@ by all ensemble algorithm implementations.
 ensemblestep!(::EnsembleSolver{algType}) where {algType} = error("not implemented for alg of type $algType")
 
 """
+    store_ensemble!(storage::SimulationDataSet, state::EnsembleState, out; iter::Int)
+
+Append one [`SimulationData`](@ref) record per ensemble member to `storage`, tagging each
+with its `iter` and `member` index in metadata and recording the (unconstrained) ensemble
+parameters as the simulation input. The per-member `SimulationData` instances are produced
+by the forward solve and carried on `out.sims`.
+"""
+function store_ensemble!(storage::SimulationDataSet, state::EnsembleState, out; iter::Int)
+    ens = get_ensemble(state)
+    for (member, sim) in enumerate(out.sims)
+        setinputs!(sim, ens[:, member])
+        store!(storage, sim; iter=iter, member=member)
+    end
+    return storage
+end
+
+"""
     finalize!(solver::EnsembleSolver)
 
-Finalizes the solver state after iteration has completed. Default implementation runs `ensemble_solve`
-on the current ensemble state and stores the results in `sol.storage`.
+Finalizes the solver state after iteration has completed. Default implementation runs `ensemble_forward`
+on the current ensemble state and stores the per-member results in `sol.storage`.
 """
 function finalize!(solver::EnsembleSolver)
     out = ensemble_forward(solver)
-    return if isiterative(solver.alg)
-        store!(solver.sol.storage, get_ensemble(solver.state), out.observables, iter=solver.state.iter + 1)
-    else
-        store!(solver.sol.storage, get_ensemble(solver.state), out.observables)
-    end
+    iter = isiterative(solver.alg) ? solver.state.iter + 1 : solver.state.iter
+    return store_ensemble!(solver.sol.storage, solver.state, out; iter)
 end
 
 ################################
@@ -121,7 +135,7 @@ function init(
     initial_ens=nothing,
     ensemble_size::Integer=isnothing(initial_ens) ? 128 : size(initial_ens, 2),
     itercallback=state -> true,
-    storage=SimulationArrayStorage(),
+    storage=SimulationDataSet(),
     verbose=true,
     rng=Random.default_rng(),
     solve_kwargs...
@@ -176,8 +190,8 @@ function step!(solver::EnsembleSolver)
     out = ensemblestep!(solver)
     # set result
     sol.result = state
-    # store observables
-    store!(sol.storage, get_ensemble(state), out.observables, iter=state.iter)
+    # store per-member simulation data for this iteration
+    store_ensemble!(sol.storage, state, out; iter=state.iter)
     # iteration callback
     callback_retval = solver.itercallback(state)
     # check convergence
@@ -240,18 +254,22 @@ function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::Ensemb
     # TODO: improve handling of missing values
     valid_results = filter(result -> !isnothing(result.observables), sol.u)
     observables = ntreduce(enscat, map(result -> result.observables, valid_results))
-    return (; pred, observables)
+    # per-member simulation data produced by the forward solves
+    sims = map(result -> result.sol.simdata, sol.u)
+    return (; pred, observables, sims)
 end
 
 # Batched simulator
 function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::SimulatorForwardSolution)
     # extract prediction vector for combined likelihoods
     pred = mapreduce(vcat, keys(inference_prob.likelihoods)) do name
-        arr = getvalue(sol.prob.observables[name])
+        arr = getvalue(sol.simdata, sol.prob.observables[name])
         # flatten all but the last (batch) axis
         reshape(arr, :, length(last(axes(arr))))
     end
     # extract observable values
-    observables = map(getvalue, result.observables)
-    return (; pred, observables)
+    observables = map(obs -> getvalue(sol.simdata, obs), sol.prob.observables)
+    # a batched solve produces a single simulation data object holding all members
+    sims = [sol.simdata]
+    return (; pred, observables, sims)
 end

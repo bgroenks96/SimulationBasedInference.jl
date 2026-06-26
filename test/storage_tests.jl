@@ -1,41 +1,113 @@
 using SimulationBasedInference
+using JLD2
 using Test
 
 @testset "Simulation data storage" begin
-    @testset "SimulationArrayStorage" begin
-        storage = SimulationArrayStorage()
-        # store a single entry
-        x = zeros(10)
-        y = ones(2)
-        store!(storage, x, y)
-        @test length(storage) == 1
-        @test getinputs(storage, 1) == x
-        @test getoutputs(storage, 1) == y
-        SBI.clear!(storage)
-        @test length(storage) == 0
-        # store batch
-        X = [x x.+1]
-        store!(storage, X, [y,y.+1])
-        @test length(storage) == 2
-        @test getinputs(storage, 1) == x
-        @test getoutputs(storage, 1) == y
-        @test getinputs(storage, 2) == x.+1
-        @test getoutputs(storage, 2) == y.+1
-        @test isa(getinputs(storage), Vector)
-        @test isa(getoutputs(storage), Vector)
-        SBI.clear!(storage)
-        # store with metadata
-        X = [x x.+1]
-        store!(storage, X, [y,y.+1], iter=1)
-        @test length(storage) == 2
-        metadata = getmetadata(storage)
-        @test metadata[1] == metadata[2] == (iter=1,)
-        SBI.clear!(storage)
-        # store with non-array output
-        X = [x x.+1]
-        store!(storage, X, [(y=y,),(y=y.+1,)])
-        @test length(storage) == 2
-        @test getoutputs(storage, 1) == (y=y,)
-        @test getoutputs(storage, 2) == (y=y.+1,)
+    @testset "DataSeries (views over a backend)" begin
+        data = SimulationData()
+        # a persistent output series
+        s = getbuffer(data, :a)
+        @test s isa SimulationBasedInference.DataSeries
+        @test length(s) == 0
+        store!(s, [1.0, 2.0])
+        store!(s, [3.0, 4.0])
+        @test length(s) == 2
+        @test s[1] == [1.0, 2.0]
+        @test s[2] == [3.0, 4.0]
+        @test collect(s) == [[1.0, 2.0], [3.0, 4.0]]
+        @test first(s) == [1.0, 2.0]
+        @test last(s) == [3.0, 4.0]
+        @test [x for x in s] == collect(s)
+        clear!(s)
+        @test length(s) == 0
+    end
+
+    @testset "SimulationData" begin
+        data = SimulationData(input=zeros(3))
+        @test getinputs(data) == zeros(3)
+        setinputs!(data, ones(3))
+        @test getinputs(data) == ones(3)
+        # persistent outputs (per observable name)
+        store!(data, :a, [1.0])
+        store!(data, :a, [2.0])
+        store!(data, :b, [10.0])
+        @test getoutput(data, :a) == [[1.0], [2.0]]
+        @test getoutput(data, :b) == [[10.0]]
+        outs = getoutputs(data)
+        @test keys(outs) == (:a, :b)
+        @test outs.a == [[1.0], [2.0]]
+        # transient scratch buffers are separate from outputs
+        scratch = make_buffer!(data, :scratch)
+        store!(scratch, 42.0)
+        @test has_buffer(data, :scratch)
+        @test length(get_buffer(data, :scratch)) == 1
+        @test keys(getoutputs(data)) == (:a, :b)  # scratch excluded
+        # make_buffer! resets an existing transient buffer
+        scratch2 = make_buffer!(data, :scratch)
+        @test length(scratch2) == 0
+        # clear resets all series for the simulation
+        clear!(data)
+        @test keys(getoutputs(data)) == ()
+    end
+
+    @testset "SimulationDataSet (in-memory)" begin
+        dataset = SimulationDataSet()
+        @test length(dataset) == 0
+        # allocate a fresh simulation and populate it
+        d1 = allocate!(dataset; iter=1, member=1)
+        setinputs!(d1, [1.0, 2.0])
+        store!(d1, :y, [0.5])
+        @test length(dataset) == 1
+        @test getinputs(dataset, 1) == [1.0, 2.0]
+        @test getmetadata(dataset, 1)[:iter] == 1
+        @test getmetadata(dataset, 1)[:member] == 1
+        @test getoutputs(dataset, 1).y == [[0.5]]
+        # append an externally-constructed simulation (copied into the backend)
+        external = SimulationData(input=[3.0, 4.0])
+        store!(external, :y, [1.5])
+        store!(dataset, external; iter=1, member=2)
+        @test length(dataset) == 2
+        @test getinputs(dataset, 2) == [3.0, 4.0]
+        @test getmetadata(dataset, 2)[:member] == 2
+        # second iteration
+        d3 = allocate!(dataset; iter=2, member=1)
+        setinputs!(d3, [5.0, 6.0])
+        @test iterations(dataset) == 2
+        # iterating yields (input, outputs, metadata) triples
+        triples = collect(dataset)
+        @test length(triples) == 3
+        @test triples[1][1] == [1.0, 2.0]
+        @test triples[1][3][:iter] == 1
+        @test getinputs(dataset)[2] == [3.0, 4.0]
+        clear!(dataset)
+        @test length(dataset) == 0
+    end
+
+    @testset "JLD2SimulationDataSet (disk)" begin
+        mktempdir() do dir
+            path = joinpath(dir, "sims.jld2")
+            dataset = JLD2SimulationDataSet(path)
+            @test length(dataset) == 0
+            # store two simulations (streamed to disk)
+            d1 = SimulationData(input=[1.0, 2.0])
+            store!(d1, :y, [0.5])
+            store!(d1, :y, [0.6])
+            store!(dataset, d1; iter=1, member=1)
+            d2 = SimulationData(input=[3.0, 4.0])
+            store!(d2, :y, [1.5])
+            store!(dataset, d2; iter=1, member=2)
+            @test length(dataset) == 2
+            # read back (member 1 persisted, member 2 still pending)
+            @test getinputs(dataset, 1) == [1.0, 2.0]
+            @test getmetadata(dataset, 1)[:iter] == 1
+            @test getoutputs(dataset, 1).y == [[0.5], [0.6]]
+            @test getinputs(dataset, 2) == [3.0, 4.0]
+            # flush remaining pending simulations, then reopen the file
+            flush!(dataset)
+            reopened = JLD2SimulationDataSet(path)
+            @test length(reopened) == 2
+            @test getinputs(reopened, 1) == [1.0, 2.0]
+            @test getoutputs(reopened, 2).y == [[1.5]]
+        end
     end
 end

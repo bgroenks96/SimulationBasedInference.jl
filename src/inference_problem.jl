@@ -123,13 +123,14 @@ function forward_eval!(
     inference_prob::SimulatorInferenceProblem,
     θ::ComponentVector;
     forward_callback=sol -> nothing,
+    simdata::SimulationData=SimulationData(),
     solve_kwargs...
 )
     p = forward_map(inference_prob.prior, θ)
-    solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=p.model, solve_kwargs...)
+    solver = init(inference_prob.forward_prob, inference_prob.forward_solver; p=p.model, simdata, solve_kwargs...)
     sol = solve!(solver)
     forward_callback(sol)
-    loglik = sum(map(l -> loglikelihood(l, getproperty(p, nameof(l))), inference_prob.likelihoods), init=0.0)
+    loglik = sum(map(l -> loglikelihood(sol.simdata, l, getproperty(p, nameof(l))), inference_prob.likelihoods), init=0.0)
     return loglik
 end
 
@@ -146,6 +147,7 @@ function logjoint(
     transform=false,
     forward_solve=true,
     forward_callback=sol -> nothing,
+    simdata::SimulationData=SimulationData(),
     solve_kwargs...
 )
     uvec = zero(inference_prob.u0) .+ u
@@ -165,12 +167,12 @@ function logjoint(
     logprior += logprob(inference_prob.prior, θ)
     # solve forward problem;
     loglik = if forward_solve
-        forward_eval!(inference_prob, θ; forward_callback, solve_kwargs...)
+        forward_eval!(inference_prob, θ; forward_callback, simdata, solve_kwargs...)
     else
         # check that parameters match
         @assert all(θ.model .≈ inference_prob.forward_prob.p) "forward problem model parameters do not match the given parameters"
-        # evaluate log likelihood
-        sum(map(l -> loglikelihood(l, getproperty(θ, nameof(l))), inference_prob.likelihoods), init=0.0)
+        # evaluate log likelihood using the observable values stored in `simdata`
+        sum(map(l -> loglikelihood(simdata, l, getproperty(θ, nameof(l))), inference_prob.likelihoods), init=0.0)
     end
     return (; loglik, logprior)
 end
@@ -185,7 +187,7 @@ function logjoint(
     observables = forward_sol.prob.observables
     new_likelihoods = map(l -> remake(l, obs=getproperty(observables, nameof(l))), inference_prob.likelihoods)
     new_inference_prob = remake(inference_prob; forward_prob=forward_sol.prob, likelihoods=new_likelihoods)
-    return logjoint(new_inference_prob, u; transform, forward_solve=false, solve_kwargs...)
+    return logjoint(new_inference_prob, u; transform, forward_solve=false, simdata=forward_sol.simdata, solve_kwargs...)
 end
 
 logprob(inference_prob::SimulatorInferenceProblem, u) = sum(logjoint(inference_prob, u, transform=false))
@@ -197,11 +199,13 @@ Constructs a function which applies the inverse transformation defined by `bijec
 `logjoint` density. Note that this requires evaluating the likelihood/forward-map, which
 may involve running the simulator.
 """
-function logdensityfunc(prob::SimulatorInferenceProblem, storage::SimulationData; transform=true, kwargs...)
+function logdensityfunc(prob::SimulatorInferenceProblem, storage::SimulationDataSet; transform=true, kwargs...)
     function logprob(θ)
-        lp = sum(logjoint(prob, θ; transform=transform, kwargs...))
-        observables = prob.forward_prob.observables
-        store!(storage, θ, observables)
+        # allocate a fresh simulation record; the forward solve writes its outputs into it
+        simdata = allocate!(storage)
+        lp = sum(logjoint(prob, θ; transform=transform, simdata, kwargs...))
+        # record the sampled parameter vector as the input for this simulation
+        setinputs!(simdata, θ)
         return lp
     end
 end
@@ -226,7 +230,7 @@ end
 
 Generic container for solutions to `SimulatorInferenceProblem`s. The type of `result` is method dependent
 and should generally correspond to the final state or product of the inference algorithm (e.g. posterior samples).
-The field `storage` should be an instance of `SimulationData`.
+The field `storage` should be an instance of `SimulationDataSet`.
 """
 mutable struct SimulatorInferenceSolution{algType, probType, storageType}
     "Inference problem"

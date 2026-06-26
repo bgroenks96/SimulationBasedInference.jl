@@ -2,6 +2,10 @@ using Test
 
 include("test_problems.jl")
 
+@testset "Simulation data storage" begin
+    include("storage_tests.jl")
+end
+
 @testset "Observables" begin
     include("observables_tests.jl")
 end
