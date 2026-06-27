@@ -3,7 +3,7 @@
 
 Abstract type for the storage backend that owns all simulation data. There is exactly one
 backend per [`SimulationDataSet`](@ref); the higher-level types ([`SimulationData`](@ref),
-[`DataSeries`](@ref)) are lightweight views that route all reads and writes through it. The
+[`DataStore`](@ref)) are lightweight views that route all reads and writes through it. The
 backend decides where the bytes actually live — in memory ([`InMemoryStorage`](@ref)) or
 out-of-core (e.g. the JLD2 backend provided by the `SimulationBasedInferenceJLD2Ext`
 extension).
@@ -15,10 +15,10 @@ set of named **scratch** series (transient working buffers). Backends must imple
 - `getinputs(backend, i)` / `setinputs!(backend, i, x)`
 - `getmetadata(backend, i)` — a mutable `AbstractDict{Symbol}`
 - `store_output!(backend, i, name, x)` / `store_scratch!(backend, i, name, x)`
-- `get_output(backend, i, name, j)` / `get_scratch(backend, i, name, j)`
+- `get_output(backend, i, name, j)` / `get_scratch_storage(backend, i, name, j)`
 - `output_length(backend, i, name)` / `scratch_length(backend, i, name)`
 - `output_names(backend, i)` / `scratch_names(backend, i)`
-- `has_output(backend, i, name)` / `has_scratch(backend, i, name)`
+- `has_output(backend, i, name)` / `has_scratch_storage(backend, i, name)`
 - `ensure_output!(backend, i, name)` / `ensure_scratch!(backend, i, name)`
 - `empty_output!(backend, i, name)` / `empty_scratch!(backend, i, name)`
 - `Base.empty!(backend, i)` / `Base.empty!(backend)`
@@ -84,10 +84,10 @@ function ensure_scratch!(backend::InMemoryStorage, i::Integer, name::Symbol)
     return dict[name]
 end
 store_scratch!(backend::InMemoryStorage, i::Integer, name::Symbol, x) = (push!(ensure_scratch!(backend, i, name), x); backend)
-get_scratch(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = backend.scratch[i][name][j]
+get_scratch_storage(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = backend.scratch[i][name][j]
 scratch_length(backend::InMemoryStorage, i::Integer, name::Symbol) = haskey(backend.scratch[i], name) ? length(backend.scratch[i][name]) : 0
 scratch_names(backend::InMemoryStorage, i::Integer) = collect(keys(backend.scratch[i]))
-has_scratch(backend::InMemoryStorage, i::Integer, name::Symbol) = haskey(backend.scratch[i], name)
+has_scratch_storage(backend::InMemoryStorage, i::Integer, name::Symbol) = haskey(backend.scratch[i], name)
 empty_scratch!(backend::InMemoryStorage, i::Integer, name::Symbol) = (haskey(backend.scratch[i], name) && empty!(backend.scratch[i][name]); backend)
 
 # --- whole-simulation / whole-backend ---

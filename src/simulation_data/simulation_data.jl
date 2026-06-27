@@ -36,14 +36,13 @@ getmetadata(data::SimulationData) = getmetadata(data.backend, data.index)
 output_names(data::SimulationData) = output_names(data.backend, data.index)
 
 """
-    getdata(data::SimulationData, name::Symbol)
+    get_output_storage(data::SimulationData, name::Symbol)
 
-Return a [`DataSeries`](@ref) view of the persistent output series for observable `name`,
-creating it if necessary.
+Return a [`DataStore`](@ref) view of the output data for variable `name`, creating it if necessary.
 """
-function getdata(data::SimulationData, name::Symbol)
+function get_output_storage(data::SimulationData, name::Symbol)
     ensure_output!(data.backend, data.index, name)
-    return DataSeries{:output}(data.backend, data.index, name)
+    return DataStore{:output}(data.backend, data.index, name)
 end
 
 """
@@ -59,7 +58,7 @@ store!(data::SimulationData, name::Symbol, value) =
 
 Return the collected output sequence (a `Vector`) for observable `name`.
 """
-getoutput(data::SimulationData, name::Symbol) = collect(getdata(data, name))
+getoutput(data::SimulationData, name::Symbol) = collect(get_output_storage(data, name))
 
 """
     getoutputs(data::SimulationData)
@@ -73,16 +72,16 @@ getoutputs(data::SimulationData) = (; (nm => getoutput(data, nm) for nm in outpu
     create_scratch!(data::SimulationData, key::Symbol=:buffer)
 
 Create (and reset) a NEW transient scratch buffer keyed by `key` and return a
-[`DataSeries`](@ref) view of it. Does not touch any persistent output series.
+[`DataStore`](@ref) view of it. Does not touch any persistent output series.
 """
 function create_scratch!(data::SimulationData, key::Symbol=:buffer)
     ensure_scratch!(data.backend, data.index, key)
     empty_scratch!(data.backend, data.index, key)
-    return DataSeries{:scratch}(data.backend, data.index, key)
+    return DataStore{:scratch}(data.backend, data.index, key)
 end
 
-get_scratch(data::SimulationData, key::Symbol=:buffer) = DataSeries{:scratch}(data.backend, data.index, key)
-has_scratch(data::SimulationData, key::Symbol) = has_scratch(data.backend, data.index, key)
+get_scratch_storage(data::SimulationData, key::Symbol=:buffer) = DataStore{:scratch}(data.backend, data.index, key)
+has_scratch_storage(data::SimulationData, key::Symbol) = has_scratch_storage(data.backend, data.index, key)
 
 Base.empty!(data::SimulationData) = empty!(data.backend, data.index)
 
@@ -136,7 +135,7 @@ function store!(dataset::SimulationDataSet, data::SimulationData; metadata...)
     i = allocate!(dataset.backend, getinputs(data); getmetadata(data)..., metadata...)
     target = SimulationData(dataset.backend, i)
     for nm in output_names(data)
-        for value in getdata(data, nm)
+        for value in get_output_storage(data, nm)
             store!(target, nm, value)
         end
     end

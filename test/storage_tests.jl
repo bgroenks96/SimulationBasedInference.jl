@@ -3,11 +3,11 @@ using JLD2
 using Test
 
 @testset "Simulation data storage" begin
-    @testset "DataSeries (views over a backend)" begin
+    @testset "DataStore (views over a backend)" begin
         data = SimulationData()
         # a persistent output series
-        s = getdata(data, :a)
-        @test s isa SimulationBasedInference.DataSeries
+        s = get_output_storage(data, :a)
+        @test s isa SimulationBasedInference.DataStore
         @test length(s) == 0
         store!(s, [1.0, 2.0])
         store!(s, [3.0, 4.0])
