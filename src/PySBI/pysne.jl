@@ -85,7 +85,7 @@ function init(
         prepared_prior, num_params, returns_numpy = sbi_utils.user_input_checks.process_prior(prior)
         prepared_sim = sbi_utils.user_input_checks.process_simulator(pysim, prepared_prior, returns_numpy)
         inference_alg = build(alg, prepared_prior)
-        SBI.clear!(simdata)
+        empty!(simdata)
     else
         pysim = pysimulator(inference_prob, simdata, transform, pred_transform, T; rng)
         prepared_prior, num_params, returns_numpy = sbi_utils.user_input_checks.process_prior(prior)

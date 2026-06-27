@@ -11,7 +11,6 @@ extension).
 Each simulation has an input, a metadata dictionary, a set of named **output** series, and a
 set of named **scratch** series (transient working buffers). Backends must implement:
 
-- `num_simulations(backend)`
 - `allocate!(backend, input; metadata...) -> Int` — append a new simulation, return its index
 - `getinputs(backend, i)` / `setinputs!(backend, i, x)`
 - `getmetadata(backend, i)` — a mutable `AbstractDict{Symbol}`
@@ -21,15 +20,10 @@ set of named **scratch** series (transient working buffers). Backends must imple
 - `output_names(backend, i)` / `scratch_names(backend, i)`
 - `has_output(backend, i, name)` / `has_scratch(backend, i, name)`
 - `ensure_output!(backend, i, name)` / `ensure_scratch!(backend, i, name)`
-- `clear_output!(backend, i, name)` / `clear_scratch!(backend, i, name)`
-- `clear_simulation!(backend, i)` / `clear!(backend)`
-
-`flush!` and `Base.close` default to no-ops.
+- `empty_output!(backend, i, name)` / `empty_scratch!(backend, i, name)`
+- `Base.empty!(backend, i)` / `Base.empty!(backend)`
 """
 abstract type StorageBackend end
-
-flush!(::StorageBackend) = nothing
-Base.close(::StorageBackend) = nothing
 
 """
     InMemoryStorage{inputType,outputType,scratchType,metadataType} <: StorageBackend
@@ -81,7 +75,7 @@ get_output(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = bac
 output_length(backend::InMemoryStorage, i::Integer, name::Symbol) = haskey(backend.outputs[i], name) ? length(backend.outputs[i][name]) : 0
 output_names(backend::InMemoryStorage, i::Integer) = collect(keys(backend.outputs[i]))
 has_output(backend::InMemoryStorage, i::Integer, name::Symbol) = haskey(backend.outputs[i], name)
-clear_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = (haskey(backend.outputs[i], name) && empty!(backend.outputs[i][name]); backend)
+empty_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = (haskey(backend.outputs[i], name) && empty!(backend.outputs[i][name]); backend)
 
 # --- scratch series ---
 function ensure_scratch!(backend::InMemoryStorage, i::Integer, name::Symbol)
@@ -94,16 +88,16 @@ get_scratch(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = ba
 scratch_length(backend::InMemoryStorage, i::Integer, name::Symbol) = haskey(backend.scratch[i], name) ? length(backend.scratch[i][name]) : 0
 scratch_names(backend::InMemoryStorage, i::Integer) = collect(keys(backend.scratch[i]))
 has_scratch(backend::InMemoryStorage, i::Integer, name::Symbol) = haskey(backend.scratch[i], name)
-clear_scratch!(backend::InMemoryStorage, i::Integer, name::Symbol) = (haskey(backend.scratch[i], name) && empty!(backend.scratch[i][name]); backend)
+empty_scratch!(backend::InMemoryStorage, i::Integer, name::Symbol) = (haskey(backend.scratch[i], name) && empty!(backend.scratch[i][name]); backend)
 
 # --- whole-simulation / whole-backend ---
-function clear_simulation!(backend::InMemoryStorage, i::Integer)
+function Base.empty!(backend::InMemoryStorage, i::Integer)
     empty!(backend.outputs[i])
     empty!(backend.scratch[i])
     return backend
 end
 
-function clear!(backend::InMemoryStorage)
+function Base.empty!(backend::InMemoryStorage)
     empty!(backend.inputs)
     empty!(backend.metadata)
     empty!(backend.outputs)

@@ -126,22 +126,22 @@ initialize!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, stat
 function observe!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N}
     out = _coerce(obs.obsfunc(state), size(obs))
     # retain only the last observed value
-    buffer = getbuffer(data, obs.name)
-    clear!(buffer)
+    buffer = getdata(data, obs.name)
+    empty!(buffer)
     store!(buffer, out)
     return out
 end
 
 function getvalue(data::SimulationData, obs::SimulatorObservable{N, <:Transient}) where {N}
-    buffer = getbuffer(data, obs.name)
+    buffer = getdata(data, obs.name)
     @assert length(buffer) > 0 "observable $(obs.name) has not yet been observed"
     coords = coordinates(obs)
     return DimArray(last(buffer), coords)
 end
 
 function setvalue!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, value) where {N}
-    buffer = getbuffer(data, obs.name)
-    clear!(buffer)
+    buffer = getdata(data, obs.name)
+    empty!(buffer)
     store!(buffer, value)
     return value
 end
@@ -240,8 +240,8 @@ if they do not match.
 """
 function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
     # allocate a fresh transient sample buffer (keyed by observable name) and reset the output
-    make_buffer!(data, obs.name)
-    clear!(getbuffer(data, obs.name))
+    create_scratch!(data, obs.name)
+    empty!(get_scratch(data, obs.name))
     return nothing
 end
 
@@ -261,8 +261,8 @@ end
 
 function observe!(data::SimulationData, obs::TimeSampledObservable, state)
     output = obs.output
-    buffer = get_buffer(data, obs.name)   # transient (non-clearing) sample buffer
-    out = getbuffer(data, obs.name)       # persistent output buffer
+    buffer = get_scratch(data, obs.name)   # transient (non-clearing) sample buffer
+    out = getdata(data, obs.name)       # persistent output buffer
     # current sample index = number of samples observed so far + 1
     n = length(buffer) + 1
     inbounds = n <= length(output.tsample)
@@ -280,7 +280,7 @@ function observe!(data::SimulationData, obs::TimeSampledObservable, state)
 end
 
 function getvalue(data::SimulationData, obs::TimeSampledObservable)
-    out = getbuffer(data, obs.name)
+    out = getdata(data, obs.name)
     @assert length(out) > 0 "output for observable $(obs.name) is empty; check for errors in the model evaluation"
     outputs = collect(out)
     # time is always the last coordinate of the observable (excluding batch dimension)
@@ -298,8 +298,8 @@ end
 
 function setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractArray)
     @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
-    out = getbuffer(data, obs.name)
-    clear!(out)
+    out = getdata(data, obs.name)
+    empty!(out)
     for vals in eachslice(values, dims=length(size(values)))
         store!(out, vals)
     end

@@ -36,12 +36,12 @@ getmetadata(data::SimulationData) = getmetadata(data.backend, data.index)
 output_names(data::SimulationData) = output_names(data.backend, data.index)
 
 """
-    getbuffer(data::SimulationData, name::Symbol)
+    getdata(data::SimulationData, name::Symbol)
 
 Return a [`DataSeries`](@ref) view of the persistent output series for observable `name`,
 creating it if necessary.
 """
-function getbuffer(data::SimulationData, name::Symbol)
+function getdata(data::SimulationData, name::Symbol)
     ensure_output!(data.backend, data.index, name)
     return DataSeries{:output}(data.backend, data.index, name)
 end
@@ -59,7 +59,7 @@ store!(data::SimulationData, name::Symbol, value) =
 
 Return the collected output sequence (a `Vector`) for observable `name`.
 """
-getoutput(data::SimulationData, name::Symbol) = collect(getbuffer(data, name))
+getoutput(data::SimulationData, name::Symbol) = collect(getdata(data, name))
 
 """
     getoutputs(data::SimulationData)
@@ -70,23 +70,21 @@ Return a `NamedTuple` mapping each observable name to its collected output seque
 getoutputs(data::SimulationData) = (; (nm => getoutput(data, nm) for nm in output_names(data))...)
 
 """
-    make_buffer!(data::SimulationData, key::Symbol=:buffer)
+    create_scratch!(data::SimulationData, key::Symbol=:buffer)
 
 Create (and reset) a NEW transient scratch buffer keyed by `key` and return a
 [`DataSeries`](@ref) view of it. Does not touch any persistent output series.
 """
-function make_buffer!(data::SimulationData, key::Symbol=:buffer)
+function create_scratch!(data::SimulationData, key::Symbol=:buffer)
     ensure_scratch!(data.backend, data.index, key)
-    clear_scratch!(data.backend, data.index, key)
+    empty_scratch!(data.backend, data.index, key)
     return DataSeries{:scratch}(data.backend, data.index, key)
 end
 
-get_buffer(data::SimulationData, key::Symbol=:buffer) = DataSeries{:scratch}(data.backend, data.index, key)
-has_buffer(data::SimulationData, key::Symbol) = has_scratch(data.backend, data.index, key)
+get_scratch(data::SimulationData, key::Symbol=:buffer) = DataSeries{:scratch}(data.backend, data.index, key)
+has_scratch(data::SimulationData, key::Symbol) = has_scratch(data.backend, data.index, key)
 
-clear!(data::SimulationData) = (clear_simulation!(data.backend, data.index); data)
-flush!(data::SimulationData) = (flush!(data.backend); data)
-Base.close(::SimulationData) = nothing
+Base.empty!(data::SimulationData) = empty!(data.backend, data.index)
 
 ############################################################
 # Collection-of-simulations view
@@ -97,17 +95,15 @@ Base.close(::SimulationData) = nothing
 
 A view of the whole collection of simulations held in a single [`StorageBackend`](@ref) — the
 simulations run during an inference procedure. `SimulationDataSet()` uses an in-memory backend;
-`JLD2SimulationDataSet(path)` (provided by the `SimulationBasedInferenceJLD2Ext` extension)
+`OnDiskSimulationDataSet(path)` (provided by the `SimulationBasedInferenceJLD2Ext` extension)
 uses a disk-backed one.
 
 Indexing returns a [`SimulationData`](@ref) view of the `i`-th simulation; iterating yields
 `(input, outputs, metadata)` triples.
 """
-struct SimulationDataSet{B<:StorageBackend}
-    backend::B
+@kwdef struct SimulationDataSet{B<:StorageBackend}
+    backend::B = InMemoryStorage()
 end
-
-SimulationDataSet() = SimulationDataSet(InMemoryStorage())
 
 backend(dataset::SimulationDataSet) = dataset.backend
 
@@ -140,16 +136,14 @@ function store!(dataset::SimulationDataSet, data::SimulationData; metadata...)
     i = allocate!(dataset.backend, getinputs(data); getmetadata(data)..., metadata...)
     target = SimulationData(dataset.backend, i)
     for nm in output_names(data)
-        for value in getbuffer(data, nm)
+        for value in getdata(data, nm)
             store!(target, nm, value)
         end
     end
     return target
 end
 
-clear!(dataset::SimulationDataSet) = (clear!(dataset.backend); dataset)
-flush!(dataset::SimulationDataSet) = (flush!(dataset.backend); dataset)
-Base.close(dataset::SimulationDataSet) = close(dataset.backend)
+Base.empty!(dataset::SimulationDataSet) = empty!(dataset.backend)
 
 # iterating a dataset yields (input, outputs, metadata) triples, one per simulation
 function Base.iterate(dataset::SimulationDataSet, i::Int=1)
@@ -180,13 +174,14 @@ end
 # Out-of-core (JLD2) backend entrypoint
 ############################################################
 
-"""
-    JLD2SimulationDataSet(path::AbstractString; kwargs...)
+const SUPPORTED_DISK_FORMATS = (format"JLD2",)
 
-Construct a disk-backed `SimulationDataSet` whose backend persists each simulation to a JLD2
-file at `path`. Requires the `JLD2` package to be loaded; until then this throws an
-informative error. Load the backend with `import JLD2` (or `using JLD2`).
 """
-JLD2SimulationDataSet(args...; kwargs...) = error(
-    "JLD2SimulationDataSet requires the JLD2 package. Run `import JLD2` to load the disk-based storage backend.",
+    OnDiskSimulationDataSet(file::File{format}; kwargs...) where {format}
+
+Construct a disk-backed `SimulationDataSet` whose backend persists each simulation to disk
+at the given file `path`. Requires a supported file I/O backend to be loaded, e.g. `JLD2`.
+"""
+OnDiskSimulationDataSet(file::File{format}, args...; kwargs...) where {format} = error(
+    "No disk storage backend loaded for $format. Load the corresponding package for one of the supported formats $SUPPORTED_DISK_FORMATS to enable this backend.",
 )

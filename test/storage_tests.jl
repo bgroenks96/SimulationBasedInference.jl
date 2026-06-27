@@ -6,7 +6,7 @@ using Test
     @testset "DataSeries (views over a backend)" begin
         data = SimulationData()
         # a persistent output series
-        s = getbuffer(data, :a)
+        s = getdata(data, :a)
         @test s isa SimulationBasedInference.DataSeries
         @test length(s) == 0
         store!(s, [1.0, 2.0])
@@ -18,7 +18,7 @@ using Test
         @test first(s) == [1.0, 2.0]
         @test last(s) == [3.0, 4.0]
         @test [x for x in s] == collect(s)
-        clear!(s)
+        empty!(s)
         @test length(s) == 0
     end
 
@@ -36,17 +36,9 @@ using Test
         outs = getoutputs(data)
         @test keys(outs) == (:a, :b)
         @test outs.a == [[1.0], [2.0]]
-        # transient scratch buffers are separate from outputs
-        scratch = make_buffer!(data, :scratch)
-        store!(scratch, 42.0)
-        @test has_buffer(data, :scratch)
-        @test length(get_buffer(data, :scratch)) == 1
-        @test keys(getoutputs(data)) == (:a, :b)  # scratch excluded
-        # make_buffer! resets an existing transient buffer
-        scratch2 = make_buffer!(data, :scratch)
-        @test length(scratch2) == 0
+        # transient scratch buffers are not supported in direct disk backend
         # clear resets all series for the simulation
-        clear!(data)
+        empty!(data)
         @test keys(getoutputs(data)) == ()
     end
 
@@ -79,14 +71,14 @@ using Test
         @test triples[1][1] == [1.0, 2.0]
         @test triples[1][3][:iter] == 1
         @test getinputs(dataset)[2] == [3.0, 4.0]
-        clear!(dataset)
+        empty!(dataset)
         @test length(dataset) == 0
     end
 
-    @testset "JLD2SimulationDataSet (disk)" begin
+    @testset "OnDiskSimulationDataSet (disk)" begin
         mktempdir() do dir
-            path = joinpath(dir, "sims.jld2")
-            dataset = JLD2SimulationDataSet(path)
+            file = File(format"JLD2", joinpath(dir, "sims.jld2"))
+            dataset = OnDiskSimulationDataSet(file)
             @test length(dataset) == 0
             # store two simulations (streamed to disk)
             d1 = SimulationData(input=[1.0, 2.0])
@@ -97,14 +89,12 @@ using Test
             store!(d2, :y, [1.5])
             store!(dataset, d2; iter=1, member=2)
             @test length(dataset) == 2
-            # read back (member 1 persisted, member 2 still pending)
+            # read back simulations
             @test getinputs(dataset, 1) == [1.0, 2.0]
             @test getmetadata(dataset, 1)[:iter] == 1
             @test getoutputs(dataset, 1).y == [[0.5], [0.6]]
             @test getinputs(dataset, 2) == [3.0, 4.0]
-            # flush remaining pending simulations, then reopen the file
-            flush!(dataset)
-            reopened = JLD2SimulationDataSet(path)
+            reopened = OnDiskSimulationDataSet(file)
             @test length(reopened) == 2
             @test getinputs(reopened, 1) == [1.0, 2.0]
             @test getoutputs(reopened, 2).y == [[1.5]]

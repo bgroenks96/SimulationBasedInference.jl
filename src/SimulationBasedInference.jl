@@ -29,6 +29,7 @@ using Random
 @reexport using Statistics
 
 @reexport import CommonSolve: init, solve, solve!, step!
+@reexport import FileIO: File, @format_str
 @reexport import LogDensityProblems: LogDensityProblems, logdensity
 
 import SciMLBase: EnsembleAlgorithm
@@ -49,9 +50,9 @@ include("utils.jl")
 
 export StorageBackend, InMemoryStorage
 export DataSeries
-export SimulationData, SimulationDataSet, JLD2SimulationDataSet
+export SimulationData, SimulationDataSet, OnDiskSimulationDataSet
 export store!, allocate!, getinputs, setinputs!, getoutputs, getoutput, getmetadata
-export getbuffer, make_buffer!, get_buffer, has_buffer, clear!, iterations, flush!
+export getdata, create_scratch!, get_scratch, has_scratch, iterations
 include("simulation_data/simulation_data.jl")
 
 export SimulatorObservable, TimeSampledObservable, TransientObservable, TimeSampled
