@@ -77,7 +77,7 @@ using Test
 
     @testset "OnDiskSimulationDataSet (disk)" begin
         mktempdir() do dir
-            file = File(format"JLD2", joinpath(dir, "sims.jld2"))
+            file = File{format"JLD2"}(joinpath(dir, "sims.jld2"))
             dataset = OnDiskSimulationDataSet(file)
             @test length(dataset) == 0
             # store two simulations (streamed to disk)

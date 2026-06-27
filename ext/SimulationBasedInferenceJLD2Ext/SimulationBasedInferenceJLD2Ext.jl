@@ -4,7 +4,7 @@ using SimulationBasedInference
 using SimulationBasedInference: StorageBackend, InMemoryStorage, SimulationDataSet,
     num_simulations, allocate!, getinputs, setinputs!, getmetadata,
     store_output!, get_output, output_length, output_names, has_output, ensure_output!, empty_output!,
-    store_scratch!, get_scratch_storage, scratch_length, scratch_names, has_scratch_storage, ensure_scratch!, empty_scratch!
+    store_scratch!, get_scratch_storage, scratch_length, scratch_names, has_scratch, ensure_scratch!, empty_scratch!
 
 using FileIO
 using JLD2
@@ -173,8 +173,8 @@ SimulationBasedInference.scratch_length(b::JLD2Storage, i::Integer, name::Symbol
     scratch_in_memory(b) ? scratch_length(b.scratch, i, name) : _disk_length(b, i, :scratch, name)
 SimulationBasedInference.scratch_names(b::JLD2Storage, i::Integer) =
     scratch_in_memory(b) ? scratch_names(b.scratch, i) : _disk_names(b, i, :scratch)
-SimulationBasedInference.has_scratch_storage(b::JLD2Storage, i::Integer, name::Symbol) =
-    scratch_in_memory(b) ? has_scratch_storage(b.scratch, i, name) : _disk_has(b, i, :scratch, name)
+SimulationBasedInference.has_scratch(b::JLD2Storage, i::Integer, name::Symbol) =
+    scratch_in_memory(b) ? has_scratch(b.scratch, i, name) : _disk_has(b, i, :scratch, name)
 SimulationBasedInference.empty_scratch!(b::JLD2Storage, i::Integer, name::Symbol) =
     (scratch_in_memory(b) ? empty_scratch!(b.scratch, i, name) : _disk_clear!(b, i, :scratch, name); b)
 

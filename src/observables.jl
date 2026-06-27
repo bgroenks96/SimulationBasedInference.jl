@@ -125,8 +125,9 @@ initialize!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, stat
 
 function observe!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N}
     out = _coerce(obs.obsfunc(state), size(obs))
-    # retain only the last observed value
+    # get output storage
     buffer = get_output_storage(data, obs.name)
+    # drop any existing data and store the current value
     empty!(buffer)
     store!(buffer, out)
     return out
@@ -239,9 +240,11 @@ checks whether the output of `obsfunc` actually matches the declared size `size(
 if they do not match.
 """
 function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
-    # allocate a fresh transient sample buffer (keyed by observable name) and reset the output
+    # allocate a fresh transient sample buffer
     create_scratch!(data, obs.name)
-    empty!(get_scratch_storage(data, obs.name))
+    # retrieve the output buffer and ensure that it's empty
+    storage = get_output_storage(data, obs.name)
+    empty!(storage)
     return nothing
 end
 

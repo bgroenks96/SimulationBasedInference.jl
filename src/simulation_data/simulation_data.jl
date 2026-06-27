@@ -45,6 +45,8 @@ function get_output_storage(data::SimulationData, name::Symbol)
     return DataStore{:output}(data.backend, data.index, name)
 end
 
+has_output(data::SimulationData, name::Symbol) = has_output(data.backend, data.index, name)
+
 """
     store!(data::SimulationData, name::Symbol, value)
 
@@ -81,7 +83,8 @@ function create_scratch!(data::SimulationData, key::Symbol=:buffer)
 end
 
 get_scratch_storage(data::SimulationData, key::Symbol=:buffer) = DataStore{:scratch}(data.backend, data.index, key)
-has_scratch_storage(data::SimulationData, key::Symbol) = has_scratch_storage(data.backend, data.index, key)
+
+has_scratch(data::SimulationData, key::Symbol) = has_scratch(data.backend, data.index, key)
 
 Base.empty!(data::SimulationData) = empty!(data.backend, data.index)
 
