@@ -40,7 +40,7 @@ end
     SBI.initialize!(data, buffered_observable, state)
     # observable holds no state; the transient sample buffer lives in `data`
     @test SBI.has_output(data, :testobs)
-    @test typeof(SBI.get_output_storage(data, :testobs)) <: SBI.DataStore
+    @test typeof(SBI.get_output_buffer(data, :testobs)) <: SBI.DataBuffer
     # update observable at each sample point
     for t in t0:Hour(1):savepoints[end]
         state = (x = 1.0,)
@@ -61,5 +61,5 @@ end
     )
     SBI.initialize!(data, buffered_observable, state)
     @test SBI.has_output(data, :testobs)
-    @test typeof(SBI.get_output_storage(data, :testobs)) <: SBI.DataStore
+    @test typeof(SBI.get_output_buffer(data, :testobs)) <: SBI.DataBuffer
 end

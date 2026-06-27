@@ -49,7 +49,7 @@
 
 | Component | File Path | Primary Types | Key Functions |
 |-----------|-----------|---------------|---------------|
-| Simulation Data | `src/simulation_data.jl` | `SimulationData`, `SimulationArrayStorage` | `store!`, `getinputs`, `getoutputs` |
+| Simulation Data | `src/simulation_data/` | `SimulationData`, `SimulationDataSet` | `store!`, `getinputs`, `getoutputs`, `getoutput`, `getmetadata` |
 | Observables | `src/observables.jl` | `Observable`, `SimulatorObservable`, `TimeSampledObservable` | `observe!`, `getvalue`, `coordinates` |
 | Simulator Interface | `src/simulator_interface.jl` | `ForwardMap`, `Iterative`, `Dynamical` | `init`, `step!`, `solve!`, `isdone` |
 | Priors | `src/priors/` | `AbstractSimulatorPrior`, `NamedProductPrior` | `prior()`, `logprob()`, `forward_map()` |
@@ -71,7 +71,7 @@
 | `Observable{outputType}` | `observables.jl` | Base type for observables | `SimulatorObservable` |
 | `AbstractSimulatorPrior` | `priors/priors.jl` | Base type for prior distributions | `NamedProductPrior` |
 | `AbstractLikelihood` | `likelihoods/likelihoods.jl` | Base type for likelihood functions | `SimulatorLikelihood`, `GaussianLikelihood` |
-| `SimulationData{inputType, outputType}` | `simulation_data.jl` | Storage for simulation data | `SimulationArrayStorage` |
+| `SimulationData{inputType, outputType}` | `simulation_data/simulation_data.jl` | Storage for simulation data | `SimulationData`, `SimulationDataSet` |
 
 ### Concrete Types (Structs)
 
@@ -136,7 +136,7 @@ ensemble_solve(solver::EnsembleSolver)                 # Solve with ensemble met
 
 #### LogDensityProblems Interface (for MCMC)
 ```julia
-LogDensityProblems.logdensity(inference_prob, storage=SimulationArrayStorage())
+LogDensityProblems.logdensity(inference_prob, storage=SimulationDataSet())
 LogDensityProblems.dimension(ldp::LogDensityProblem)  # Parameter dimension
 ```
 

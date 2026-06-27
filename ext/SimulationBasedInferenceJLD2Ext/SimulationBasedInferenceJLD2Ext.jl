@@ -4,7 +4,7 @@ using SimulationBasedInference
 using SimulationBasedInference: StorageBackend, InMemoryStorage, SimulationDataSet,
     num_simulations, allocate!, getinputs, setinputs!, getmetadata,
     store_output!, get_output, output_length, output_names, has_output, ensure_output!, empty_output!,
-    store_scratch!, get_scratch_storage, scratch_length, scratch_names, has_scratch, ensure_scratch!, empty_scratch!
+    store_scratch!, get_scratch_buffer, scratch_length, scratch_names, has_scratch, ensure_scratch!, empty_scratch!
 
 using FileIO
 using JLD2
@@ -13,13 +13,10 @@ using JLD2
     JLD2Storage <: StorageBackend
 
 Disk-backed storage backend that persists each simulation as a group in a JLD2 file.
-Simulations are written directly to disk as they are accumulated, without any in-memory
-buffering of completed simulations.
+Simulation outputs are written directly to disk as they are accumulated.
 
-Scratch (transient working) series have a `scratch_in_memory` switch: when `true` (default)
-they are held in the embedded `scratch::InMemoryStorage` and never written to disk; when
-`false` they are written to disk alongside the outputs. In either case the `scratch` field is
-present and kept index-aligned with the on-disk simulations.
+Scratch (transient working) storage can be either kept in memory when `scratch_in_memory`
+is set to `true`, or otherwise written to disk.
 
 Layout per simulation `i`:
 
@@ -72,129 +69,125 @@ SimulationBasedInference.OnDiskSimulationDataSet(file::File{format"JLD2"}; kwarg
 
 scratch_in_memory(storage::JLD2Storage) = !isnothing(storage.scratch)
 
-# --- shared on-disk series helpers (1-based element keys; names derived from group keys) ---
-_series(i, group, name) = "simulations/$i/$group/$name"
+_key(i, group, name) = "simulations/$i/$group/$name"
 
-function _disk_store!(b::JLD2Storage, i::Integer, group::Symbol, name::Symbol, x)
-    JLD2.jldopen(b.path, "a+") do file
-        series = _series(i, group, name)
-        n = haskey(file, series) ? length(keys(file[series])) : 0
-        file["$series/$(n + 1)"] = x
+function _disk_store!(backend::JLD2Storage, i::Integer, group::Symbol, name::Symbol, x)
+    JLD2.jldopen(backend.path, "a+") do file
+        key = _key(i, group, name)
+        n = haskey(file, key) ? length(keys(file[key])) : 0
+        file["$key/$(n + 1)"] = x
     end
-    return b
+    return backend
 end
 
-function _disk_get(b::JLD2Storage, i::Integer, group::Symbol, name::Symbol, j::Integer)
-    JLD2.jldopen(b.path, "r") do file
-        file["$(_series(i, group, name))/$j"]
-    end
-end
-
-function _disk_length(b::JLD2Storage, i::Integer, group::Symbol, name::Symbol)
-    JLD2.jldopen(b.path, "r") do file
-        series = _series(i, group, name)
-        haskey(file, series) ? length(keys(file[series])) : 0
+function _disk_get(backend::JLD2Storage, i::Integer, group::Symbol, name::Symbol, j::Integer)
+    JLD2.jldopen(backend.path, "r") do file
+        file["$(_key(i, group, name))/$j"]
     end
 end
 
-function _disk_names(b::JLD2Storage, i::Integer, group::Symbol)
-    JLD2.jldopen(b.path, "r") do file
+function _disk_length(backend::JLD2Storage, i::Integer, group::Symbol, name::Symbol)
+    JLD2.jldopen(backend.path, "r") do file
+        key = _key(i, group, name)
+        haskey(file, key) ? length(keys(file[key])) : 0
+    end
+end
+
+function _disk_names(backend::JLD2Storage, i::Integer, group::Symbol)
+    JLD2.jldopen(backend.path, "r") do file
         g = "simulations/$i/$group"
         haskey(file, g) ? sort!(Symbol.(collect(keys(file[g])))) : Symbol[]
     end
 end
 
-function _disk_has(b::JLD2Storage, i::Integer, group::Symbol, name::Symbol)
-    JLD2.jldopen(b.path, "r") do file
-        haskey(file, _series(i, group, name))
+function _disk_has(backend::JLD2Storage, i::Integer, group::Symbol, name::Symbol)
+    JLD2.jldopen(backend.path, "r") do file
+        haskey(file, _key(i, group, name))
     end
 end
 
-function _disk_clear!(b::JLD2Storage, i::Integer, group::Symbol, name::Symbol)
-    JLD2.jldopen(b.path, "a+") do file
-        series = _series(i, group, name)
-        haskey(file, series) && delete!(file, series)
+function _disk_clear!(backend::JLD2Storage, i::Integer, group::Symbol, name::Symbol)
+    JLD2.jldopen(backend.path, "a+") do file
+        key = _key(i, group, name)
+        haskey(file, key) && delete!(file, key)
     end
-    return b
+    return backend
 end
 
 # --- StorageBackend interface ---
 
-SimulationBasedInference.num_simulations(b::JLD2Storage) = b.num_simulations
+SimulationBasedInference.num_simulations(backend::JLD2Storage) = backend.num_simulations
 
-function SimulationBasedInference.allocate!(b::JLD2Storage, input; metadata...)
-    i = b.num_simulations + 1
-    JLD2.jldopen(b.path, "a+") do file
+function SimulationBasedInference.allocate!(backend::JLD2Storage, input; metadata...)
+    i = backend.num_simulations + 1
+    JLD2.jldopen(backend.path, "a+") do file
         prefix = "simulations/$i"
         file["$prefix/input"] = input
         file["$prefix/metadata"] = Dict{Symbol,Any}(metadata)
     end
-    allocate!(b.scratch, nothing)  # parallel in-memory scratch slot (index i)
-    b.num_simulations = i
+    allocate!(backend.scratch, nothing)  # parallel in-memory scratch slot (index i)
+    backend.num_simulations = i
     return i
 end
 
-SimulationBasedInference.getinputs(b::JLD2Storage, i::Integer) =
-    JLD2.jldopen(b.path, "r") do file
+SimulationBasedInference.getinputs(backend::JLD2Storage, i::Integer) =
+    JLD2.jldopen(backend.path, "r") do file
         file["simulations/$i/input"]
     end
 
-function SimulationBasedInference.setinputs!(b::JLD2Storage, i::Integer, x)
-    JLD2.jldopen(b.path, "a+") do file
+function SimulationBasedInference.setinputs!(backend::JLD2Storage, i::Integer, x)
+    JLD2.jldopen(backend.path, "a+") do file
         key = "simulations/$i/input"
         haskey(file, key) && delete!(file, key)  # JLD2 datasets are write-once; overwrite by delete+write
         file[key] = x
     end
-    return b
+    return backend
 end
 
-SimulationBasedInference.getmetadata(b::JLD2Storage, i::Integer) =
-    JLD2.jldopen(b.path, "r") do file
+SimulationBasedInference.getmetadata(backend::JLD2Storage, i::Integer) =
+    JLD2.jldopen(backend.path, "r") do file
         file["simulations/$i/metadata"]
     end
 
-# --- output series (always on disk) ---
-SimulationBasedInference.ensure_output!(b::JLD2Storage, i::Integer, name::Symbol) = nothing
-SimulationBasedInference.store_output!(b::JLD2Storage, i::Integer, name::Symbol, x) = _disk_store!(b, i, :outputs, name, x)
-SimulationBasedInference.get_output(b::JLD2Storage, i::Integer, name::Symbol, j::Integer) = _disk_get(b, i, :outputs, name, j)
-SimulationBasedInference.output_length(b::JLD2Storage, i::Integer, name::Symbol) = _disk_length(b, i, :outputs, name)
-SimulationBasedInference.output_names(b::JLD2Storage, i::Integer) = _disk_names(b, i, :outputs)
-SimulationBasedInference.has_output(b::JLD2Storage, i::Integer, name::Symbol) = _disk_has(b, i, :outputs, name)
-SimulationBasedInference.empty_output!(b::JLD2Storage, i::Integer, name::Symbol) = _disk_clear!(b, i, :outputs, name)
+# --- output storage (always on disk) ---
+SimulationBasedInference.ensure_output!(backend::JLD2Storage, i::Integer, name::Symbol) = nothing
+SimulationBasedInference.store_output!(backend::JLD2Storage, i::Integer, name::Symbol, x) = _disk_store!(backend, i, :outputs, name, x)
+SimulationBasedInference.get_output(backend::JLD2Storage, i::Integer, name::Symbol, j::Integer) = _disk_get(backend, i, :outputs, name, j)
+SimulationBasedInference.output_length(backend::JLD2Storage, i::Integer, name::Symbol) = _disk_length(backend, i, :outputs, name)
+SimulationBasedInference.output_names(backend::JLD2Storage, i::Integer) = _disk_names(backend, i, :outputs)
+SimulationBasedInference.has_output(backend::JLD2Storage, i::Integer, name::Symbol) = _disk_has(backend, i, :outputs, name)
+SimulationBasedInference.empty_output!(backend::JLD2Storage, i::Integer, name::Symbol) = _disk_clear!(backend, i, :outputs, name)
 
-# --- scratch series (in memory by default, optionally on disk) ---
-SimulationBasedInference.ensure_scratch!(b::JLD2Storage, i::Integer, name::Symbol) =
-    scratch_in_memory(b) ? ensure_scratch!(b.scratch, i, name) : nothing
-SimulationBasedInference.store_scratch!(b::JLD2Storage, i::Integer, name::Symbol, x) =
-    scratch_in_memory(b) ? store_scratch!(b.scratch, i, name, x) : _disk_store!(b, i, :scratch, name, x)
-SimulationBasedInference.get_scratch_storage(b::JLD2Storage, i::Integer, name::Symbol, j::Integer) =
-    scratch_in_memory(b) ? get_scratch_storage(b.scratch, i, name, j) : _disk_get(b, i, :scratch, name, j)
-SimulationBasedInference.scratch_length(b::JLD2Storage, i::Integer, name::Symbol) =
-    scratch_in_memory(b) ? scratch_length(b.scratch, i, name) : _disk_length(b, i, :scratch, name)
-SimulationBasedInference.scratch_names(b::JLD2Storage, i::Integer) =
-    scratch_in_memory(b) ? scratch_names(b.scratch, i) : _disk_names(b, i, :scratch)
-SimulationBasedInference.has_scratch(b::JLD2Storage, i::Integer, name::Symbol) =
-    scratch_in_memory(b) ? has_scratch(b.scratch, i, name) : _disk_has(b, i, :scratch, name)
-SimulationBasedInference.empty_scratch!(b::JLD2Storage, i::Integer, name::Symbol) =
-    (scratch_in_memory(b) ? empty_scratch!(b.scratch, i, name) : _disk_clear!(b, i, :scratch, name); b)
+# --- scratch storage (in memory by default, optionally on disk) ---
+SimulationBasedInference.ensure_scratch!(backend::JLD2Storage, i::Integer, name::Symbol) =
+    scratch_in_memory(backend) ? ensure_scratch!(backend.scratch, i, name) : nothing
+SimulationBasedInference.store_scratch!(backend::JLD2Storage, i::Integer, name::Symbol, x) =
+    scratch_in_memory(backend) ? store_scratch!(backend.scratch, i, name, x) : _disk_store!(backend, i, :scratch, name, x)
+SimulationBasedInference.scratch_length(backend::JLD2Storage, i::Integer, name::Symbol) =
+    scratch_in_memory(backend) ? scratch_length(backend.scratch, i, name) : _disk_length(backend, i, :scratch, name)
+SimulationBasedInference.scratch_names(backend::JLD2Storage, i::Integer) =
+    scratch_in_memory(backend) ? scratch_names(backend.scratch, i) : _disk_names(backend, i, :scratch)
+SimulationBasedInference.has_scratch(backend::JLD2Storage, i::Integer, name::Symbol) =
+    scratch_in_memory(backend) ? has_scratch(backend.scratch, i, name) : _disk_has(backend, i, :scratch, name)
+SimulationBasedInference.empty_scratch!(backend::JLD2Storage, i::Integer, name::Symbol) =
+    (scratch_in_memory(backend) ? empty_scratch!(backend.scratch, i, name) : _disk_clear!(backend, i, :scratch, name); backend)
 
-# --- whole-simulation / whole-backend ---
-function Base.empty!(b::JLD2Storage, i::Integer)
-    JLD2.jldopen(b.path, "a+") do file
+function Base.empty!(backend::JLD2Storage, i::Integer)
+    JLD2.jldopen(backend.path, "a+") do file
         for group in ("outputs", "scratch")
             g = "simulations/$i/$group"
             haskey(file, g) && delete!(file, g)
         end
     end
-    scratch_in_memory(b) && empty!(b.scratch, i)
-    return b
+    scratch_in_memory(backend) && empty!(backend.scratch, i)
+    return backend
 end
 
-function Base.empty!(b::JLD2Storage)
-    b.num_simulations = 0
-    JLD2.jldopen(b.path, "w") do _ end  # truncate
-    scratch_in_memory(b) && empty!(b.scratch)
-    return b
+function Base.empty!(backend::JLD2Storage)
+    backend.num_simulations = 0
+    JLD2.jldopen(backend.path, "w") do _ end  # truncate
+    scratch_in_memory(backend) && empty!(backend.scratch)
+    return backend
 end
 
 end

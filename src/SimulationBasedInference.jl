@@ -49,10 +49,8 @@ export autoprior, from_moments
 include("utils.jl")
 
 export StorageBackend, InMemoryStorage
-export DataStore
 export SimulationData, SimulationDataSet, OnDiskSimulationDataSet
-export store!, allocate!, getinputs, setinputs!, getoutputs, getoutput, getmetadata
-export get_output_storage, create_scratch!, get_scratch_storage, has_scratch, iterations
+export store!, allocate!, getinputs, setinputs!, getoutputs, getoutput, getmetadata, iterations
 include("simulation_data/simulation_data.jl")
 
 export SimulatorObservable, TimeSampledObservable, TransientObservable, TimeSampled

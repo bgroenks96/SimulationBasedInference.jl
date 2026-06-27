@@ -126,7 +126,7 @@ initialize!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, stat
 function observe!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N}
     out = _coerce(obs.obsfunc(state), size(obs))
     # get output storage
-    buffer = get_output_storage(data, obs.name)
+    buffer = get_output_buffer(data, obs.name)
     # drop any existing data and store the current value
     empty!(buffer)
     store!(buffer, out)
@@ -134,14 +134,14 @@ function observe!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}
 end
 
 function getvalue(data::SimulationData, obs::SimulatorObservable{N, <:Transient}) where {N}
-    buffer = get_output_storage(data, obs.name)
+    buffer = get_output_buffer(data, obs.name)
     @assert length(buffer) > 0 "observable $(obs.name) has not yet been observed"
     coords = coordinates(obs)
     return DimArray(last(buffer), coords)
 end
 
 function setvalue!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, value) where {N}
-    buffer = get_output_storage(data, obs.name)
+    buffer = get_output_buffer(data, obs.name)
     empty!(buffer)
     store!(buffer, value)
     return value
@@ -243,7 +243,7 @@ function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
     # allocate a fresh transient sample buffer
     create_scratch!(data, obs.name)
     # retrieve the output buffer and ensure that it's empty
-    storage = get_output_storage(data, obs.name)
+    storage = get_output_buffer(data, obs.name)
     empty!(storage)
     return nothing
 end
@@ -264,8 +264,8 @@ end
 
 function observe!(data::SimulationData, obs::TimeSampledObservable, state)
     output = obs.output
-    buffer = get_scratch_storage(data, obs.name)   # transient (non-clearing) sample buffer
-    out = get_output_storage(data, obs.name)       # persistent output buffer
+    buffer = get_scratch_buffer(data, obs.name)   # transient (non-clearing) sample buffer
+    out = get_output_buffer(data, obs.name)       # persistent output buffer
     # current sample index = number of samples observed so far + 1
     n = length(buffer) + 1
     inbounds = n <= length(output.tsample)
@@ -283,7 +283,7 @@ function observe!(data::SimulationData, obs::TimeSampledObservable, state)
 end
 
 function getvalue(data::SimulationData, obs::TimeSampledObservable)
-    out = get_output_storage(data, obs.name)
+    out = get_output_buffer(data, obs.name)
     @assert length(out) > 0 "output for observable $(obs.name) is empty; check for errors in the model evaluation"
     outputs = collect(out)
     # time is always the last coordinate of the observable (excluding batch dimension)
@@ -301,7 +301,7 @@ end
 
 function setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractArray)
     @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
-    out = get_output_storage(data, obs.name)
+    out = get_output_buffer(data, obs.name)
     empty!(out)
     for vals in eachslice(values, dims=length(size(values)))
         store!(out, vals)

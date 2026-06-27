@@ -1,25 +1,26 @@
 using SimulationBasedInference
+using SimulationBasedInference: get_output_buffer, create_scratch!, get_scratch_buffer
 using JLD2
 using Test
 
 @testset "Simulation data storage" begin
-    @testset "DataStore (views over a backend)" begin
+    @testset "DataBuffer (views over a backend)" begin
         data = SimulationData()
         # a persistent output series
-        s = get_output_storage(data, :a)
-        @test s isa SimulationBasedInference.DataStore
-        @test length(s) == 0
-        store!(s, [1.0, 2.0])
-        store!(s, [3.0, 4.0])
-        @test length(s) == 2
-        @test s[1] == [1.0, 2.0]
-        @test s[2] == [3.0, 4.0]
-        @test collect(s) == [[1.0, 2.0], [3.0, 4.0]]
-        @test first(s) == [1.0, 2.0]
-        @test last(s) == [3.0, 4.0]
-        @test [x for x in s] == collect(s)
-        empty!(s)
-        @test length(s) == 0
+        buffer = get_output_buffer(data, :a)
+        @test buffer isa SimulationBasedInference.DataBuffer
+        @test length(buffer) == 0
+        store!(buffer, [1.0, 2.0])
+        store!(buffer, [3.0, 4.0])
+        @test length(buffer) == 2
+        @test buffer[1] == [1.0, 2.0]
+        @test buffer[2] == [3.0, 4.0]
+        @test collect(buffer) == [[1.0, 2.0], [3.0, 4.0]]
+        @test first(buffer) == [1.0, 2.0]
+        @test last(buffer) == [3.0, 4.0]
+        @test [x for x in buffer] == collect(buffer)
+        empty!(buffer)
+        @test length(buffer) == 0
     end
 
     @testset "SimulationData" begin
