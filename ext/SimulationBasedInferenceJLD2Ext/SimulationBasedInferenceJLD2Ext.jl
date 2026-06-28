@@ -63,24 +63,24 @@ SimulationBasedInference.OnDiskSimulationDataSet(file::File{format"JLD2"}; kwarg
 
 Handle for [`JLD2Storage`](@ref). Holds the JLD2 file open for the duration of a batch of
 operations and owns the in-memory scratch namespace (used unless `scratch_in_memory` is
-`false`, in which case scratch is written to disk).
+`false`, in which case scratch is written to disk). Scratch storage is now per-simulation.
 """
 mutable struct JLD2StorageHandle <: StorageHandle
     backend::JLD2Storage
     file::Union{JLD2.JLDFile, Nothing}
     isopen::Bool
-    scratch::Dict{Symbol,Any}
+    scratch::Dict{Int, Dict{Symbol, Any}}  # Scratch indexed by simulation index
 end
 
 function Base.open(backend::JLD2Storage, mode::AbstractString = "a+")
     file = JLD2.jldopen(backend.path, mode)
-    handle = JLD2StorageHandle(backend, file, true, Dict{Symbol,Any}())
+    handle = JLD2StorageHandle(backend, file, true, Dict{Int, Dict{Symbol, Any}}())
     finalizer(close, handle)
     return handle
 end
 
 function Base.close(handle::JLD2StorageHandle)
-    empty!(handle.scratch)
+    empty!(handle.scratch)  # Clear all per-simulation scratch storage
     if handle.isopen && handle.file !== nothing
         JLD2.close(handle.file)
         handle.file = nothing
@@ -89,8 +89,18 @@ function Base.close(handle::JLD2StorageHandle)
     return nothing
 end
 
+# Public API for checking handle state
+SimulationBasedInference.isopen(handle::JLD2StorageHandle) = handle.isopen
+
 # --- shared file helpers (operate on an open JLD2 file) ---
 _fkey(i, group, name) = "simulations/$i/$group/$name"
+
+function _ensure_scratch!(d::Dict{Symbol,Any}, name::Symbol)
+    if !haskey(d, name)
+        d[name] = Any[]
+    end
+    return d[name]
+end
 
 function _file_store!(file, i::Integer, group::Symbol, name::Symbol, x)
     key = _fkey(i, group, name)
@@ -169,29 +179,69 @@ SimulationBasedInference.has_output(h::JLD2StorageHandle, i::Integer, name::Symb
 SimulationBasedInference.empty_output!(h::JLD2StorageHandle, i::Integer, name::Symbol) = _file_clear!(h.file, i, :outputs, name)
 
 # scratch series (in-memory by default, on disk when scratch_in_memory == false)
-function SimulationBasedInference.ensure_scratch!(h::JLD2StorageHandle, ::Integer, name::Symbol)
-    h.backend.scratch_in_memory && _ensure_scratch!(h.scratch, name)
+# In-memory scratch is now per-simulation: Dict{Int, Dict{Symbol, Any}}
+function SimulationBasedInference.ensure_scratch!(h::JLD2StorageHandle, i::Integer, name::Symbol)
+    if h.backend.scratch_in_memory
+        if !haskey(h.scratch, i)
+            h.scratch[i] = Dict{Symbol, Any}()
+        end
+        d = h.scratch[i]
+        haskey(d, name) || (d[name] = Any[])
+    end
     return nothing
 end
+
 function SimulationBasedInference.store_scratch!(h::JLD2StorageHandle, i::Integer, name::Symbol, x)
     if h.backend.scratch_in_memory
-        push!(_ensure_scratch!(h.scratch, name), x)
+        if !haskey(h.scratch, i)
+            h.scratch[i] = Dict{Symbol, Any}()
+        end
+        d = h.scratch[i]
+        haskey(d, name) || (d[name] = Any[])
+        push!(d[name], x)
     else
         _file_store!(h.file, i, :scratch, name, x)
     end
     return nothing
 end
-SimulationBasedInference.get_scratch(h::JLD2StorageHandle, i::Integer, name::Symbol, j::Integer) =
-    h.backend.scratch_in_memory ? h.scratch[name][j] : _file_get(h.file, i, :scratch, name, j)
-SimulationBasedInference.scratch_length(h::JLD2StorageHandle, i::Integer, name::Symbol) =
-    h.backend.scratch_in_memory ? (haskey(h.scratch, name) ? length(h.scratch[name]) : 0) : _file_length(h.file, i, :scratch, name)
-SimulationBasedInference.scratch_names(h::JLD2StorageHandle, i::Integer) =
-    h.backend.scratch_in_memory ? collect(keys(h.scratch)) : _file_names(h.file, i, :scratch)
-SimulationBasedInference.has_scratch(h::JLD2StorageHandle, i::Integer, name::Symbol) =
-    h.backend.scratch_in_memory ? haskey(h.scratch, name) : _file_has(h.file, i, :scratch, name)
+
+function SimulationBasedInference.get_scratch(h::JLD2StorageHandle, i::Integer, name::Symbol, j::Integer)
+    if h.backend.scratch_in_memory
+        return h.scratch[i][name][j]
+    else
+        return _file_get(h.file, i, :scratch, name, j)
+    end
+end
+
+function SimulationBasedInference.scratch_length(h::JLD2StorageHandle, i::Integer, name::Symbol)
+    if h.backend.scratch_in_memory
+        return haskey(h.scratch, i) && haskey(h.scratch[i], name) ? length(h.scratch[i][name]) : 0
+    else
+        return _file_length(h.file, i, :scratch, name)
+    end
+end
+
+function SimulationBasedInference.scratch_names(h::JLD2StorageHandle, i::Integer)
+    if h.backend.scratch_in_memory
+        return haskey(h.scratch, i) ? collect(keys(h.scratch[i])) : Symbol[]
+    else
+        return _file_names(h.file, i, :scratch)
+    end
+end
+
+function SimulationBasedInference.has_scratch(h::JLD2StorageHandle, i::Integer, name::Symbol)
+    if h.backend.scratch_in_memory
+        return haskey(h.scratch, i) && haskey(h.scratch[i], name)
+    else
+        return _file_has(h.file, i, :scratch, name)
+    end
+end
+
 function SimulationBasedInference.empty_scratch!(h::JLD2StorageHandle, i::Integer, name::Symbol)
     if h.backend.scratch_in_memory
-        haskey(h.scratch, name) && empty!(h.scratch[name])
+        if haskey(h.scratch, i) && haskey(h.scratch[i], name)
+            empty!(h.scratch[i][name])
+        end
     else
         _file_clear!(h.file, i, :scratch, name)
     end

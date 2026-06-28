@@ -38,16 +38,23 @@ abstract type StorageHandle end
 Base.open(backend::StorageBackend) = error("open not defined for $(typeof(backend))")
 
 # Generic in-memory scratch implementation shared by all handle types.
-# Scratch is keyed by name within a (per-simulation) handle, so the simulation index is
-# accepted for interface uniformity but ignored by the in-memory implementation.
-_scratch_ensure!(d::AbstractDict, name::Symbol) = (haskey(d, name) || (d[name] = Any[]); d[name])
-ensure_scratch!(h::StorageHandle, ::Integer, name::Symbol) = (_scratch_ensure!(h.scratch, name); h)
-store_scratch!(h::StorageHandle, ::Integer, name::Symbol, x) = (push!(_scratch_ensure!(h.scratch, name), x); h)
-get_scratch(h::StorageHandle, ::Integer, name::Symbol, j::Integer) = h.scratch[name][j]
-scratch_length(h::StorageHandle, ::Integer, name::Symbol) = haskey(h.scratch, name) ? length(h.scratch[name]) : 0
-scratch_names(h::StorageHandle, ::Integer) = collect(keys(h.scratch))
-has_scratch(h::StorageHandle, ::Integer, name::Symbol) = haskey(h.scratch, name)
-empty_scratch!(h::StorageHandle, ::Integer, name::Symbol) = (haskey(h.scratch, name) && empty!(h.scratch[name]); h)
+# Scratch is now per-simulation, keyed by (simulation_index, name).
+_scratch_ensure!(scratch::Dict{Int, Dict{Symbol, Any}}, i::Integer, name::Symbol) = begin
+    if !haskey(scratch, i)
+        scratch[i] = Dict{Symbol, Any}()
+    end
+    d = scratch[i]
+    haskey(d, name) || (d[name] = Any[])
+    return d[name]
+end
+
+ensure_scratch!(h::StorageHandle, i::Integer, name::Symbol) = (_scratch_ensure!(h.scratch, i, name); h)
+store_scratch!(h::StorageHandle, i::Integer, name::Symbol, x) = (push!(_scratch_ensure!(h.scratch, i, name), x); h)
+get_scratch(h::StorageHandle, i::Integer, name::Symbol, j::Integer) = h.scratch[i][name][j]
+scratch_length(h::StorageHandle, i::Integer, name::Symbol) = haskey(h.scratch, i) && haskey(h.scratch[i], name) ? length(h.scratch[i][name]) : 0
+scratch_names(h::StorageHandle, i::Integer) = haskey(h.scratch, i) ? collect(keys(h.scratch[i])) : Symbol[]
+has_scratch(h::StorageHandle, i::Integer, name::Symbol) = haskey(h.scratch, i) && haskey(h.scratch[i], name)
+empty_scratch!(h::StorageHandle, i::Integer, name::Symbol) = (haskey(h.scratch, i) && haskey(h.scratch[i], name) && empty!(h.scratch[i][name]); h)
 
 """
     InMemoryStorage{inputType,outputType,metadataType} <: StorageBackend
@@ -74,15 +81,15 @@ InMemoryStorage() = InMemoryStorage{Any,Any,Any}()
     InMemoryStorageHandle <: StorageHandle
 
 Handle for [`InMemoryStorage`](@ref). Output operations forward directly to the backend; the
-ephemeral scratch namespace lives here and is cleared on close.
+ephemeral scratch namespace lives here (indexed by simulation index) and is cleared on close.
 """
 mutable struct InMemoryStorageHandle <: StorageHandle
     backend::InMemoryStorage
-    scratch::Dict{Symbol,Any}
+    scratch::Dict{Int, Dict{Symbol, Any}}  # Scratch indexed by simulation index
 end
 
 function Base.open(backend::InMemoryStorage, mode=nothing)
-    handle = InMemoryStorageHandle(backend, Dict{Symbol,Any}())
+    handle = InMemoryStorageHandle(backend, Dict{Int, Dict{Symbol, Any}}())
     finalizer(close, handle)
     return handle
 end

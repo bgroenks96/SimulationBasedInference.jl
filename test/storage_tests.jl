@@ -1,5 +1,9 @@
 using SimulationBasedInference
-using SimulationBasedInference: allocate!, getmetadata, setmetadata!, get_output_buffer, output_names
+using SimulationBasedInference: InMemoryStorage, InMemoryStorageHandle, JLD2StorageHandle,
+    allocate!, getmetadata, setmetadata!,
+    get_output_buffer, output_names, store_output!, get_outputs, output_length, has_output,
+    store_scratch!, get_scratch, scratch_length, has_scratch, scratch_names,
+    num_simulations, isopen
 using JLD2
 using Test
 
@@ -102,4 +106,175 @@ using Test
             @test getoutputs(reopened, 2).y == [[1.5]]
         end
     end
-end
+
+    # ========================================================================
+    # Handle-based API Tests (In-Memory Backend)
+    # ========================================================================
+    @testset "StorageHandle - InMemoryStorageHandle" begin
+        backend = InMemoryStorage()
+        
+        # Test open/close lifecycle
+        handle = open(backend)
+        @test handle isa InMemoryStorageHandle
+        @test handle.backend === backend
+        
+        # Test allocate! with handle
+        i1 = SimulationBasedInference.allocate!(handle, [1.0, 2.0]; iter=1, member=1)
+        @test i1 == 1
+        @test SimulationBasedInference.getinputs(handle, i1) == [1.0, 2.0]
+        @test SimulationBasedInference.getmetadata(handle, i1)[:iter] == 1
+        
+        # Test output operations with handle (fast path - no auto-open/close)
+        store_output!(handle, i1, :y, [0.5])
+        store_output!(handle, i1, :y, [0.6])
+        @test get_outputs(handle, i1, :y) == [[0.5], [0.6]]
+        @test output_length(handle, i1, :y) == 2
+        @test has_output(handle, i1, :y)
+        
+        # Test scratch operations with handle (handle-specific storage)
+        store_scratch!(handle, i1, :temp, "data1")
+        store_scratch!(handle, i1, :temp, "data2")
+        @test get_scratch(handle, i1, :temp, 1) == "data1"
+        @test get_scratch(handle, i1, :temp, 2) == "data2"
+        @test scratch_length(handle, i1, :temp) == 2
+        @test has_scratch(handle, i1, :temp)
+        @test :temp in scratch_names(handle, i1)
+        
+        # Test allocate second simulation
+        i2 = SimulationBasedInference.allocate!(handle, [3.0, 4.0]; iter=1, member=2)
+        @test i2 == 2
+        @test num_simulations(handle) == 2
+        
+        # Verify scratch is isolated between simulations (stored per-simulation index)
+        store_scratch!(handle, i2, :temp2, "data3")
+        @test has_scratch(handle, i1, :temp2) == false  # Scratch NOT accessible from other sim index
+        @test has_scratch(handle, i2, :temp2)  # Scratch exists for this sim index
+        
+        # Test close clears scratch but preserves backend data
+        close(handle)
+        
+        # After close, scratch should be cleared
+        handle2 = open(backend)
+        @test has_scratch(handle2, i1, :temp) == false  # Cleared on close
+        @test has_scratch(handle2, i2, :temp2) == false  # Cleared on close
+        
+        # But backend data should persist
+        @test SimulationBasedInference.getinputs(handle2, i1) == [1.0, 2.0]
+        @test get_outputs(handle2, i1, :y) == [[0.5], [0.6]]
+        @test num_simulations(handle2) == 2
+        
+        close(handle2)
+    end
+
+    # ========================================================================
+    # Handle-based API Tests (JLD2 Disk-Backed Backend)
+    # ========================================================================
+    @testset "StorageHandle - JLD2StorageHandle" begin
+        mktempdir() do dir
+            file = File{format"JLD2"}(joinpath(dir, "test_handles.jld2"))
+            dataset = OnDiskSimulationDataSet(file)
+            
+            # Get the backend from the dataset and open a handle
+            backend = dataset.backend
+            handle = open(backend)
+            
+            # Test that we got a valid handle (type check via isa with module prefix)
+            @test handle !== nothing
+            @test isopen(handle)
+            
+            # Test allocate! with handle (writes to disk)
+            i1 = SimulationBasedInference.allocate!(handle, [1.0, 2.0]; iter=1)
+            store_output!(handle, i1, :y, [0.5])
+            store_output!(handle, i1, :y, [0.6])
+            
+            # Test read operations with same handle (fast path - no re-open)
+            @test SimulationBasedInference.getinputs(handle, i1) == [1.0, 2.0]
+            @test get_outputs(handle, i1, :y) == [[0.5], [0.6]]
+            
+            # Test scratch operations (in-memory for JLD2StorageHandle)
+            store_scratch!(handle, i1, :scratch_data, "temp_value")
+            @test get_scratch(handle, i1, :scratch_data, 1) == "temp_value"
+            
+            # Close handle - should persist to disk and clear scratch
+            close(handle)
+            
+            # Reopen and verify data persisted, scratch cleared
+            handle2 = open(backend)
+            @test SimulationBasedInference.getinputs(handle2, i1) == [1.0, 2.0]
+            @test get_outputs(handle2, i1, :y) == [[0.5], [0.6]]
+            @test has_scratch(handle2, i1, :scratch_data) == false  # Cleared on close
+            
+            # Add more data with second handle
+            store_output!(handle2, i1, :z, [1.0])
+            SimulationBasedInference.allocate!(handle2, [5.0, 6.0]; iter=2)
+            
+            close(handle2)
+            
+            # Verify final state by reopening fresh
+            handle3 = open(backend)
+            @test num_simulations(handle3) == 2
+            @test SimulationBasedInference.getinputs(handle3, 1) == [1.0, 2.0]
+            @test get_outputs(handle3, 1, :y) == [[0.5], [0.6]]
+            @test get_outputs(handle3, 1, :z) == [[1.0]]
+            @test SimulationBasedInference.getinputs(handle3, 2) == [5.0, 6.0]
+            
+            close(handle3)
+        end
+    end
+
+    # ========================================================================
+    # Handle Resource Safety Tests (finalize destructor)
+    # ========================================================================
+    @testset "Handle Resource Safety - finalize" begin
+        backend = InMemoryStorage()
+        
+        # Create handle and store scratch data
+        handle = open(backend)
+        i = SimulationBasedInference.allocate!(handle, [1.0])
+        store_scratch!(handle, i, :temp, "should_be_cleared")
+        
+        # Force garbage collection to trigger finalize
+        handle_ref = handle  # Keep reference for later check
+        handle = nothing
+        GC.gc()
+        GC.gc()  # Run twice to ensure finalization
+        
+        # Create new handle and verify scratch was cleared by finalize
+        handle2 = open(backend)
+        @test has_scratch(handle2, i, :temp) == false
+        close(handle2)
+    end
+
+    # ========================================================================
+    # Handle Scratch Isolation Tests  
+    # ========================================================================
+    @testset "Handle Scratch Isolation" begin      
+        backend = InMemoryStorage()
+        
+        # Test that scratch is handle-specific, not backend-wide
+        handle1 = open(backend)
+        i1 = SimulationBasedInference.allocate!(handle1, [1.0])
+        store_scratch!(handle1, i1, :shared, "from_handle1")
+        
+        handle2 = open(backend)
+        i2 = SimulationBasedInference.allocate!(handle2, [2.0])
+        store_scratch!(handle2, i2, :shared, "from_handle2")
+        
+        # Each handle sees only its own scratch
+        @test get_scratch(handle1, i1, :shared, 1) == "from_handle1"
+        @test get_scratch(handle2, i2, :shared, 1) == "from_handle2"
+        
+        # Close handle1 - its scratch should be cleared
+        close(handle1)
+        
+        # Reopen and verify handle1's scratch is gone but handle2's persists  
+        handle3 = open(backend)
+        @test has_scratch(handle3, i1, :shared) == false  # Cleared when handle1 closed
+        
+        # Note: handle2 still exists, so its scratch should persist
+        @test get_scratch(handle2, i2, :shared, 1) == "from_handle2"
+        
+        close(handle2)
+        close(handle3)
+    end
+end  # End of "Simulation data storage" testset
