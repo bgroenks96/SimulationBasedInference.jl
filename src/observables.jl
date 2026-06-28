@@ -168,6 +168,7 @@ end
         tsave::AbstractVector{tType};
         reducer=mean,
         samplerate=default_sample_rate(tsave),
+        handle=nothing,  # Optional handle parameter for efficient scratch storage
     ) where {tType}
 
 Constructs a `TimeSampled` simulator output which iteratively samples and stores outputs on each call to `observe!`.
@@ -233,18 +234,18 @@ savetimes(::Type{T}, ::SimulatorObservable) where{T} = []
 default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
 """
-    initialize!(obs::TimeSampledObservable, state)
+    initialize!(data::SimulationData, obs::TimeSampledObservable, state; handle)
 
-Initialize the given time-sampled observable with the initial simulator state. Note that this method
-checks whether the output of `obsfunc` actually matches the declared size `size(obs)` and will error
-if they do not match.
+Initialize the given time-sampled observable with the initial simulator state. A storage
+handle **must** be provided since scratch storage is now a feature of handles only. The
+handle will be stored in the output object for use during observe! calls.
 """
 function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
-    # allocate a fresh transient sample buffer
-    create_scratch!(data, obs.name)
-    # retrieve the output buffer and ensure that it's empty
-    storage = get_output_buffer(data, obs.name)
-    empty!(storage)
+    # scratch storage is provided by the handle that `data` wraps during a forward solve;
+    # allocate/reset the transient sample buffer and the persistent output buffer
+    ensure_scratch!(data.backend, data.index, obs.name)
+    empty!(get_scratch_buffer(data, obs.name))
+    empty!(get_output_buffer(data, obs.name))
     return nothing
 end
 
@@ -262,23 +263,35 @@ function _sample_window(output::TimeSampled, k::Int)
     return (prev_idx + 1):save_idx
 end
 
+"""
+    observe!(data::SimulationData, obs::TimeSampledObservable, state)
+
+Observe the given time-sampled observable from the current simulator state. This method is called
+at each integration step to extract the observable value and store it in the scratch storage. The
+stored values are then reduced according to the reducer function specified when creating the
+observable. **Requires** that initialize! was called with a valid handle parameter.
+"""
 function observe!(data::SimulationData, obs::TimeSampledObservable, state)
     output = obs.output
-    buffer = get_scratch_buffer(data, obs.name)   # transient (non-clearing) sample buffer
+    buffer = get_scratch_buffer(data, obs.name)   # transient sample buffer (via data's handle)
     out = get_output_buffer(data, obs.name)       # persistent output buffer
+
     # current sample index = number of samples observed so far + 1
     n = length(buffer) + 1
     inbounds = n <= length(output.tsample)
     t = inbounds ? output.tsample[n] : output.tsample[end]
+    
     # observe and buffer the current sample
     Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
     store!(buffer, Y_t)
+    
     # if t is the next (not-yet-stored) save point, reduce its sample window and store
     k = length(out) + 1
     if inbounds && k <= length(output.tsave) && t == output.tsave[k]
         window = _sample_window(output, k)
         store!(out, output.reducer(buffer[window]))
     end
+    
     return Y_t
 end
 

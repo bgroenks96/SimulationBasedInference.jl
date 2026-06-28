@@ -1,5 +1,5 @@
 using SimulationBasedInference
-using SimulationBasedInference: get_output_buffer, create_scratch!, get_scratch_buffer
+using SimulationBasedInference: allocate!, getmetadata, setmetadata!, get_output_buffer, output_names
 using JLD2
 using Test
 
@@ -24,7 +24,7 @@ using Test
     end
 
     @testset "SimulationData" begin
-        data = SimulationData(input=zeros(3))
+        data = SimulationData(inputs=zeros(3))
         @test getinputs(data) == zeros(3)
         setinputs!(data, ones(3))
         @test getinputs(data) == ones(3)
@@ -56,7 +56,7 @@ using Test
         @test getmetadata(dataset, 1)[:member] == 1
         @test getoutputs(dataset, 1).y == [[0.5]]
         # append an externally-constructed simulation (copied into the backend)
-        external = SimulationData(input=[3.0, 4.0])
+        external = SimulationData(inputs=[3.0, 4.0])
         store!(external, :y, [1.5])
         store!(dataset, external; iter=1, member=2)
         @test length(dataset) == 2
@@ -81,20 +81,21 @@ using Test
             file = File{format"JLD2"}(joinpath(dir, "sims.jld2"))
             dataset = OnDiskSimulationDataSet(file)
             @test length(dataset) == 0
-            # store two simulations (streamed to disk)
-            d1 = SimulationData(input=[1.0, 2.0])
+            # store two simulations
+            d1 = allocate!(dataset, [1.0, 2.0], iter=1)
             store!(d1, :y, [0.5])
             store!(d1, :y, [0.6])
-            store!(dataset, d1; iter=1, member=1)
-            d2 = SimulationData(input=[3.0, 4.0])
+            d2 = allocate!(dataset, [3.0, 4.0], iter=1)
+            setmetadata!(d2, extra="foo") # test setmetdata!
             store!(d2, :y, [1.5])
-            store!(dataset, d2; iter=1, member=2)
             @test length(dataset) == 2
             # read back simulations
             @test getinputs(dataset, 1) == [1.0, 2.0]
             @test getmetadata(dataset, 1)[:iter] == 1
             @test getoutputs(dataset, 1).y == [[0.5], [0.6]]
             @test getinputs(dataset, 2) == [3.0, 4.0]
+            @test getmetadata(dataset, 2)[:iter] == 1
+            @test getmetadata(dataset, 2)[:extra] == "foo"
             reopened = OnDiskSimulationDataSet(file)
             @test length(reopened) == 2
             @test getinputs(reopened, 1) == [1.0, 2.0]

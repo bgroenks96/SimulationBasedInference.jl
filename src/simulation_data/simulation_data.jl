@@ -1,13 +1,7 @@
-include("storage_backend.jl")
-include("data_buffer.jl")
-
 """
-    SimulationData{B<:StorageBackend}
+    SimulationData{B}
 
-A view of the data for a single simulation stored in a [`StorageBackend`](@ref): its input (the
-parameters `θ`), a mutable metadata dictionary, the named persistent **output** series (one
-per observable), and a namespace of **transient** scratch buffers used by observables during
-a solve.
+A view of the data for a single simulation stored in the given [`StorageBackend`](@ref).
 """
 struct SimulationData{B<:StorageBackend}
     backend::B
@@ -18,14 +12,15 @@ end
 Allocate and construct a new `SimulationData` from the given `backend`, or create a new [`InMemoryStorage`](@ref)
 backend if not specified.
 """
-function SimulationData(; backend::StorageBackend=InMemoryStorage(), input=nothing, metadata...)
-    i = allocate!(backend, input; metadata...)
+function SimulationData(backend::StorageBackend=InMemoryStorage(); inputs=nothing, metadata...)
+    i = allocate!(backend, inputs; metadata...)
     return SimulationData(backend, i)
 end
 
 getinputs(data::SimulationData) = getinputs(data.backend, data.index)
-setinputs!(data::SimulationData, x) = (setinputs!(data.backend, data.index, x); data)
+setinputs!(data::SimulationData, x) = setinputs!(data.backend, data.index, x)
 getmetadata(data::SimulationData) = getmetadata(data.backend, data.index)
+setmetadata!(data::SimulationData; kwargs...) = setmetadata!(data.backend, data.index; kwargs...)
 
 output_names(data::SimulationData) = output_names(data.backend, data.index)
 
@@ -35,8 +30,9 @@ output_names(data::SimulationData) = output_names(data.backend, data.index)
 Return a [`DataBuffer`](@ref) view of the output data for variable `name`, creating it if necessary.
 """
 function get_output_buffer(data::SimulationData, name::Symbol)
-    ensure_output!(data.backend, data.index, name)
-    return DataBuffer{:output}(data.backend, data.index, name)
+    handle = open(data.backend, "a+")
+    ensure_output!(handle, data.index, name)
+    return DataBuffer{:output}(handle, data.index, name)
 end
 
 has_output(data::SimulationData, name::Symbol) = has_output(data.backend, data.index, name)
@@ -46,42 +42,37 @@ has_output(data::SimulationData, name::Symbol) = has_output(data.backend, data.i
 
 Append `value` to the persistent output series for observable `name`.
 """
-store!(data::SimulationData, name::Symbol, value) =
-    (store_output!(data.backend, data.index, name, value); data)
+store!(data::SimulationData, name::Symbol, value) = store_output!(data.backend, data.index, name, value)
 
 """
     getoutput(data::SimulationData, name::Symbol)
 
 Return the collected output sequence (a `Vector`) for observable `name`.
 """
-getoutput(data::SimulationData, name::Symbol) = collect(get_output_buffer(data, name))
+getoutput(data::SimulationData, name::Symbol) = get_outputs(data.backend, data.index, name)
 
 """
     getoutputs(data::SimulationData)
 
-Return a `NamedTuple` mapping each observable name to its collected output sequence
-(persistent series only; transient scratch buffers are excluded).
+Return a `NamedTuple` mapping each output name to its corresponding data series.
 """
 getoutputs(data::SimulationData) = (; (nm => getoutput(data, nm) for nm in output_names(data))...)
 
+# Scratch storage is a feature of the StorageHandle, not the SimulationData / backend.
+# During a forward solve the SimulationData wraps an open handle, so observables obtain a
+# scratch buffer directly from `data.backend` (the handle) via `get_scratch_buffer`.
 """
-    create_scratch!(data::SimulationData, name::Symbol=:buffer)
+    get_scratch_buffer(data::SimulationData, name::Symbol=:buffer)
 
-Create (and reset) a NEW transient scratch buffer keyed by `name` and return a
-[`DataBuffer`](@ref) view of it. Does not touch any persistent output series.
+Return a [`DataBuffer`](@ref) view of the transient scratch series `name`. Requires that
+`data` wraps an open [`StorageHandle`](@ref) (as it does during a forward solve); scratch is
+not available on a bare backend.
 """
-function create_scratch!(data::SimulationData, name::Symbol=:buffer)
-    ensure_scratch!(data.backend, data.index, name)
-    empty_scratch!(data.backend, data.index, name)
-    return DataBuffer{:scratch}(data.backend, data.index, name)
-end
-
 function get_scratch_buffer(data::SimulationData, name::Symbol=:buffer)
-    ensure_scratch!(data.backend, data.index, name)
-    return DataBuffer{:scratch}(data.backend, data.index, name)
+    handle = open(data.backend, "a+")
+    ensure_scratch!(handle, data.index, name)
+    return DataBuffer{:scratch}(handle, data.index, name)
 end
-
-has_scratch(data::SimulationData, name::Symbol) = has_scratch(data.backend, data.index, name)
 
 Base.empty!(data::SimulationData) = empty!(data.backend, data.index)
 
@@ -132,14 +123,16 @@ forward solve) to `storage`, copying its input and output series into the backin
 merging any extra `metadata`.
 """
 function store!(storage::SimulationDataSet, data::SimulationData; metadata...)
-    i = allocate!(storage.backend, getinputs(data); getmetadata(data)..., metadata...)
-    target = SimulationData(storage.backend, i)
-    for nm in output_names(data)
-        for value in get_output_buffer(data, nm)
-            store!(target, nm, value)
+    # open the destination backend once for the whole copy (single file open for disk backends)
+    return open(storage.backend, "a+") do handle
+        i = allocate!(handle, getinputs(data); getmetadata(data)..., metadata...)
+        for nm in output_names(data)
+            for value in get_output_buffer(data, nm)
+                store_output!(handle, i, nm, value)
+            end
         end
+        SimulationData(storage.backend, i)
     end
-    return target
 end
 
 Base.empty!(storage::SimulationDataSet) = empty!(storage.backend)

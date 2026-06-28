@@ -59,25 +59,29 @@ function init(
     kwargs...
 )
     prob = remake(prob; p, copy_observables)
-    setinputs!(simdata, prob.p)
     return ForwardMapSolver(prob, simdata, args, kwargs)
 end
 
 step!(::ForwardMapSolver, args...; kwargs...) = error("step! not defined for non-iterative simulators")
 
 function solve!(solver::ForwardMapSolver)
-    simdata = solver.simdata
-    output = if isnothing(solver.prob.rng_seed)
-        solver.prob.simulator(solver.prob.p, solver.args...; solver.kwargs...)
-    else
-        solver.prob.simulator(solver.prob.p, solver.args...; seed=solver.prob.rng_seed, solver.kwargs...)
+    # open a handle for the duration of the solve; writes/scratch go through it (fast path)
+    return open(solver.simdata.backend) do handle
+        hdata = SimulationData(handle, solver.simdata.index)
+        setinputs!(hdata, solver.prob.p)
+        output = if isnothing(solver.prob.rng_seed)
+            solver.prob.simulator(solver.prob.p, solver.args...; solver.kwargs...)
+        else
+            solver.prob.simulator(solver.prob.p, solver.args...; seed=solver.prob.rng_seed, solver.kwargs...)
+        end
+        # compute observables
+        for obs in solver.prob.observables
+            initialize!(hdata, obs, output)
+            observe!(hdata, obs, output)
+        end
+        # the solution holds a backend-based view (valid after the handle closes)
+        SimulatorForwardSolution(solver.prob, output, solver.simdata)
     end
-    # compute observables
-    for obs in solver.prob.observables
-        initialize!(simdata, obs, output)
-        observe!(simdata, obs, output)
-    end
-    return SimulatorForwardSolution(solver.prob, output, simdata)
 end
 
 ## Iterative simulations
@@ -96,8 +100,11 @@ mutable struct IterativeSolver{
     "Forward problem that started the simulation"
     prob::probType
 
-    "Simulation data storage for this solve"
+    "Simulation data storage for this solve (backend-based view, valid after the handle closes)"
     simdata::dataType
+
+    "Open storage handle held for the duration of the solve"
+    handle::StorageHandle
 
     "Simulation object"
     sim::simulationType
@@ -108,6 +115,9 @@ mutable struct IterativeSolver{
     "Maximum number of iterations"
     maxiters::Int
 end
+
+# handle-based view of the simulation data for the duration of the solve
+_handle_data(solver::ForwardSolver) = SimulationData(solver.handle, solver.simdata.index)
 
 function init(
     ::Iterative,
@@ -121,7 +131,9 @@ function init(
     kwargs...
 )
     prob = remake(prob; p, copy_observables)
-    setinputs!(simdata, prob.p)
+    handle = open(simdata.backend)
+    hdata = SimulationData(handle, simdata.index)
+    setinputs!(hdata, prob.p)
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
     else
@@ -129,26 +141,31 @@ function init(
     end
     # initialize observables
     for obs in prob.observables
-        initialize!(simdata, obs, sim)
+        initialize!(hdata, obs, sim)
     end
-    return IterativeSolver(prob, simdata, sim, 1, maxiters)
+    return IterativeSolver(prob, simdata, handle, sim, 1, maxiters)
 end
 
 function step!(solver::IterativeSolver, args...; kwargs...)
     result = step!(solver.sim, args...; kwargs...)
+    hdata = _handle_data(solver)
     for obs in solver.prob.observables
-        observe!(solver.simdata, obs, solver.sim)
+        observe!(hdata, obs, solver.sim)
     end
     solver.iter += 1
     return result
 end
 
 function solve!(solver::IterativeSolver, args...; kwargs...)
-    while !isdone(solver.sim) && solver.iter <= solver.maxiters
-        step!(solver, args...; kwargs...)
+    try
+        while !isdone(solver.sim) && solver.iter <= solver.maxiters
+            step!(solver, args...; kwargs...)
+        end
+        sol = solve!(solver.sim) # construct solution
+        return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
+    finally
+        close(solver.handle)
     end
-    sol = solve!(solver.sim) # construct solution
-    return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
 ## Dynamical system simulations
@@ -173,8 +190,11 @@ mutable struct DynamicalSolver{
     "Forward problem that started the simulation"
     prob::probType
 
-    "Simulation data storage for this solve"
+    "Simulation data storage for this solve (backend-based view, valid after the handle closes)"
     simdata::dataType
+
+    "Open storage handle held for the duration of the solve"
+    handle::StorageHandle
 
     "Simulation object"
     sim::simulationType
@@ -197,7 +217,9 @@ function init(
     kwargs...
 )
     prob = remake(prob; p, copy_observables)
-    setinputs!(simdata, prob.p)
+    handle = open(simdata.backend)
+    hdata = SimulationData(handle, simdata.index)
+    setinputs!(hdata, prob.p)
     # initialize dynamical simulation
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
@@ -217,9 +239,9 @@ function init(
     end
     # initialize observables
     for obs in prob.observables
-        initialize!(simdata, obs, sim)
+        initialize!(hdata, obs, sim)
     end
-    return DynamicalSolver(prob, simdata, sim, t_stops, 1)
+    return DynamicalSolver(prob, simdata, handle, sim, t_stops, 1)
 end
 
 function step!(solver::DynamicalSolver, args...; kwargs...)
@@ -240,9 +262,10 @@ function step!(solver::DynamicalSolver, args...; kwargs...)
         retval = step!(sim, dt, args...; kwargs...)
     end
     # iterate over observables and update those for which t is a sample point
+    hdata = _handle_data(solver)
     for obs in prob.observables
         if t ∈ sampletimes(typeof(t), obs)
-            observe!(solver.simdata, obs, sim)
+            observe!(hdata, obs, sim)
         end
     end
     # increment step index
@@ -251,11 +274,15 @@ function step!(solver::DynamicalSolver, args...; kwargs...)
 end
 
 function solve!(solver::DynamicalSolver, args...; kwargs...)
-    while !isdone(solver.sim) && current_time(solver.sim) < maximum(timespan(solver.sim))
-        step!(solver, args...; kwargs...)
+    try
+        while !isdone(solver.sim) && current_time(solver.sim) < maximum(timespan(solver.sim))
+            step!(solver, args...; kwargs...)
+        end
+        sol = solve!(solver.sim)
+        return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
+    finally
+        close(solver.handle)
     end
-    sol = solve!(solver.sim)
-    return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
 # Ensemble forward problems
