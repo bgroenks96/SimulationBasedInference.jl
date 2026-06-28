@@ -29,7 +29,7 @@ using Random
 @reexport using Statistics
 
 @reexport import CommonSolve: init, solve, solve!, step!
-@reexport import FileIO: File, @format_str
+@reexport import FileIO: DataFormat, @format_str
 @reexport import LogDensityProblems: LogDensityProblems, logdensity
 
 import SciMLBase: EnsembleAlgorithm

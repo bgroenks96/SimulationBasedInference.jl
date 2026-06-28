@@ -24,17 +24,6 @@ setmetadata!(data::SimulationData; kwargs...) = setmetadata!(data.backend, data.
 
 output_names(data::SimulationData) = output_names(data.backend, data.index)
 
-"""
-    get_output_buffer(data::SimulationData, name::Symbol)
-
-Return a [`DataBuffer`](@ref) view of the output data for variable `name`, creating it if necessary.
-"""
-function get_output_buffer(data::SimulationData, name::Symbol)
-    handle = open(data.backend, "a+")
-    ensure_output!(handle, data.index, name)
-    return DataBuffer{:output}(handle, data.index, name)
-end
-
 has_output(data::SimulationData, name::Symbol) = has_output(data.backend, data.index, name)
 
 """
@@ -58,18 +47,38 @@ Return a `NamedTuple` mapping each output name to its corresponding data series.
 """
 getoutputs(data::SimulationData) = (; (nm => getoutput(data, nm) for nm in output_names(data))...)
 
-# Scratch storage is a feature of the StorageHandle, not the SimulationData / backend.
-# During a forward solve the SimulationData wraps an open handle, so observables obtain a
-# scratch buffer directly from `data.backend` (the handle) via `get_scratch_buffer`.
+function with_output_buffer(func, data::SimulationData, name::Symbol)
+    buffer = get_output_buffer(data, name)
+    result = func(buffer)
+    close(buffer)
+    return result
+end
+
+"""
+    get_output_buffer(data::SimulationData, name::Symbol)
+
+Return a [`DataBuffer`](@ref) view of the output data for variable `name`, creating it if necessary.
+"""
+function get_output_buffer(data::SimulationData, name::Symbol)
+    handle = open(data.backend, data.index)
+    ensure_output!(handle, data.index, name)
+    return DataBuffer{:output}(handle, data.index, name)
+end
+
+function with_scratch_buffer(func, data::SimulationData, name::Symbol)
+    buffer = get_scratch_buffer(data, name)
+    result = func(buffer)
+    close(buffer)
+    return result
+end
+
 """
     get_scratch_buffer(data::SimulationData, name::Symbol=:buffer)
 
-Return a [`DataBuffer`](@ref) view of the transient scratch series `name`. Requires that
-`data` wraps an open [`StorageHandle`](@ref) (as it does during a forward solve); scratch is
-not available on a bare backend.
+Return a [`DataBuffer`](@ref) view of the transient scratch series `name`.
 """
 function get_scratch_buffer(data::SimulationData, name::Symbol=:buffer)
-    handle = open(data.backend, "a+")
+    handle = open(data.backend, data.index)
     ensure_scratch!(handle, data.index, name)
     return DataBuffer{:scratch}(handle, data.index, name)
 end
@@ -123,16 +132,19 @@ forward solve) to `storage`, copying its input and output series into the backin
 merging any extra `metadata`.
 """
 function store!(storage::SimulationDataSet, data::SimulationData; metadata...)
-    # open the destination backend once for the whole copy (single file open for disk backends)
-    return open(storage.backend, "a+") do handle
-        i = allocate!(handle, getinputs(data); getmetadata(data)..., metadata...)
+    # First allocate on the backend to get the simulation ID
+    i = allocate!(storage.backend, getinputs(data); getmetadata(data)..., metadata...)
+    
+    # Then open a handle for that specific simulation and copy outputs
+    open(storage.backend, i) do handle
         for nm in output_names(data)
             for value in get_output_buffer(data, nm)
                 store_output!(handle, i, nm, value)
             end
         end
-        SimulationData(storage.backend, i)
     end
+    
+    return SimulationData(storage.backend, i)
 end
 
 Base.empty!(storage::SimulationDataSet) = empty!(storage.backend)
@@ -163,17 +175,17 @@ function iterations(storage::SimulationDataSet)
 end
 
 ############################################################
-# Out-of-core (JLD2) backend entrypoint
+# On-disk backend entrypoint
 ############################################################
 
 const SUPPORTED_DISK_FORMATS = [format"JLD2"]
 
 """
-    OnDiskSimulationDataSet(file::File{format}; kwargs...) where {format}
+    OnDiskSimulationDataSet(::Type{DataFormat{format}}, path::AbstractString, args...; kwargs...) where {format}
 
 Construct a disk-backed `SimulationDataSet` whose backend persists each simulation to disk
-at the given file `path`. Requires a supported file I/O backend to be loaded, e.g. `JLD2`.
+at the given `path`. Requires a supported file I/O backend to be loaded, e.g. `JLD2`.
 """
-OnDiskSimulationDataSet(file::File{format}, args...; kwargs...) where {format} = error(
+OnDiskSimulationDataSet(::Type{DataFormat{format}}, path::AbstractString, args...; kwargs...) where {format} = error(
     "No disk storage backend loaded for $format. Load the corresponding package for one of the supported formats $SUPPORTED_DISK_FORMATS to enable this backend.",
 )

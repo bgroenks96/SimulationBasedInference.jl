@@ -22,39 +22,18 @@ abstract type StorageBackend end
 """
     StorageHandle
 
-Abstract base type for the object returned by `open(backend::StorageBackend)`. A handle holds
-the active connection to a backend (e.g. an open file) for the duration of a batch of
-operations and owns the **scratch** namespace. Concrete handle types must provide a
-`scratch::Dict{Symbol,Any}` field; scratch is cleared when the handle is closed.
+Abstract base type for the object returned by `open(backend::StorageBackend, sim_id::Integer)`. A handle holds
+the active connection to a backend (e.g. an open file or in-memory view) for the duration of a batch of
+operations on a specific simulation and owns the **scratch** namespace for that simulation.
+Concrete handle types must provide a `scratch::Dict{Symbol,Any}` field; scratch is cleared when the handle is closed.
 
 Use with the do-block form for guaranteed cleanup:
 
-    open(backend) do h
-        # use handle h
+    open(backend, sim_id) do h
+        # use handle h for simulation sim_id
     end  # handle closed (and scratch cleared) automatically
 """
 abstract type StorageHandle end
-
-Base.open(backend::StorageBackend) = error("open not defined for $(typeof(backend))")
-
-# Generic in-memory scratch implementation shared by all handle types.
-# Scratch is now per-simulation, keyed by (simulation_index, name).
-_scratch_ensure!(scratch::Dict{Int, Dict{Symbol, Any}}, i::Integer, name::Symbol) = begin
-    if !haskey(scratch, i)
-        scratch[i] = Dict{Symbol, Any}()
-    end
-    d = scratch[i]
-    haskey(d, name) || (d[name] = Any[])
-    return d[name]
-end
-
-ensure_scratch!(h::StorageHandle, i::Integer, name::Symbol) = (_scratch_ensure!(h.scratch, i, name); h)
-store_scratch!(h::StorageHandle, i::Integer, name::Symbol, x) = (push!(_scratch_ensure!(h.scratch, i, name), x); h)
-get_scratch(h::StorageHandle, i::Integer, name::Symbol, j::Integer) = h.scratch[i][name][j]
-scratch_length(h::StorageHandle, i::Integer, name::Symbol) = haskey(h.scratch, i) && haskey(h.scratch[i], name) ? length(h.scratch[i][name]) : 0
-scratch_names(h::StorageHandle, i::Integer) = haskey(h.scratch, i) ? collect(keys(h.scratch[i])) : Symbol[]
-has_scratch(h::StorageHandle, i::Integer, name::Symbol) = haskey(h.scratch, i) && haskey(h.scratch[i], name)
-empty_scratch!(h::StorageHandle, i::Integer, name::Symbol) = (haskey(h.scratch, i) && haskey(h.scratch[i], name) && empty!(h.scratch[i][name]); h)
 
 """
     InMemoryStorage{inputType,outputType,metadataType} <: StorageBackend
@@ -80,21 +59,44 @@ InMemoryStorage() = InMemoryStorage{Any,Any,Any}()
 """
     InMemoryStorageHandle <: StorageHandle
 
-Handle for [`InMemoryStorage`](@ref). Output operations forward directly to the backend; the
-ephemeral scratch namespace lives here (indexed by simulation index) and is cleared on close.
+Handle for [`InMemoryStorage`](@ref) for a specific simulation. Output operations forward
+directly to the backend; the ephemeral scratch namespace lives here (owned by this handle,
+not indexed by simulation) and is cleared on close.
 """
 mutable struct InMemoryStorageHandle <: StorageHandle
     backend::InMemoryStorage
-    scratch::Dict{Int, Dict{Symbol, Any}}  # Scratch indexed by simulation index
+    sim_id::Int  # Simulation ID this handle owns
+    scratch::Dict{Symbol, Any}  # Scratch for THIS simulation only
 end
 
-function Base.open(backend::InMemoryStorage, mode=nothing)
-    handle = InMemoryStorageHandle(backend, Dict{Int, Dict{Symbol, Any}}())
+"""
+    open(backend::InMemoryStorage, sim_id::Integer; args...)
+
+Open a handle for the `sim_id`-th simulation. The handle owns the scratch namespace for
+that specific simulation.
+"""
+function Base.open(backend::InMemoryStorage, sim_id::Integer; args...)
+    handle = InMemoryStorageHandle(backend, Int(sim_id), Dict{Symbol, Any}())
     finalizer(close, handle)
     return handle
 end
 
 Base.close(handle::InMemoryStorageHandle) = empty!(handle.scratch)
+
+# Generic in-memory scratch implementation shared by all handle types.
+# Scratch is per-simulation, owned by the handle itself (not indexed).
+_ensure_scratch!(scratch::Dict{Symbol, Any}, name::Symbol) = begin
+    haskey(scratch, name) || (scratch[name] = Any[])
+    return scratch[name]
+end
+
+ensure_scratch!(h::StorageHandle, ::Integer, name::Symbol) = _ensure_scratch!(h.scratch, name)
+store_scratch!(h::StorageHandle, ::Integer, name::Symbol, x) = push!(_ensure_scratch!(h.scratch, name), x)
+get_scratch(h::StorageHandle, ::Integer, name::Symbol, j::Integer) = h.scratch[name][j]
+scratch_length(h::StorageHandle, ::Integer, name::Symbol) = haskey(h.scratch, name) ? length(h.scratch[name]) : 0
+scratch_names(h::StorageHandle, ::Integer) = collect(keys(h.scratch))
+has_scratch(h::StorageHandle, ::Integer, name::Symbol) = haskey(h.scratch, name)
+empty_scratch!(h::StorageHandle, ::Integer, name::Symbol) = haskey(h.scratch, name) && empty!(h.scratch[name])
 
 # --- handle-based operations (fast path) ---
 
@@ -108,47 +110,47 @@ function allocate!(handle::InMemoryStorageHandle, input; metadata...)
     return length(backend.inputs)
 end
 
-getinputs(handle::InMemoryStorageHandle, i::Integer) = handle.backend.inputs[i]
-setinputs!(handle::InMemoryStorageHandle, i::Integer, x) = (handle.backend.inputs[i] = x; handle)
-getmetadata(handle::InMemoryStorageHandle, i::Integer) = handle.backend.metadata[i]
-setmetadata!(handle::InMemoryStorageHandle, i::Integer; kwargs...) = [setindex!(handle.backend.metadata[i], kv...) for kv in kwargs]
+getinputs(handle::InMemoryStorageHandle, ::Integer) = handle.backend.inputs[handle.sim_id]
+setinputs!(handle::InMemoryStorageHandle, ::Integer, x) = (handle.backend.inputs[handle.sim_id] = x; handle)
+getmetadata(handle::InMemoryStorageHandle, ::Integer) = handle.backend.metadata[handle.sim_id]
+setmetadata!(handle::InMemoryStorageHandle, ::Integer; kwargs...) = [setindex!(handle.backend.metadata[handle.sim_id], kv...) for kv in kwargs]
 
-function ensure_output!(handle::InMemoryStorageHandle, i::Integer, name::Symbol)
-    dict = handle.backend.outputs[i]
+function ensure_output!(handle::InMemoryStorageHandle, ::Integer, name::Symbol)
+    dict = handle.backend.outputs[handle.sim_id]
     haskey(dict, name) || (dict[name] = valtype(dict)())
     return dict[name]
 end
-store_output!(handle::InMemoryStorageHandle, i::Integer, name::Symbol, x) = push!(ensure_output!(handle, i, name), x)
-get_output(handle::InMemoryStorageHandle, i::Integer, name::Symbol, j::Integer) = handle.backend.outputs[i][name][j]
-get_outputs(handle::InMemoryStorageHandle, i::Integer, name::Symbol) = collect(handle.backend.outputs[i][name])
-output_length(handle::InMemoryStorageHandle, i::Integer, name::Symbol) = haskey(handle.backend.outputs[i], name) ? length(handle.backend.outputs[i][name]) : 0
-output_names(handle::InMemoryStorageHandle, i::Integer) = collect(keys(handle.backend.outputs[i]))
-has_output(handle::InMemoryStorageHandle, i::Integer, name::Symbol) = haskey(handle.backend.outputs[i], name)
-empty_output!(handle::InMemoryStorageHandle, i::Integer, name::Symbol) = (haskey(handle.backend.outputs[i], name) && empty!(handle.backend.outputs[i][name]); handle)
+store_output!(handle::InMemoryStorageHandle, ::Integer, name::Symbol, x) = push!(ensure_output!(handle, handle.sim_id, name), x)
+get_output(handle::InMemoryStorageHandle, ::Integer, name::Symbol, j::Integer) = handle.backend.outputs[handle.sim_id][name][j]
+get_outputs(handle::InMemoryStorageHandle, ::Integer, name::Symbol) = collect(handle.backend.outputs[handle.sim_id][name])
+output_length(handle::InMemoryStorageHandle, ::Integer, name::Symbol) = haskey(handle.backend.outputs[handle.sim_id], name) ? length(handle.backend.outputs[handle.sim_id][name]) : 0
+output_names(handle::InMemoryStorageHandle, ::Integer) = collect(keys(handle.backend.outputs[handle.sim_id]))
+has_output(handle::InMemoryStorageHandle, ::Integer, name::Symbol) = haskey(handle.backend.outputs[handle.sim_id], name)
+empty_output!(handle::InMemoryStorageHandle, ::Integer, name::Symbol) = (haskey(handle.backend.outputs[handle.sim_id], name) && empty!(handle.backend.outputs[handle.sim_id][name]); handle)
 
-function Base.empty!(handle::InMemoryStorageHandle, i::Integer)
-    empty!(handle.backend.outputs[i])
+function Base.empty!(handle::InMemoryStorageHandle, ::Integer)
+    empty!(handle.backend.outputs[handle.sim_id])
     return handle
 end
 
-# --- backend operations (slow path - auto-open/close for backward compatibility) ---
+# --- backend operations (slow path - auto-open/close per simulation) ---
 
 num_simulations(backend::InMemoryStorage) = length(backend.inputs)
-allocate!(backend::InMemoryStorage, input; metadata...) = open(backend) do h; allocate!(h, input; metadata...); end
-getinputs(backend::InMemoryStorage, i::Integer) = open(backend) do h; getinputs(h, i); end
-setinputs!(backend::InMemoryStorage, i::Integer, x) = (open(backend) do h; setinputs!(h, i, x); end; backend)
-getmetadata(backend::InMemoryStorage, i::Integer) = open(backend) do h; getmetadata(h, i); end
-setmetadata!(bacend::InMemoryStorage, i::Integer; kwargs...) = open(backend) do h; setmetdata!(h, i; kwargs...); end
-ensure_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend) do h; ensure_output!(h, i, name); end
-store_output!(backend::InMemoryStorage, i::Integer, name::Symbol, x) = (open(backend) do h; store_output!(h, i, name, x); end; backend)
-get_output(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = open(backend) do h; get_output(h, i, name, j); end
-get_outputs(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend) do h; get_outputs(h, i, name) end
-output_length(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend) do h; output_length(h, i, name); end
-output_names(backend::InMemoryStorage, i::Integer) = open(backend) do h; output_names(h, i); end
-has_output(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend) do h; has_output(h, i, name); end
-empty_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = (open(backend) do h; empty_output!(h, i, name); end; backend)
+allocate!(backend::InMemoryStorage, input; metadata...) = open(backend, length(backend.inputs) + 1) do h; allocate!(h, input; metadata...); end
+getinputs(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; getinputs(h, i); end
+setinputs!(backend::InMemoryStorage, i::Integer, x) = (open(backend, i) do h; setinputs!(h, i, x); end; backend)
+getmetadata(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; getmetadata(h, i); end
+setmetadata!(backend::InMemoryStorage, i::Integer; kwargs...) = open(backend, i) do h; setmetadata!(h, i; kwargs...); end
+ensure_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; ensure_output!(h, i, name); end
+store_output!(backend::InMemoryStorage, i::Integer, name::Symbol, x) = (open(backend, i) do h; store_output!(h, i, name, x); end; backend)
+get_output(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = open(backend, i) do h; get_output(h, i, name, j); end
+get_outputs(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; get_outputs(h, i, name) end
+output_length(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; output_length(h, i, name); end
+output_names(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; output_names(h, i); end
+has_output(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; has_output(h, i, name); end
+empty_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = (open(backend, i) do h; empty_output!(h, i, name); end; backend)
 
-Base.empty!(backend::InMemoryStorage, i::Integer) = (empty!(backend.outputs[i]); backend)
+Base.empty!(backend::InMemoryStorage, i::Integer) = (open(backend, i) do h; empty!(h, i); end; backend)
 function Base.empty!(backend::InMemoryStorage)
     empty!(backend.inputs)
     empty!(backend.metadata)

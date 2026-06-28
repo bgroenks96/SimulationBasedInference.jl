@@ -37,3 +37,4 @@ Base.iterate(buffer::DataBuffer, state::Int=1) = state <= length(buffer) ? (buff
 Base.collect(buffer::DataBuffer) = [buffer[i] for i in 1:length(buffer)]
 Base.first(buffer::DataBuffer) = buffer[1]
 Base.last(buffer::DataBuffer) = buffer[length(buffer)]
+Base.close(buffer::DataBuffer) = close(buffer.handle)

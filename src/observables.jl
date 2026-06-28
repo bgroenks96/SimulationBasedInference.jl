@@ -11,8 +11,7 @@ abstract type Observable{outputType<:SimulatorOutput} end
     initialize!(data::SimulationData, ::Observable, state)
 
 Initialize the `Observable` from the given simulator state, allocating any required storage
-(output and transient sample buffers) within the given [`SimulationData`](@ref). Observables
-are stateless; all per-simulation storage lives in `data`.
+(output and transient sample buffers) from the given [`SimulationData`](@ref).
 """
 initialize!(::SimulationData, obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
 
@@ -35,8 +34,7 @@ getvalue(::SimulationData, obs::Observable) = error("not implemented for observa
     setvalue!(data::SimulationData, obs::Observable, value)
 
 Overwrites the value of this observable in the given [`SimulationData`](@ref). The type of
-`value` will depend on the type of the observable. This should generally only be used for
-testing and emulation purposes.
+`value` will depend on the type of the observable.
 """
 setvalue!(::SimulationData, obs::Observable, value) = error("not implemented for observable of type $(typeof(obs))")
 
@@ -104,7 +102,7 @@ end
     Transient{T} <: SimulatorOutput
 
 Simple output type that retains only the last observed value of the observable function. The
-value itself is stored in the [`SimulationData`](@ref); `Transient` is a stateless marker.
+value itself is stored in the [`SimulationData`](@ref).
 """
 struct Transient{T} <: SimulatorOutput{T} end
 
@@ -124,27 +122,30 @@ end
 initialize!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N} = observe!(data, obs, state)
 
 function observe!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N}
-    out = _coerce(obs.obsfunc(state), size(obs))
-    # get output storage
-    buffer = get_output_buffer(data, obs.name)
-    # drop any existing data and store the current value
-    empty!(buffer)
-    store!(buffer, out)
-    return out
+    return with_output_buffer(data, obs.name) do buffer
+        # evaluate obsfunc on current state
+        out = _coerce(obs.obsfunc(state), size(obs))
+        # drop any existing data and store the current value
+        empty!(buffer)
+        store!(buffer, out)
+        return out
+    end
 end
 
 function getvalue(data::SimulationData, obs::SimulatorObservable{N, <:Transient}) where {N}
-    buffer = get_output_buffer(data, obs.name)
-    @assert length(buffer) > 0 "observable $(obs.name) has not yet been observed"
+    values = getoutput(data, obs.name)
+    @assert length(values) > 0 "observable $(obs.name) has not yet been observed"
     coords = coordinates(obs)
-    return DimArray(last(buffer), coords)
+    return DimArray(last(values), coords)
 end
 
 function setvalue!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, value) where {N}
-    buffer = get_output_buffer(data, obs.name)
-    empty!(buffer)
-    store!(buffer, value)
-    return value
+    return with_output_buffer(data, obs.name) do buffer
+        # drop any existing data and store the current value
+        empty!(buffer)
+        store!(buffer, value)
+        return value
+    end
 end
 
 """
@@ -154,12 +155,14 @@ end
 (lower frequency) save times. A simple example would be a windowed average or resampling operation that saves averages
 over higher frequency samples.
 """
-struct TimeSampled{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
+mutable struct TimeSampled{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
     tconvert::converterType # time converter
     reducer::reducerType # reducer function
+    buffer::Union{Nothing, DataBuffer} # output buffer
+    scratch::Union{Nothing, DataBuffer} # scratch buffer
 end
 
 """
@@ -194,7 +197,7 @@ function TimeSampled(
         end
     end
     return TimeSampled{timeType, output_type, typeof(reducer), typeof(time_converter)}(
-        extrema(tsample), tsample, collect(tsave), time_converter, reducer,
+        extrema(tsample), tsample, collect(tsave), time_converter, reducer, nothing, nothing
     )
 end
 
@@ -241,11 +244,8 @@ handle **must** be provided since scratch storage is now a feature of handles on
 handle will be stored in the output object for use during observe! calls.
 """
 function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
-    # scratch storage is provided by the handle that `data` wraps during a forward solve;
-    # allocate/reset the transient sample buffer and the persistent output buffer
-    ensure_scratch!(data.backend, data.index, obs.name)
-    empty!(get_scratch_buffer(data, obs.name))
-    empty!(get_output_buffer(data, obs.name))
+    obs.output.buffer = empty!(get_output_buffer(data, obs.name))
+    obs.output.scratch = empty!(get_scratch_buffer(data, obs.name))
     return nothing
 end
 
@@ -273,8 +273,8 @@ observable. **Requires** that initialize! was called with a valid handle paramet
 """
 function observe!(data::SimulationData, obs::TimeSampledObservable, state)
     output = obs.output
-    buffer = get_scratch_buffer(data, obs.name)   # transient sample buffer (via data's handle)
-    out = get_output_buffer(data, obs.name)       # persistent output buffer
+    buffer = output.buffer
+    scratch = output.scratch
 
     # current sample index = number of samples observed so far + 1
     n = length(buffer) + 1
@@ -283,13 +283,13 @@ function observe!(data::SimulationData, obs::TimeSampledObservable, state)
     
     # observe and buffer the current sample
     Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    store!(buffer, Y_t)
+    store!(scratch, Y_t)
     
     # if t is the next (not-yet-stored) save point, reduce its sample window and store
     k = length(out) + 1
     if inbounds && k <= length(output.tsave) && t == output.tsave[k]
         window = _sample_window(output, k)
-        store!(out, output.reducer(buffer[window]))
+        store!(buffer, output.reducer(buffer[window]))
     end
     
     return Y_t

@@ -100,11 +100,8 @@ mutable struct IterativeSolver{
     "Forward problem that started the simulation"
     prob::probType
 
-    "Simulation data storage for this solve (backend-based view, valid after the handle closes)"
+    "Simulation data storage for this solve"
     simdata::dataType
-
-    "Open storage handle held for the duration of the solve"
-    handle::StorageHandle
 
     "Simulation object"
     sim::simulationType
@@ -115,9 +112,6 @@ mutable struct IterativeSolver{
     "Maximum number of iterations"
     maxiters::Int
 end
-
-# handle-based view of the simulation data for the duration of the solve
-_handle_data(solver::ForwardSolver) = SimulationData(solver.handle, solver.simdata.index)
 
 function init(
     ::Iterative,
