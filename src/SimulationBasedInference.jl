@@ -48,7 +48,7 @@ abstract type SimulatorInferenceAlgorithm end
 export autoprior, from_moments
 include("utils.jl")
 
-export SimulationData, SimulationDataSet, OnDiskSimulationDataSet
+export SimulationData, SimulationDataSet
 export store!, allocate!
 export getinputs, setinputs!, getmetadata, getoutput, getoutputs
 export iterations

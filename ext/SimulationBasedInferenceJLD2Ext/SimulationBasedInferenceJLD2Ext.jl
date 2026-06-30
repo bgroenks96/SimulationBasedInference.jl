@@ -50,46 +50,44 @@ function ParallelJLD2Storage(path::AbstractString; overwrite::Bool=false, scratc
 end
 
 """
-    OnDiskSimulationDataSet(::Type{DataFormat{:JLD2}}, dir::AbstractString; kwargs...)
+    DiskStorageBackend(::Type{DataFormat{:JLD2}}, dir::AbstractString; kwargs...)
 
-Construct a `SimulationDataSet` backed by a [`ParallelJLD2Storage`](@ref) at `dir`.
-The directory will contain individual JLD2 files for each simulation.
+Construct a [`ParallelJLD2Storage`](@ref) at `dir`. The directory will contain individual JLD2 files for each simulation.
 """
-SimulationBasedInference.OnDiskSimulationDataSet(::Type{DataFormat{:JLD2}}, dir::AbstractString; kwargs...) =
-    SimulationDataSet(ParallelJLD2Storage(dir; kwargs...))
+SimulationBasedInference.DiskStorageBackend(::Type{DataFormat{:JLD2}}, dir::AbstractString; kwargs...) = ParallelJLD2Storage(dir; kwargs...)
 
 # --- handle ---
 
 """
-    ParallelJLD2StorageHandle <: StorageHandle
+    JLD2StorageHandle <: StorageHandle
 
 Handle for a single simulation's JLD2 file in [`ParallelJLD2Storage`](@ref). Each handle
 owns the connection to one `simulations/<i>.jld2` file and the per-simulation scratch
-namespace. Handles are created per-simulation via `open(backend, sim_id)`.
+namespace. Handles are created per-simulation via `open(backend, index)`.
 """
-mutable struct ParallelJLD2StorageHandle <: StorageHandle
+mutable struct JLD2StorageHandle <: StorageHandle
     backend::ParallelJLD2Storage
-    sim_id::Int
+    index::Int
     file::Union{JLD2.JLDFile, Nothing}
     isopen::Bool
     scratch::Dict{Symbol, Any}  # Scratch for this simulation only
 end
 
 """
-    open(backend::ParallelJLD2Storage, sim_id::Integer; mode="a+")
+    open(backend::ParallelJLD2Storage, index::Integer; mode="a+")
 
-Open a handle for the `sim_id`-th simulation's JLD2 file. The handle owns the scratch
+Open a handle for the `index`-th simulation's JLD2 file. The handle owns the scratch
 namespace for that specific simulation.
 """
-function Base.open(backend::ParallelJLD2Storage, sim_id::Integer; mode::AbstractString = "a+")
-    sim_file_path = _sim_file_path(backend.path, sim_id)
+function Base.open(backend::ParallelJLD2Storage, index::Integer; mode::AbstractString = "a+")
+    sim_file_path = _sim_file_path(backend.path, index)
     file = JLD2.jldopen(sim_file_path, mode)
-    handle = ParallelJLD2StorageHandle(backend, Int(sim_id), file, true, Dict{Symbol, Any}())
+    handle = JLD2StorageHandle(backend, Int(index), file, true, Dict{Symbol, Any}())
     finalizer(close, handle)
     return handle
 end
 
-function Base.close(handle::ParallelJLD2StorageHandle)
+function Base.close(handle::JLD2StorageHandle)
     empty!(handle.scratch)  # Clear scratch for this simulation
     if handle.isopen && handle.file !== nothing
         JLD2.close(handle.file)
@@ -100,18 +98,18 @@ function Base.close(handle::ParallelJLD2StorageHandle)
 end
 
 # Public API for checking handle state
-SimulationBasedInference.isopen(handle::ParallelJLD2StorageHandle) = handle.isopen
+Base.isopen(handle::JLD2StorageHandle) = handle.isopen
 
 # --- Helper functions ---
 
 """
-    _sim_file_path(path::String, sim_id::Integer)
+    _sim_file_path(path::String, index::Integer)
 
-Construct the path to the JLD2 file for simulation `sim_id`.
+Construct the path to the JLD2 file for simulation `index`.
 """
-function _sim_file_path(path::String, sim_id::Integer)
+function _sim_file_path(path::String, index::Integer)
     # Use zero-padded filenames for consistent sorting in simulations/ subdirectory
-    filename = @sprintf("simulation_%04d.jld2", sim_id)
+    filename = @sprintf("simulation_%04d.jld2", index)
     return joinpath(path, filename)
 end
 
@@ -173,15 +171,15 @@ end
 
 # --- handle-based operations (fast path - uses the open file for a single simulation) ---
 
-SimulationBasedInference.num_simulations(h::ParallelJLD2StorageHandle) = h.backend.num_simulations
+SimulationBasedInference.num_simulations(h::JLD2StorageHandle) = h.backend.num_simulations
 
 """
-    allocate!(handle::ParallelJLD2StorageHandle, input; metadata...)
+    allocate!(handle::JLD2StorageHandle, input; metadata...)
 
 Allocate a new simulation in the backend and return its ID. This should only be called
 when the handle is opened for a fresh (non-existent) simulation file.
 """
-function SimulationBasedInference.allocate!(h::ParallelJLD2StorageHandle, input; metadata...)
+function SimulationBasedInference.allocate!(h::JLD2StorageHandle, input; metadata...)
     # Store input
     h.file["input"] = input
     
@@ -190,20 +188,20 @@ function SimulationBasedInference.allocate!(h::ParallelJLD2StorageHandle, input;
         h.file["metadata/$(first(kv))"] = last(kv)
     end
     
-    return h.sim_id
+    return h.index
 end
 
-SimulationBasedInference.getinputs(h::ParallelJLD2StorageHandle, ::Integer) = h.file["input"]
+SimulationBasedInference.getinputs(h::JLD2StorageHandle) = h.file["input"]
 
-function SimulationBasedInference.setinputs!(h::ParallelJLD2StorageHandle, ::Integer, x)
+function SimulationBasedInference.setinputs!(h::JLD2StorageHandle, x)
     # JLD2 allows overwriting at close time
     h.file["input"] = x
     return h
 end
 
-SimulationBasedInference.getmetadata(h::ParallelJLD2StorageHandle, ::Integer) = _read_metadata(h.file)
+SimulationBasedInference.getmetadata(h::JLD2StorageHandle) = _read_metadata(h.file)
 
-function SimulationBasedInferenceJLD2Ext.setmetadata!(h::ParallelJLD2StorageHandle, ::Integer; kwargs...)
+function SimulationBasedInferenceJLD2Ext.setmetadata!(h::JLD2StorageHandle; kwargs...)
     old_metadata = _read_metadata(h.file)
     
     # Delete existing metadata keys
@@ -222,25 +220,25 @@ function SimulationBasedInferenceJLD2Ext.setmetadata!(h::ParallelJLD2StorageHand
 end
 
 # output series (always on disk)
-SimulationBasedInference.ensure_output!(::ParallelJLD2StorageHandle, ::Integer, ::Symbol) = nothing
-SimulationBasedInference.store_output!(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol, x) = _file_store!(h.file, :outputs, name, x)
-SimulationBasedInference.get_output(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol, j::Integer) = _file_get(h.file, :outputs, name, j)
-SimulationBasedInference.get_outputs(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol) = [_file_get(h.file, :outputs, name, j) for j in 1:_file_length(h.file, :outputs, name)]
-SimulationBasedInference.output_length(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol) = _file_length(h.file, :outputs, name)
-SimulationBasedInference.output_names(h::ParallelJLD2StorageHandle, ::Integer) = _file_names(h.file, :outputs)
-SimulationBasedInference.has_output(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol) = _file_has(h.file, :outputs, name)
-SimulationBasedInference.empty_output!(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol) = _file_clear!(h.file, :outputs, name)
+SimulationBasedInference.ensure_output!(::JLD2StorageHandle, ::Symbol) = nothing
+SimulationBasedInference.store_output!(h::JLD2StorageHandle, name::Symbol, x) = _file_store!(h.file, :outputs, name, x)
+SimulationBasedInference.get_output(h::JLD2StorageHandle, name::Symbol, j::Integer) = _file_get(h.file, :outputs, name, j)
+SimulationBasedInference.get_outputs(h::JLD2StorageHandle, name::Symbol) = [_file_get(h.file, :outputs, name, j) for j in 1:_file_length(h.file, :outputs, name)]
+SimulationBasedInference.output_length(h::JLD2StorageHandle, name::Symbol) = _file_length(h.file, :outputs, name)
+SimulationBasedInference.output_names(h::JLD2StorageHandle) = _file_names(h.file, :outputs)
+SimulationBasedInference.has_output(h::JLD2StorageHandle, name::Symbol) = _file_has(h.file, :outputs, name)
+SimulationBasedInference.empty_output!(h::JLD2StorageHandle, name::Symbol) = _file_clear!(h.file, :outputs, name)
 
 # scratch series (in-memory by default, on disk when scratch_in_memory == false)
 # Scratch is per-simulation (owned by this handle)
-function SimulationBasedInference.ensure_scratch!(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol)
+function SimulationBasedInference.ensure_scratch!(h::JLD2StorageHandle, name::Symbol)
     if h.backend.scratch_in_memory
         haskey(h.scratch, name) || (h.scratch[name] = Any[])
     end
     return nothing
 end
 
-function SimulationBasedInference.store_scratch!(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol, x)
+function SimulationBasedInference.store_scratch!(h::JLD2StorageHandle, name::Symbol, x)
     if h.backend.scratch_in_memory
         haskey(h.scratch, name) || (h.scratch[name] = Any[])
         push!(h.scratch[name], x)
@@ -250,7 +248,7 @@ function SimulationBasedInference.store_scratch!(h::ParallelJLD2StorageHandle, :
     return nothing
 end
 
-function SimulationBasedInference.get_scratch(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol, j::Integer)
+function SimulationBasedInference.get_scratch(h::JLD2StorageHandle, name::Symbol, j::Integer)
     if h.backend.scratch_in_memory
         return h.scratch[name][j]
     else
@@ -258,7 +256,7 @@ function SimulationBasedInference.get_scratch(h::ParallelJLD2StorageHandle, ::In
     end
 end
 
-function SimulationBasedInference.scratch_length(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol)
+function SimulationBasedInference.scratch_length(h::JLD2StorageHandle, name::Symbol)
     if h.backend.scratch_in_memory
         return haskey(h.scratch, name) ? length(h.scratch[name]) : 0
     else
@@ -266,7 +264,7 @@ function SimulationBasedInference.scratch_length(h::ParallelJLD2StorageHandle, :
     end
 end
 
-function SimulationBasedInference.scratch_names(h::ParallelJLD2StorageHandle, ::Integer)
+function SimulationBasedInference.scratch_names(h::JLD2StorageHandle)
     if h.backend.scratch_in_memory
         return collect(keys(h.scratch))
     else
@@ -274,7 +272,7 @@ function SimulationBasedInference.scratch_names(h::ParallelJLD2StorageHandle, ::
     end
 end
 
-function SimulationBasedInference.has_scratch(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol)
+function SimulationBasedInference.has_scratch(h::JLD2StorageHandle, name::Symbol)
     if h.backend.scratch_in_memory
         return haskey(h.scratch, name)
     else
@@ -282,7 +280,7 @@ function SimulationBasedInference.has_scratch(h::ParallelJLD2StorageHandle, ::In
     end
 end
 
-function SimulationBasedInference.empty_scratch!(h::ParallelJLD2StorageHandle, ::Integer, name::Symbol)
+function SimulationBasedInference.empty_scratch!(h::JLD2StorageHandle, name::Symbol)
     if h.backend.scratch_in_memory
         haskey(h.scratch, name) && empty!(h.scratch[name])
     else
@@ -292,11 +290,11 @@ function SimulationBasedInference.empty_scratch!(h::ParallelJLD2StorageHandle, :
 end
 
 """
-    empty!(handle::ParallelJLD2StorageHandle, ::Integer)
+    empty!(handle::JLD2StorageHandle)
 
 Clear all outputs and scratch for this simulation.
 """
-function Base.empty!(h::ParallelJLD2StorageHandle, ::Integer)
+function Base.empty!(h::JLD2StorageHandle)
     _file_clear_group!(h.file, :outputs)
     h.backend.scratch_in_memory || _file_clear_group!(h.file, :scratch)
     return nothing
@@ -315,13 +313,13 @@ and returns its ID.
 function SimulationBasedInference.allocate!(b::ParallelJLD2Storage, input; metadata...)
     # Increment counter and get new simulation ID
     b.num_simulations += 1
-    sim_id = b.num_simulations
+    index = b.num_simulations
     
     # Create the simulation file
-    handle = open(b, sim_id)
+    handle = open(b, index)
     allocate!(handle, input; metadata...)
     
-    return sim_id
+    return index
 end
 
 """
@@ -329,91 +327,91 @@ end
 
 Get the input for simulation `i`.
 """
-SimulationBasedInference.getinputs(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; getinputs(h, i); end
+SimulationBasedInference.getinputs(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; getinputs(h); end
 
 """
     setinputs!(backend::ParallelJLD2Storage, i::Integer, x)
 
 Set the input for simulation `i`.
 """
-SimulationBasedInference.setinputs!(b::ParallelJLD2Storage, i::Integer, x) = open(b, i) do h; setinputs!(h, i, x); end
+SimulationBasedInference.setinputs!(b::ParallelJLD2Storage, i::Integer, x) = open(b, i) do h; setinputs!(h, x); end
 
 """
     getmetadata(backend::ParallelJLD2Storage, i::Integer)
 
 Get the metadata for simulation `i`.
 """
-SimulationBasedInference.getmetadata(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; getmetadata(h, i); end
+SimulationBasedInference.getmetadata(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; getmetadata(h); end
 
 """
     setmetadata!(backend::ParallelJLD2Storage, i::Integer; kwargs...)
 
 Set metadata for simulation `i`.
 """
-SimulationBasedInference.setmetadata!(b::ParallelJLD2Storage, i::Integer; kwargs...) = open(b, i) do h; setmetadata!(h, i; kwargs...); end
+SimulationBasedInference.setmetadata!(b::ParallelJLD2Storage, i::Integer; kwargs...) = open(b, i) do h; setmetadata!(h; kwargs...); end
 
 """
     ensure_output!(backend::ParallelJLD2Storage, i::Integer, name::Symbol)
 
 Ensure output series `name` exists for simulation `i`.
 """
-SimulationBasedInference.ensure_output!(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; ensure_output!(h, i, name); end
+SimulationBasedInference.ensure_output!(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; ensure_output!(h, name); end
 
 """
     store_output!(backend::ParallelJLD2Storage, i::Integer, name::Symbol, x)
 
 Append `x` to output series `name` for simulation `i`.
 """
-SimulationBasedInference.store_output!(b::ParallelJLD2Storage, i::Integer, name::Symbol, x) = open(b, i) do h; store_output!(h, i, name, x); end
+SimulationBasedInference.store_output!(b::ParallelJLD2Storage, i::Integer, name::Symbol, x) = open(b, i) do h; store_output!(h, name, x); end
 
 """
     get_output(backend::ParallelJLD2Storage, i::Integer, name::Symbol, j::Integer)
 
 Get the `j`-th element of output series `name` for simulation `i`.
 """
-SimulationBasedInference.get_output(b::ParallelJLD2Storage, i::Integer, name::Symbol, j::Integer) = open(b, i) do h; get_output(h, i, name, j); end
+SimulationBasedInference.get_output(b::ParallelJLD2Storage, i::Integer, name::Symbol, j::Integer) = open(b, i) do h; get_output(h, name, j); end
 
 """
     get_outputs(backend::ParallelJLD2Storage, i::Integer, name::Symbol)
 
 Get all elements of output series `name` for simulation `i`.
 """
-SimulationBasedInference.get_outputs(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; get_outputs(h, i, name); end
+SimulationBasedInference.get_outputs(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; get_outputs(h, name); end
 
 """
     output_length(backend::ParallelJLD2Storage, i::Integer, name::Symbol)
 
 Get the length of output series `name` for simulation `i`.
 """
-SimulationBasedInference.output_length(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; output_length(h, i, name); end
+SimulationBasedInference.output_length(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; output_length(h, name); end
 
 """
     output_names(backend::ParallelJLD2Storage, i::Integer)
 
 Get all output series names for simulation `i`.
 """
-SimulationBasedInference.output_names(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; output_names(h, i); end
+SimulationBasedInference.output_names(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; output_names(h); end
 
 """
     has_output(backend::ParallelJLD2Storage, i::Integer, name::Symbol)
 
 Check if output series `name` exists for simulation `i`.
 """
-SimulationBasedInference.has_output(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; has_output(h, i, name); end
+SimulationBasedInference.has_output(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; has_output(h, name); end
 
 """
     empty_output!(backend::ParallelJLD2Storage, i::Integer, name::Symbol)
 
 Clear output series `name` for simulation `i`.
 """
-SimulationBasedInference.empty_output!(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; empty_output!(h, i, name); end
+SimulationBasedInference.empty_output!(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; empty_output!(h, name); end
 
 """
     empty!(backend::ParallelJLD2Storage, i::Integer)
 
 Clear all outputs and scratch for simulation `i`.
 """
-Base.empty!(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; empty!(h, i); end
+Base.empty!(b::ParallelJLD2Storage, i::Integer) = open(b, i) do h; empty!(h); end
 
 """
     empty!(backend::ParallelJLD2Storage)

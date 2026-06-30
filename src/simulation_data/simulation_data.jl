@@ -2,12 +2,17 @@
     SimulationData{B}
 
 A view of the data for a single simulation stored in the given [`StorageBackend`](@ref).
+The optional `handle` field maintains a persistent storage handle when needed (e.g., for
+observables that require scratch storage across multiple `observe!` calls).
 """
-mutable struct SimulationData{B<:StorageBackend}
+struct SimulationData{B<:StorageBackend}
     backend::B
-    handle::Union{Nothing, StorageHandle}
     index::Int
+    handle::Ref{Union{Nothing, StorageHandle}}  # persistent handle for buffer operations
 end
+
+# Constructor without explicit handle (lazy initialization)
+SimulationData(backend::StorageBackend, index::Int) = SimulationData(backend, index, Ref{Union{Nothing, StorageHandle}}(nothing))
 
 """
 Allocate and construct a new `SimulationData` from the given `backend`, or create a new [`InMemoryStorage`](@ref)
@@ -15,7 +20,7 @@ backend if not specified.
 """
 function SimulationData(backend::StorageBackend=InMemoryStorage(); inputs=nothing, metadata...)
     i = allocate!(backend, inputs; metadata...)
-    return SimulationData(backend, nothing, i)
+    return SimulationData(backend, i)
 end
 
 getinputs(data::SimulationData) = getinputs(data.backend, data.index)
@@ -48,43 +53,69 @@ Return a `NamedTuple` mapping each output name to its corresponding data series.
 """
 getoutputs(data::SimulationData) = (; (nm => getoutput(data, nm) for nm in output_names(data))...)
 
-function with_output_buffer(func, data::SimulationData, name::Symbol)
-    buffer = get_output_buffer(data, name)
-    result = func(buffer)
-    close(buffer)
-    return result
-end
-
 """
     get_output_buffer(data::SimulationData, name::Symbol)
 
 Return a [`DataBuffer`](@ref) view of the output data for variable `name`, creating it if necessary.
+The handle is opened lazily and reused across calls until explicitly closed.
 """
 function get_output_buffer(data::SimulationData, name::Symbol)
-    data.handle = isnothing(data.handle) || !isopen(data.handle) ? open(data.backend, data.index) : data.handle
-    ensure_output!(handle, data.index, name)
-    return DataBuffer{:output}(data.handle, data.index, name)
+    # Open persistent handle if not already open
+    if isnothing(data.handle[]) || !isopen(data.handle[])
+        data.handle[] = open(data.backend, data.index)
+    end
+    ensure_output!(data.handle[], name)
+    return DataBuffer{:output}(data.handle[], name)
 end
 
-function with_scratch_buffer(func, data::SimulationData, name::Symbol)
-    buffer = get_scratch_buffer(data, name)
-    result = func(buffer)
-    close(buffer)
-    return result
+function with_output_buffer(func!, data::SimulationData, name::Symbol)
+    buffer = get_output_buffer(data, name)
+    try
+        return func!(buffer)
+    finally
+        close(data)
+    end
 end
 
 """
-    get_scratch_buffer(data::SimulationData, name::Symbol=:buffer)
+    get_scratch_buffer(data::SimulationData, name::Symbol=:scratch)
 
 Return a [`DataBuffer`](@ref) view of the transient scratch series `name`.
+The handle is opened lazily and reused across calls until explicitly closed.
 """
-function get_scratch_buffer(data::SimulationData, name::Symbol=:buffer)
-    data.handle = isnothing(data.handle) || !isopen(data.handle) ? open(data.backend, data.index) : data.handle
-    ensure_scratch!(handle, data.index, name)
-    return DataBuffer{:scratch}(data.handle, data.index, name)
+function get_scratch_buffer(data::SimulationData, name::Symbol=:scratch)
+    # Open persistent handle if not already open
+    if isnothing(data.handle[]) || !isopen(data.handle[])
+        data.handle[] = open(data.backend, data.index)
+    end
+    ensure_scratch!(data.handle[], name)
+    return DataBuffer{:scratch}(data.handle[], name)
+end
+
+function with_scratch_buffer(func!, data::SimulationData, name::Symbol=:scratch)
+    buffer = get_scratch_buffer(data, name)
+    try
+        return func!(buffer)
+    finally
+        close(data)
+    end
 end
 
 Base.empty!(data::SimulationData) = empty!(data.backend, data.index)
+
+"""
+    close(data::SimulationData)
+
+Close the persistent handle for this simulation if it is open. Should be called when the
+simulation is complete to release file descriptors and flush any pending writes.
+"""
+function Base.close(data::SimulationData)
+    if !isnothing(data.handle[]) && isopen(data.handle[])
+        close(data.handle[])
+        data.handle[] = nothing
+    end
+    return nothing
+end
 
 ############################################################
 # Collection-of-simulations view
@@ -120,7 +151,7 @@ Allocate simulation data storage in the underlying `backend` (with the given `in
 [`SimulationData`](@ref) view of it.
 """
 function allocate!(storage::SimulationDataSet, inputs=nothing; metadata...)
-    i = allocate!(storage.backend, input; metadata...)
+    i = allocate!(storage.backend, inputs; metadata...)
     return SimulationData(storage.backend, i)
 end
 
@@ -151,8 +182,9 @@ function store!(storage::SimulationDataSet, data::SimulationData; metadata...)
     # Then open a handle for that specific simulation and copy outputs
     open(storage.backend, i) do handle
         for nm in output_names(data)
-            for value in get_output_buffer(data, nm)
-                store_output!(handle, i, nm, value)
+            # Get all values from source and store them
+            for value in getoutput(data, nm)
+                store_output!(handle, nm, value)
             end
         end
     end
@@ -186,19 +218,3 @@ function iterations(storage::SimulationDataSet)
     length(storage) == 0 && return 0
     return maximum(get(getmetadata(storage, i), :iter, 1) for i in 1:length(storage))
 end
-
-############################################################
-# On-disk backend entrypoint
-############################################################
-
-const SUPPORTED_DISK_FORMATS = [format"JLD2"]
-
-"""
-    OnDiskSimulationDataSet(::Type{DataFormat{format}}, path::AbstractString, args...; kwargs...) where {format}
-
-Construct a disk-backed `SimulationDataSet` whose backend persists each simulation to disk
-at the given `path`. Requires a supported file I/O backend to be loaded, e.g. `JLD2`.
-"""
-OnDiskSimulationDataSet(::Type{DataFormat{format}}, path::AbstractString, args...; kwargs...) where {format} = error(
-    "No disk storage backend loaded for $format. Load the corresponding package for one of the supported formats $SUPPORTED_DISK_FORMATS to enable this backend.",
-)

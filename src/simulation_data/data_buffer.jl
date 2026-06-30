@@ -1,30 +1,29 @@
 """
     DataBuffer{kind, H} where {H <:StorageHandle}
 
-A lightweight, ordered, appendable **view** onto a variable with `name` with data accessed
-vua the given [`StorageHandle`](@ref). `kind` is either `:output` (persistent output) or `:scratch`
-(a transient working buffer). A `DataBuffer` owns no data of its own; `store!`, `getindex`,
-`length`, and `empty!` all forward to the backend/handle.
+A lightweight **view** onto a variable with `name` with data accessed via the given [`StorageHandle`](@ref).
+The handle owns the simulation index (`handle.index`). `kind` is either `:output` (persistent output) or `:scratch`
+(a transient working buffer). A `DataBuffer` owns no data of its own; `store!`, `getindex`, `length`, and `empty!` all
+forward to the I/O handle.
 """
 struct DataBuffer{kind, H<:StorageHandle}
     handle::H
-    sim::Int
     name::Symbol
 end
 
-DataBuffer{kind}(handle::StorageHandle, sim::Integer, name::Symbol) where {kind} = DataBuffer{kind, typeof(handle)}(handle, Int(sim), name)
+DataBuffer{kind}(handle::StorageHandle, name::Symbol) where {kind} = DataBuffer{kind, typeof(handle)}(handle, name)
 
 # forwarded primitives for :output with handle (fast path)
-store!(buffer::DataBuffer{:output}, x) = store_output!(buffer.handle, buffer.sim, buffer.name, x)
-Base.getindex(buffer::DataBuffer{:output}, i::Integer) = get_output(buffer.handle, buffer.sim, buffer.name, i)
-Base.length(buffer::DataBuffer{:output}) = output_length(buffer.handle, buffer.sim, buffer.name)
-Base.empty!(buffer::DataBuffer{:output}) = empty_output!(buffer.handle, buffer.sim, buffer.name)
+store!(buffer::DataBuffer{:output}, x) = store_output!(buffer.handle, buffer.name, x)
+Base.getindex(buffer::DataBuffer{:output}, i::Integer) = get_output(buffer.handle, buffer.name, i)
+Base.length(buffer::DataBuffer{:output}) = output_length(buffer.handle, buffer.name)
+Base.empty!(buffer::DataBuffer{:output}) = empty_output!(buffer.handle, buffer.name)
 
 # forwarded primitives for :scratch with handle (fast path)
-store!(buffer::DataBuffer{:scratch}, x) = store_scratch!(buffer.handle, buffer.sim, buffer.name, x)
-Base.getindex(buffer::DataBuffer{:scratch}, i::Integer) = get_scratch(buffer.handle, buffer.sim, buffer.name, i)
-Base.length(buffer::DataBuffer{:scratch}) = scratch_length(buffer.handle, buffer.sim, buffer.name)
-Base.empty!(buffer::DataBuffer{:scratch}) = empty_scratch!(buffer.handle, buffer.sim, buffer.name)
+store!(buffer::DataBuffer{:scratch}, x) = store_scratch!(buffer.handle, buffer.name, x)
+Base.getindex(buffer::DataBuffer{:scratch}, i::Integer) = get_scratch(buffer.handle, buffer.name, i)
+Base.length(buffer::DataBuffer{:scratch}) = scratch_length(buffer.handle, buffer.name)
+Base.empty!(buffer::DataBuffer{:scratch}) = empty_scratch!(buffer.handle, buffer.name)
 
 # generic derived methods (kind-agnostic)
 Base.push!(buffer::DataBuffer, x) = store!(buffer, x)
