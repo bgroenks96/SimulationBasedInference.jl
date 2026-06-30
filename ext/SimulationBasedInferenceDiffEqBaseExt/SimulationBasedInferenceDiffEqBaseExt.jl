@@ -49,10 +49,9 @@ function init(
     p=forward_prob.p,
     saveat=[],
     save_everystep=false,
-    copy_observables=false,
     solve_kwargs...
 )
-    return init(Simulator(forward_prob.simulator), forward_prob, ode_alg, args...; p, saveat, save_everystep, copy_observables, solve_kwargs...)
+    return init(Simulator(forward_prob.simulator), forward_prob, ode_alg, args...; p, saveat, save_everystep, solve_kwargs...)
 end
 
 """

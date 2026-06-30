@@ -34,7 +34,7 @@ function CommonSolve.init(
     em_names = filter(∈(obs_names), names)
     # check that the resulting intersection is not empty
     @assert !isempty(em_names) "None of $names found in observables $obs_names"
-    return EmulatedObservablesSolver(remake(forward_prob, p=p, copy_observables=false), emobs, Tuple(names), missing)
+    return EmulatedObservablesSolver(remake(forward_prob, p=p), emobs, Tuple(names), missing)
 end
 
 function CommonSolve.step!(solver::EmulatedObservablesSolver)
