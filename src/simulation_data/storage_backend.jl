@@ -64,9 +64,10 @@ directly to the backend; the ephemeral scratch namespace lives here (owned by th
 not indexed by simulation) and is cleared on close.
 """
 mutable struct InMemoryStorageHandle <: StorageHandle
-    backend::InMemoryStorage
+    backend::InMemoryStorage # Storage backend
     sim_id::Int  # Simulation ID this handle owns
-    scratch::Dict{Symbol, Any}  # Scratch for THIS simulation only
+    isopen::Bool # Handle status
+    scratch::Dict{Symbol, Any}  # Scratch storage for the current simulation
 end
 
 """
@@ -76,12 +77,17 @@ Open a handle for the `sim_id`-th simulation. The handle owns the scratch namesp
 that specific simulation.
 """
 function Base.open(backend::InMemoryStorage, sim_id::Integer; args...)
-    handle = InMemoryStorageHandle(backend, Int(sim_id), Dict{Symbol, Any}())
+    handle = InMemoryStorageHandle(backend, Int(sim_id), true, Dict{Symbol, Any}())
     finalizer(close, handle)
     return handle
 end
 
-Base.close(handle::InMemoryStorageHandle) = empty!(handle.scratch)
+function Base.close(handle::InMemoryStorageHandle)
+    empty!(handle.scratch)
+    handle.isopen = false
+end
+
+Base.isopen(handle::InMemoryStorageHandle) = handle.isopen
 
 # Generic in-memory scratch implementation shared by all handle types.
 # Scratch is per-simulation, owned by the handle itself (not indexed).

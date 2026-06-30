@@ -3,8 +3,9 @@
 
 A view of the data for a single simulation stored in the given [`StorageBackend`](@ref).
 """
-struct SimulationData{B<:StorageBackend}
+mutable struct SimulationData{B<:StorageBackend}
     backend::B
+    handle::Union{Nothing, StorageHandle}
     index::Int
 end
 
@@ -14,7 +15,7 @@ backend if not specified.
 """
 function SimulationData(backend::StorageBackend=InMemoryStorage(); inputs=nothing, metadata...)
     i = allocate!(backend, inputs; metadata...)
-    return SimulationData(backend, i)
+    return SimulationData(backend, nothing, i)
 end
 
 getinputs(data::SimulationData) = getinputs(data.backend, data.index)
@@ -60,9 +61,9 @@ end
 Return a [`DataBuffer`](@ref) view of the output data for variable `name`, creating it if necessary.
 """
 function get_output_buffer(data::SimulationData, name::Symbol)
-    handle = open(data.backend, data.index)
+    data.handle = isnothing(data.handle) || !isopen(data.handle) ? open(data.backend, data.index) : data.handle
     ensure_output!(handle, data.index, name)
-    return DataBuffer{:output}(handle, data.index, name)
+    return DataBuffer{:output}(data.handle, data.index, name)
 end
 
 function with_scratch_buffer(func, data::SimulationData, name::Symbol)
@@ -78,9 +79,9 @@ end
 Return a [`DataBuffer`](@ref) view of the transient scratch series `name`.
 """
 function get_scratch_buffer(data::SimulationData, name::Symbol=:buffer)
-    handle = open(data.backend, data.index)
+    data.handle = isnothing(data.handle) || !isopen(data.handle) ? open(data.backend, data.index) : data.handle
     ensure_scratch!(handle, data.index, name)
-    return DataBuffer{:scratch}(handle, data.index, name)
+    return DataBuffer{:scratch}(data.handle, data.index, name)
 end
 
 Base.empty!(data::SimulationData) = empty!(data.backend, data.index)
@@ -113,15 +114,27 @@ Base.isempty(storage::SimulationDataSet) = length(storage) == 0
 Base.getindex(storage::SimulationDataSet, i::Integer) = SimulationData(storage.backend, i)
 
 """
-    allocate!(storage::SimulationDataSet, input=Float64[]; metadata...)
+    allocate!(storage::SimulationDataSet, inputs=nothing; metadata...)
 
-Reserve a fresh simulation in the backing store (with the given `input`) and return a
-[`SimulationData`](@ref) view of it. The forward solve writes its outputs directly into this
-view.
+Allocate simulation data storage in the underlying `backend` (with the given `input`) and return a
+[`SimulationData`](@ref) view of it.
 """
-function allocate!(storage::SimulationDataSet, input=Float64[]; metadata...)
+function allocate!(storage::SimulationDataSet, inputs=nothing; metadata...)
     i = allocate!(storage.backend, input; metadata...)
     return SimulationData(storage.backend, i)
+end
+
+"""
+    allocate!(storage::SimulationDataSet, inputs::AbstractMatrix; metadata...)
+
+Allocate a new `SimulationData` on the storage backend for each column of `inputs`. Returns a vector
+of [`SimulationData`](@ref) of length `size(inputs, 2)`.
+"""
+function allocate!(storage::SimulationDataSet, inputs::AbstractMatrix; metadata...)
+    for x in eachcol(inputs)
+        allocate!(storage, x; metadata...)
+    end
+    return [SimulationData(storage.backend, i) for i in 1:size(inputs, 2)]
 end
 
 """
