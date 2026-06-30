@@ -1,3 +1,6 @@
+"""
+Base type for simulator observable output handlers.
+"""
 abstract type SimulatorOutput{T} end
 
 """
@@ -6,6 +9,8 @@ abstract type SimulatorOutput{T} end
 Base type for observables with the given `outputType`.
 """
 abstract type Observable{outputType<:SimulatorOutput} end
+
+# Observable methods
 
 """
     initialize!(data::SimulationData, ::Observable, state)
@@ -47,13 +52,6 @@ the number of dimensions.
 coordinates(obs::Observable) = error("not implemented for osbervable of type $(typeof(obs))")
 
 """
-    size(obs::Observable)
-
-Retruns the shape of this observable by evaluating the `length` of each set of coordinates returned by `coordinates(obs)`.
-"""
-Base.size(obs::Observable) = map(length, coordinates(obs))
-
-"""
     coordinates(dims...)
 
 Converts arguments `dims` to a tuple of coordinate `Dimensions` according to the following rules:
@@ -91,12 +89,18 @@ end
 coordinates(obs::SimulatorObservable) = obs.coords
 coordinates(obs::SimulatorObservable, batch_size::Int) = (obs.coords..., Dim{:ens}(1:batch_size))
 
+# Base methods
+
+Base.size(obs::Observable) = map(length, coordinates(obs))
+
 Base.nameof(obs::SimulatorObservable) = obs.name
 
 function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,outputType}) where {N,outputType<:SimulatorOutput}
     println(io, "$(nameof(outputType)) SimulatorOsbervable $(obs.name) with $N $(N > 1 ? "dimensions" : "dimension")")
     show(io, mime, obs.coords)
 end
+
+# Output types
 
 """
     Transient{T} <: SimulatorOutput
@@ -161,8 +165,7 @@ mutable struct TimeSampled{timeType, outputType, reducerType, converterType} <: 
     tsave::Vector{timeType} # save times
     tconvert::converterType # time converter
     reducer::reducerType # reducer function
-    buffer::Union{Nothing, DataBuffer} # output buffer
-    scratch::Union{Nothing, DataBuffer} # scratch buffer
+    sampleidx::Int
 end
 
 """
@@ -197,7 +200,7 @@ function TimeSampled(
         end
     end
     return TimeSampled{timeType, output_type, typeof(reducer), typeof(time_converter)}(
-        extrema(tsample), tsample, collect(tsave), time_converter, reducer, nothing, nothing
+        extrema(tsample), tsample, collect(tsave), time_converter, reducer, 1
     )
 end
 
@@ -244,23 +247,12 @@ handle **must** be provided since scratch storage is now a feature of handles on
 handle will be stored in the output object for use during observe! calls.
 """
 function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
-    obs.output.buffer = empty!(get_output_buffer(data, obs.name))
-    obs.output.scratch = empty!(get_scratch_buffer(data, obs.name))
+    output_buffer = get_output_buffer(data, nameof(obs))
+    empty!(output_buffer)
+    scratch_buffer = get_scratch_buffer(data, nameof(obs))
+    empty!(scratch_buffer)
+    obs.output.sampleidx = 1
     return nothing
-end
-
-"""
-    _sample_window(output::TimeSampled, k::Int)
-
-Return the range of (1-based) sample indices belonging to the `k`-th save bucket, i.e. the
-samples whose time falls in `(tsave[k-1], tsave[k]]` (with `tsave[0]` taken as the start of
-the time span). Indices are into the non-clearing transient sample buffer, which mirrors
-`tsample`.
-"""
-function _sample_window(output::TimeSampled, k::Int)
-    save_idx = searchsortedfirst(output.tsample, output.tsave[k])
-    prev_idx = k == 1 ? 0 : searchsortedfirst(output.tsample, output.tsave[k-1])
-    return (prev_idx + 1):save_idx
 end
 
 """
@@ -272,26 +264,23 @@ stored values are then reduced according to the reducer function specified when 
 observable. **Requires** that initialize! was called with a valid handle parameter.
 """
 function observe!(data::SimulationData, obs::TimeSampledObservable, state)
-    output = obs.output
-    buffer = output.buffer
-    scratch = output.scratch
-
-    # current sample index = number of samples observed so far + 1
-    n = length(buffer) + 1
-    inbounds = n <= length(output.tsample)
-    t = inbounds ? output.tsample[n] : output.tsample[end]
-    
-    # observe and buffer the current sample
+    output_buffer = get_output_buffer(data, nameof(obs))
+    scratch_buffer = get_scratch_buffer(data, nameof(obs))
+    inbounds = obs.output.sampleidx <= length(obs.output.tsample)
+    t = inbounds ? obs.output.tsample[obs.output.sampleidx] : obs.output.tsample[end]
+    # find index of time point
+    idx = searchsorted(obs.output.tsave, t)
+    # get observable vector at current state
     Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    store!(scratch, Y_t)
-    
-    # if t is the next (not-yet-stored) save point, reduce its sample window and store
-    k = length(out) + 1
-    if inbounds && k <= length(output.tsave) && t == output.tsave[k]
-        window = _sample_window(output, k)
-        store!(buffer, output.reducer(buffer[window]))
+    store!(scratch_buffer, Y_t)
+    # if t ∈ save points, compute and store reduced output
+    if first(idx) == last(idx) && inbounds && length(scratch_buffer) > 0
+        store!(output_buffer, obs.output.reducer(scratch_buffer))
+        # empty scratch
+        empty!(scratch_buffer)
     end
-    
+    # update cached time
+    obs.output.sampleidx += 1
     return Y_t
 end
 

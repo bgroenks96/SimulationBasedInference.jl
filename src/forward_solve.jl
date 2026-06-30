@@ -10,7 +10,7 @@ struct SimulatorForwardSolution{solType,probType<:SimulatorForwardProblem,dataTy
     "Solution/output data produced by the simulator"
     sol::solType
 
-    "Simulation data (inputs/observable outputs) produced by the forward solve"
+    "Simulation data storage"
     simdata::dataType
 end
 
@@ -38,7 +38,7 @@ mutable struct ForwardMapSolver{
     "Forward problem that started the simulation"
     prob::probType
 
-    "Simulation data storage for this solve"
+    "Simulation data storage"
     simdata::dataType
 
     "Positional arguments for the simulator function"
@@ -72,8 +72,8 @@ function solve!(solver::ForwardMapSolver)
     end
     # compute observables
     for obs in solver.prob.observables
-        initialize!(simdata, obs, output)
-        observe!(simdata, obs, output)
+        initialize!(solver.simdata, obs, output)
+        observe!(solver.simdata, obs, output)
     end
     return SimulatorForwardSolution(solver.prob, output, solver.simdata)
 end
@@ -94,7 +94,7 @@ mutable struct IterativeSolver{
     "Forward problem that started the simulation"
     prob::probType
 
-    "Simulation data storage for this solve"
+    "Simulation data storage"
     simdata::dataType
 
     "Simulation object"
@@ -170,7 +170,7 @@ mutable struct DynamicalSolver{
     "Forward problem that started the simulation"
     prob::probType
 
-    "Simulation data storage for this solve (backend-based view, valid after the handle closes)"
+    "Simulation data storage"
     simdata::dataType
 
     "Simulation object"
@@ -238,7 +238,7 @@ function step!(solver::DynamicalSolver, args...; kwargs...)
     # iterate over observables and update those for which t is a sample point
     for obs in prob.observables
         if t ∈ sampletimes(typeof(t), obs)
-            observe!(simdata, obs, sim)
+            observe!(solver.simdata, obs, sim)
         end
     end
     # increment step index
