@@ -12,6 +12,25 @@
 
 ---
 
+## Quick Start
+
+**Running tests**:
+```julia
+# Activate the test environment (loads all test dependencies)
+import TestEnv
+TestEnv.activate()
+
+# Run individual test files
+include("test/storage_tests.jl")
+include("test/observables_tests.jl")
+include("test/problem_tests.jl")
+
+# Or run full suite
+using Pkg; Pkg.test("SimulationBasedInference")
+```
+
+---
+
 ## Overview
 
 `SimulationBasedInference.jl` is a Julia package for **simulation-based inference (SBI)**, focusing on Bayesian statistical inference for dynamical models and physics-based simulators. The package provides a unified interface for performing parameter estimation and uncertainty quantification when the forward model is a complex simulator rather than an analytical expression.
