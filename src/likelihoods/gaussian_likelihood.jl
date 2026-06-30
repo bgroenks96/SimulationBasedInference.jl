@@ -43,7 +43,10 @@ function predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{
     return Normal(μ, σ)
 end
 
-function predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{<:MvNormal}, σ)
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{IsoNormal}, σ::Union{Number, AbstractVector}) = predictive_distribution(data, lik, MvNormal, σ)
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{DiagNormal}, σ::AbstractVector) = predictive_distribution(data, lik, MvNormal, σ)
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{MvNormal}, Σ::AbstractMatrix) = predictive_distribution(data, lik, MvNormal, σ)
+function predictive_distribution(data::SimulationData, lik::SimulatorLikelihood, ::Type{MvNormal}, σ)
     μ = vec(getvalue(data, lik.obs))
     Σ = cov(lik, σ)
     return MvNormal(μ, Σ)

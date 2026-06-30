@@ -64,7 +64,7 @@ function solve!(solver::ODESolver, args...; kwargs...)
         step!(solver, args...; kwargs...)
     end
     sol = solve!(solver.sim)
-    return SimulatorForwardSolution(solver.prob, sol, solver.storage)
+    return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
 end

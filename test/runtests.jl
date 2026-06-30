@@ -14,6 +14,10 @@ end
     include("prior_tests.jl")
 end
 
+@testset "Likelihoods" begin
+    include("likelihood_tests.jl")
+end
+
 @testset "Problem interface" begin
     include("problem_tests.jl")
 end

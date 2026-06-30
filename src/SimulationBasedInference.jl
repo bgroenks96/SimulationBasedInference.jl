@@ -56,7 +56,7 @@ include("simulation_data/storage_backend.jl")
 include("simulation_data/data_buffer.jl")
 include("simulation_data/simulation_data.jl")
 
-export SimulatorObservable, TimeSampledObservable, TransientObservable, TimeSampled
+export SimulatorObservable, TimeSampledObservable, TimeSampled, TransientObservable, Transient
 export observe!, getvalue, coordinates
 include("observables.jl")
 
