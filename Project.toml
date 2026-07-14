@@ -48,6 +48,7 @@ SimulationBasedInferenceTuringExt = ["Turing"]
 
 [compat]
 AbstractMCMC = "4, 5"
+AffineInvariantMCMC = "1.3.1"
 Bijectors = "0.13 - 0.15"
 CommonSolve = "0.2"
 ComponentArrays = "0.15"
