@@ -69,7 +69,7 @@ end
     inverse_transform = inverse(transform)
     alg = ESMDA(maxiters=10)
     testsol = solve(testprob, alg, EnsembleThreads(); ensemble_size, rng)
-    unconstrained_posterior = get_ensemble(testsol.result)
+    unconstrained_posterior = get_ensemble(testsol)
     posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
     posterior_mean = mean(posterior, dims=2)[:,1]
     @show posterior_mean
@@ -88,7 +88,7 @@ end
     # solve inference problem with ES-MDA
     esmda_sol = solve(inference_prob, esmda, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
     # check results
-    posterior_ens = get_ensemble(esmda_sol)
+    posterior_ens = get_transformed_ensemble(esmda_sol)
     posterior_mean = mean(posterior_ens, dims=2)
     @test abs(posterior_mean[1] - α_true) < 0.01
 end

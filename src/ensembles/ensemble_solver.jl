@@ -208,20 +208,22 @@ end
 function ensemble_forward!(solver::EnsembleSolver)
     inference_prob = solver.sol.prob
     # get current parameter ensemble
-    θ = get_ensemble(solver.state)
+    Θ = get_ensemble(solver.state)
     # map unconstrained parameters to constrained space
     param_map = unconstrained_forward_map(inference_prob.prior.model)
-    p = reduce(hcat, map(param_map, eachcol(θ)))
+    p_ens = mapreduce(param_map, hcat, eachcol(Θ))
+    simdata = map(eachcol(Θ)) do θ
+        allocate!(solver.sol.storage, θ; iter = get_iteration(solver))
+    end
     # solve the ensemble forward problem
     enssol = solve(
         inference_prob.forward_prob,
         inference_prob.forward_solver,
         solver.ensalg,
         solver.solve_args...;
-        p=p,
+        simdata,
+        p=p_ens,
         prob_func=solver.prob_func,
-        storage=solver.sol.storage,
-        attributes=(iter=get_iteration(solver),),
         solver.solve_kwargs...
     )
     # collect ensemble predictions

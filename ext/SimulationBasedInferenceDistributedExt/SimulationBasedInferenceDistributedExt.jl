@@ -16,16 +16,15 @@ end
 
 function CommonSolve.init(
     forward_probs::Vector{<:SimulatorForwardProblem},
-    forward_alg,
+    simdata::Vector{<:SimulationData},
     ensalg::EnsembleDistributed,
     args...;
     storage::SimulationDataSet = SimulationDataSet(),
     attributes = (;),
     kwargs...
 )
-    simdata = [allocate!(storage, prob.p; attributes...) for prob in forward_probs]
     descriptors = map(SBI.descriptor, simdata)
-    solve_args = repeat([(; forward_alg, args, kwargs)], length(forward_probs))
+    solve_args = repeat([(; args, kwargs)], length(forward_probs))
     solvers = pmap(_init, forward_probs, descriptors, solve_args)
     return EnsembleForwardSolver(ensalg, solvers)
 end

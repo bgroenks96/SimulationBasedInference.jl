@@ -25,7 +25,7 @@ end
     # solve inference problem with EKS
     eks_sol = solve(inference_prob, eks, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
     # check results
-    posterior_ens = get_ensemble(eks_sol)
+    posterior_ens = get_transformed_ensemble(eks_sol)
     posterior_mean = mean(posterior_ens, dims=2)
     @test abs(posterior_mean[1] - α_true) < 0.01
 end
@@ -44,7 +44,7 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     testsol = solve(testprob, EKS(), EnsembleThreads(); ensemble_size, verbose=false)
-    posterior_ens = get_ensemble(testsol)
+    posterior_ens = get_transformed_ensemble(testsol)
     posterior_mean = mean(posterior_ens, dims=2)[:,1]
     @show posterior_mean
     @test abs(posterior_mean[1] - x_true) < 0.1

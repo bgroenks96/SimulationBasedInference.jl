@@ -64,7 +64,6 @@ end
 step!(::ForwardMapSolver, args...; kwargs...) = error("step! not defined for non-iterative simulators")
 
 function solve!(solver::ForwardMapSolver)
-    setinputs!(solver.simdata, solver.prob.p)
     output = if isnothing(solver.prob.rng_seed)
         solver.prob.simulator(solver.prob.p, solver.args...; solver.kwargs...)
     else
@@ -118,7 +117,6 @@ function init(
     kwargs...
 )
     prob = remake(prob; p)
-    setinputs!(simdata, prob.p)
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
     else
@@ -193,7 +191,6 @@ function init(
     kwargs...
 )
     prob = remake(prob; p)
-    setinputs!(simdata, prob.p)
     # initialize dynamical simulation
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
@@ -269,7 +266,7 @@ function solve(
     prob::SimulatorForwardProblem,
     ensalg::EnsembleAlgorithm,
     args...;
-    p::AbstractMatrix=forward_prob.p,
+    p::AbstractMatrix=prob.p,
     kwargs...
 )
     prob = remake(prob; p)
@@ -281,20 +278,11 @@ function solve(
     forward_alg,
     ensalg::EnsembleAlgorithm,
     args...;
-    p::AbstractMatrix=forward_prob.p,
+    p::AbstractMatrix=prob.p,
     kwargs...
 )
     prob = remake(prob; p)
-    return solve(prob, forward_alg, ensalg, args...; kwargs...)
-end
-
-function solve(
-    forward_prob::EnsembleForwardProblem,
-    ensalg::EnsembleAlgorithm,
-    args...;
-    kwargs...
-)
-    return solve(forward_prob, nothing, ensalg, args...; kwargs...)
+    return solve(prob, forward_alg, ensalg, args...; p, kwargs...)
 end
 
 struct EnsembleForwardSolver{
@@ -326,12 +314,22 @@ function solve(
     forward_alg,
     ensalg::EnsembleAlgorithm,
     args...;
-    ps::AbstractMatrix=forward_prob.p,
+    p::AbstractMatrix=forward_prob.p,
+    simdata::Vector{<:SimulationData} = default_ensemble_simdata(p),
     prob_func=(prob, i) -> prob,
     kwargs...
 )
-    enssolver = init(forward_prob, forward_alg, ensalg, args...; ps, prob_func, kwargs...)
+    enssolver = init(forward_prob, forward_alg, ensalg, args...; p, simdata, prob_func, kwargs...)
     return solve!(enssolver)
+end
+
+function solve(
+    forward_prob::EnsembleForwardProblem,
+    ensalg::EnsembleAlgorithm,
+    args...;
+    kwargs...
+)
+    return solve(forward_prob, nothing, ensalg, args...; kwargs...)
 end
 
 function init(
@@ -339,30 +337,32 @@ function init(
     forward_alg,
     ensalg::EnsembleAlgorithm,
     args...;
-    ps::AbstractMatrix=forward_prob.p,
-    storage::SimulationDataSet = SimulationDataSet(),
+    p::AbstractMatrix=forward_prob.p,
+    simdata::Vector{<:SimulationData} = default_ensemble_simdata(p),
     prob_func=(prob, i) -> prob,
-    attributes=(;),
     kwargs...
 )
-    forward_probs = [prob_func(remake(forward_prob; p), i) for (i, p) in enumerate(eachcol(ps))]
-    return init(forward_probs, forward_alg, ensalg, args...; storage, attributes, kwargs...)
+    @assert length(simdata) == size(p, 2) "Number of simdata must match the size of the ensemble"
+    forward_probs = [prob_func(remake(forward_prob; p=p_i), i) for (i, p_i) in enumerate(eachcol(p))]
+    return init(forward_probs, simdata, ensalg, forward_alg, args...; kwargs...)
+end
+
+function default_ensemble_simdata(ps::AbstractMatrix; attrs...)
+    dataset = SimulationDataSet()
+    return [allocate!(dataset, p; attrs...) for p in eachcol(ps)]
 end
 
 # Serial
 
 function init(
     forward_probs::Vector{<:SimulatorForwardProblem},
-    forward_alg,
+    simdata::Vector{<:SimulationData},
     ensalg::EnsembleSerial,
     args...;
-    storage::SimulationDataSet = SimulationDataSet(),
-    attributes = (;),
     kwargs...
 )
-    simdata = [allocate!(storage, prob.p; attributes...) for prob in forward_probs]
     solvers = map(forward_probs, simdata) do prob, simdata
-        init(prob, forward_alg, args...; simdata, kwargs...)
+        init(prob, args...; simdata, kwargs...)
     end
     return EnsembleForwardSolver(ensalg, simdata, solvers)
 end
@@ -385,17 +385,14 @@ end
 
 function init(
     forward_probs::Vector{<:SimulatorForwardProblem},
-    forward_alg,
+    simdata::Vector{<:SimulationData},
     ensalg::EnsembleThreads,
     args...;
-    storage::SimulationDataSet = SimulationDataSet(),
-    attributes = (;),
     kwargs...
 )
-    simdata = [allocate!(storage, prob.p; attributes...) for prob in forward_probs]
     solvers = Vector(undef, length(forward_probs))
     Threads.@threads for i in 1:length(forward_probs)
-        solvers[i] = init(forward_probs[i], forward_alg, args...; simdata=simdata[i], kwargs...)
+        solvers[i] = init(forward_probs[i], args...; simdata=simdata[i], kwargs...)
     end
     return EnsembleForwardSolver(ensalg, simdata, collect(solvers))
 end
