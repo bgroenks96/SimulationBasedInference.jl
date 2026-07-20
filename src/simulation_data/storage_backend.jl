@@ -61,13 +61,42 @@ mutable struct InMemoryStorage{inputType,outputType,metadataType} <: StorageBack
     outputs::Vector{OrderedDict{Symbol,Vector{outputType}}}
 end
 
-InMemoryStorage{I,O,M}() where {I,O,M} = InMemoryStorage{I,O,M}(
-    I[],
-    OrderedDict{Symbol,M}[],
-    OrderedDict{Symbol,Vector{O}}[],
+InMemoryStorage{I,O,M}(N::Int = 0) where {I,O,M} = InMemoryStorage{I,O,M}(
+    Vector{I}(undef, N),
+    Vector{OrderedDict{Symbol,M}}(undef, N),
+    Vector{OrderedDict{Symbol,Vector{O}}}(undef, N),
 )
 
 InMemoryStorage() = InMemoryStorage{Any,Any,Any}()
+
+descriptor(backend::InMemoryStorage) = (type=typeof(backend), num_simulations=num_simulations(backend),)
+from_descriptor(::Type{<:InMemoryStorage}, desc::NamedTuple) = desc.type(desc.num_simulations)
+
+# --- backend operations (slow path - auto-open/close per simulation) ---
+
+num_simulations(backend::InMemoryStorage) = length(backend.inputs)
+allocate!(backend::InMemoryStorage, input; metadata...) = open(backend, length(backend.inputs) + 1) do h; allocate!(h, input; metadata...); end
+getinputs(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; getinputs(h); end
+setinputs!(backend::InMemoryStorage, i::Integer, x) = (open(backend, i) do h; setinputs!(h, x); end; backend)
+getmetadata(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; getmetadata(h); end
+setmetadata!(backend::InMemoryStorage, i::Integer; kwargs...) = open(backend, i) do h; setmetadata!(h; kwargs...); end
+ensure_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; ensure_output!(h, name); end
+store_output!(backend::InMemoryStorage, i::Integer, name::Symbol, x) = (open(backend, i) do h; store_output!(h, name, x); end; backend)
+get_output(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = open(backend, i) do h; get_output(h, name, j); end
+get_outputs(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; get_outputs(h, name) end
+output_length(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; output_length(h, name); end
+output_names(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; output_names(h); end
+has_output(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; has_output(h, name); end
+empty_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = (open(backend, i) do h; empty_output!(h, name); end; backend)
+
+Base.empty!(backend::InMemoryStorage, i::Integer) = (open(backend, i) do h; empty!(h); end; backend)
+Base.empty!(backend::InMemoryStorage) = (empty!(backend.inputs); empty!(backend.metadata); empty!(backend.outputs); backend)
+
+function Base.copy!(dest::InMemoryStorage, src::InMemoryStorage, i::Integer)
+    dest.inputs[i] = deepcopy(src.inputs[i])
+    dest.metadata[i] = deepcopy(src.metadata[i])
+    dest.outputs[i] = deepcopy(src.outputs[i])
+end
 
 """
     InMemoryStorageHandle <: StorageHandle
@@ -151,26 +180,6 @@ function Base.empty!(handle::InMemoryStorageHandle)
     empty!(handle.backend.outputs[handle.index])
     return handle
 end
-
-# --- backend operations (slow path - auto-open/close per simulation) ---
-
-num_simulations(backend::InMemoryStorage) = length(backend.inputs)
-allocate!(backend::InMemoryStorage, input; metadata...) = open(backend, length(backend.inputs) + 1) do h; allocate!(h, input; metadata...); end
-getinputs(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; getinputs(h); end
-setinputs!(backend::InMemoryStorage, i::Integer, x) = (open(backend, i) do h; setinputs!(h, x); end; backend)
-getmetadata(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; getmetadata(h); end
-setmetadata!(backend::InMemoryStorage, i::Integer; kwargs...) = open(backend, i) do h; setmetadata!(h; kwargs...); end
-ensure_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; ensure_output!(h, name); end
-store_output!(backend::InMemoryStorage, i::Integer, name::Symbol, x) = (open(backend, i) do h; store_output!(h, name, x); end; backend)
-get_output(backend::InMemoryStorage, i::Integer, name::Symbol, j::Integer) = open(backend, i) do h; get_output(h, name, j); end
-get_outputs(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; get_outputs(h, name) end
-output_length(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; output_length(h, name); end
-output_names(backend::InMemoryStorage, i::Integer) = open(backend, i) do h; output_names(h); end
-has_output(backend::InMemoryStorage, i::Integer, name::Symbol) = open(backend, i) do h; has_output(h, name); end
-empty_output!(backend::InMemoryStorage, i::Integer, name::Symbol) = (open(backend, i) do h; empty_output!(h, name); end; backend)
-
-Base.empty!(backend::InMemoryStorage, i::Integer) = (open(backend, i) do h; empty!(h); end; backend)
-Base.empty!(backend::InMemoryStorage) = (empty!(backend.inputs); empty!(backend.metadata); empty!(backend.outputs); backend)
 
 ############################################################
 # On-disk backend entrypoint

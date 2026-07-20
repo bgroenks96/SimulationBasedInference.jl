@@ -103,6 +103,12 @@ end
 
 Base.empty!(data::SimulationData) = empty!(data.backend, data.index)
 
+function Base.copy!(dest::SimulationData, src::SimulationData)
+    if dest.backend != src.backend
+        copy!(dest.backend, src.backend, src.index)
+    end
+end
+
 """
     close(data::SimulationData)
 

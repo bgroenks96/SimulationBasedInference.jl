@@ -32,12 +32,6 @@ mutable struct ParallelJLD2Storage <: StorageBackend
     scratch_in_memory::Bool
 end
 
-function _num_simulations(path::AbstractString)
-    isdir(path) || return 0
-    files = filter(endswith(".jld2"), readdir(path))
-    return length(files)
-end
-
 function ParallelJLD2Storage(path::AbstractString; overwrite::Bool=false, scratch_in_memory::Bool=true)    
     if isdir(path) && overwrite
         # Remove existing simulations
@@ -102,11 +96,12 @@ Base.isopen(handle::JLD2StorageHandle) = handle.isopen
 
 # --- Helper functions ---
 
-"""
-    _sim_file_path(path::String, index::Integer)
+function _num_simulations(path::AbstractString)
+    isdir(path) || return 0
+    files = filter(endswith(".jld2"), readdir(path))
+    return length(files)
+end
 
-Construct the path to the JLD2 file for simulation `index`.
-"""
 function _sim_file_path(path::String, index::Integer)
     # Use zero-padded filenames for consistent sorting in simulations/ subdirectory
     filename = @sprintf("simulation_%04d.jld2", index)
@@ -407,6 +402,15 @@ Clear output series `name` for simulation `i`.
 SimulationBasedInference.empty_output!(b::ParallelJLD2Storage, i::Integer, name::Symbol) = open(b, i) do h; empty_output!(h, name); end
 
 """
+    descriptor(backend::ParallelJLD2Storage)
+
+Return a `NamedTuple` of attributes that fully describe this backend.
+"""
+SimulationBasedInference.descriptor(backend::ParallelJLD2Storage) = (type=typeof(backend), num_simulations=num_simulations(backend), path=backend.path, scratch_in_memory=backend.scratch_in_memory)
+
+SimulationBasedInference.from_descriptor(::Type{<:ParallelJLD2Storage}, desc::NamedTuple) = ParallelJLD2Storage(desc.path, desc.num_simulations, desc.scratch_in_memory)
+
+"""
     empty!(backend::ParallelJLD2Storage, i::Integer)
 
 Clear all outputs and scratch for simulation `i`.
@@ -427,6 +431,55 @@ function Base.empty!(b::ParallelJLD2Storage)
     end
     mkpath(sim_dir)
     return nothing
+end
+
+"""
+    copy!(dest::ParallelJLD2Storage, src::ParallelJLD2Storage, i::Integer)
+
+Copy simulation `i` from the source backend to the destination backend. This creates a new
+simulation file in `dest` with all inputs, outputs, and metadata from `src[i]`. Returns the
+new simulation index in the destination backend. Scratch data is not copied.
+"""
+function Base.copy!(dest::ParallelJLD2Storage, src::ParallelJLD2Storage, i::Integer)
+    # Open source simulation file in read-only mode
+    src_handle = open(src, i; mode="r")
+    
+    try
+        # Read all data from source
+        src_input = getinputs(src_handle)
+        src_metadata = getmetadata(src_handle)
+        
+        # Get output series and their data
+        output_names_src = output_names(src_handle)
+        outputs_data = Dict{Symbol, Vector}()
+        for name in output_names_src
+            len = output_length(src_handle, name)
+            outputs_data[name] = [get_output(src_handle, name, j) for j in 1:len]
+        end
+        
+        # Allocate new simulation in destination with source input and metadata
+        dest_index = allocate!(dest, src_input; src_metadata...)
+        
+        # Open destination handle to add outputs
+        dest_handle = open(dest, dest_index; mode="a+")
+        
+        try
+            # Store all output series
+            for (name, values) in outputs_data
+                ensure_output!(dest_handle, name)
+                for val in values
+                    store_output!(dest_handle, name, val)
+                end
+            end
+        finally
+            close(dest_handle)
+        end
+        
+        return dest_index
+        
+    finally
+        close(src_handle)
+    end
 end
 
 end
