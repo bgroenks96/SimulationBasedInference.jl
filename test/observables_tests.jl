@@ -64,3 +64,80 @@ end
     @test SBI.has_output(data, :testobs)
     @test typeof(SBI.get_output_buffer(data, :testobs)) <: SBI.DataBuffer
 end
+
+@testset "TimeSampled aggregation" begin
+    obsfunc(state) = state.x
+    t0 = DateTime(2000,1,1)
+    daily_savepoints = collect(t0+Day(1):Day(1):DateTime(2002,1,1))
+    yearly_savepoints = [DateTime(2001,1,1), DateTime(2002,1,1)]
+
+    make_daily(; reducer=mean) = SimulatorObservable(
+        obsfunc,
+        size(0.0),
+        name = :daily,
+        output = TimeSampled(t0, daily_savepoints; samplerate=Hour(1), reducer),
+    )
+
+    # construction / metadata
+    daily = make_daily()
+    yearly = TimeAggregatedObservable(daily, yearly_savepoints; name=:yearly)
+    @test yearly.output.source == :daily
+    @test SBI.savetimes(yearly) == yearly_savepoints
+    @test SBI.sampletimes(yearly) == daily_savepoints
+    @test yearly.coords == daily.coords
+    # yearly save times must be a subset of the source save times
+    @test_throws AssertionError TimeAggregatedObservable(daily, [DateTime(2000,6,15,12)])
+
+    # helper: drive both observables over the hourly grid on a shared SimulationData
+    function drive!(daily, yearly; signal = _ -> 1.0)
+        data = SimulationData()
+        SBI.initialize!(data, daily, (x = signal(t0),))
+        SBI.initialize!(data, yearly, (x = signal(t0),))
+        for t in t0:Hour(1):last(daily_savepoints)
+            state = (x = signal(t),)
+            SBI.observe!(data, daily, state)   # source observed first
+            SBI.observe!(data, yearly, state)  # aggregator reads the source's latest save
+        end
+        return data
+    end
+
+    # case 1: constant field -> daily means and yearly mean are all 1.0
+    d1 = make_daily()
+    y1 = TimeAggregatedObservable(d1, yearly_savepoints; name=:yearly)
+    data = drive!(d1, y1)
+    yearly_result = SBI.getvalue(data, y1)
+    @test length(yearly_result) == length(yearly_savepoints)
+    @test all(yearly_result .≈ 1.0)
+    @test all(SBI.getvalue(data, d1) .≈ 1.0)
+
+    # case 2: sum reducer at both levels -> aggregation partitions without loss/duplication
+    d_sum = make_daily(reducer=sum)
+    y_sum = TimeAggregatedObservable(d_sum, yearly_savepoints; name=:yearly, reducer=sum)
+    data = drive!(d_sum, y_sum; signal = t -> 2.0)
+    daily_total = sum(v -> v[1], SBI.getoutput(data, :daily))
+    yearly_total = sum(v -> v[1], SBI.getoutput(data, :yearly))
+    @test yearly_total ≈ daily_total
+
+    # ordering: source is placed before its dependent regardless of declared order
+    d = make_daily()
+    y = TimeAggregatedObservable(d, yearly_savepoints; name=:yearly)
+    ordered = SBI.sort_observables((; yearly=y, daily=d))
+    @test map(nameof, ordered) == [:daily, :yearly]
+
+    # error cases
+    scalar_coords = size(0.0)
+    unknown = SimulatorObservable(obsfunc, scalar_coords; name=:a,
+        output = TimeSampled(t0, daily_savepoints; samplerate=Hour(1), source=:missing))
+    @test_throws ErrorException SBI.sort_observables((; a=unknown))
+
+    transient = SimulatorObservable(identity, scalar_coords; name=:t)
+    agg_of_transient = SimulatorObservable(obsfunc, scalar_coords; name=:b,
+        output = TimeSampled(t0, daily_savepoints; samplerate=Hour(1), source=:t))
+    @test_throws ErrorException SBI.sort_observables((; t=transient, b=agg_of_transient))
+
+    cyc_a = SimulatorObservable(obsfunc, scalar_coords; name=:a,
+        output = TimeSampled(t0, daily_savepoints; samplerate=Hour(1), source=:b))
+    cyc_b = SimulatorObservable(obsfunc, scalar_coords; name=:b,
+        output = TimeSampled(t0, daily_savepoints; samplerate=Hour(1), source=:a))
+    @test_throws ErrorException SBI.sort_observables((; a=cyc_a, b=cyc_b))
+end

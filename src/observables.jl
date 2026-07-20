@@ -166,6 +166,8 @@ mutable struct TimeSampled{timeType, outputType, reducerType, converterType} <: 
     tconvert::converterType # time converter
     reducer::reducerType # reducer function
     sampleidx::Int
+    source::Union{Nothing,Symbol} # name of source observable to aggregate, or `nothing` to sample raw state
+    source_cursor::Int # number of source outputs already consumed (0 when `source === nothing`)
 end
 
 """
@@ -186,6 +188,7 @@ function TimeSampled(
     reducer = mean,
     samplerate = default_sample_rate(tsave),
     output_type = Any,
+    source = nothing,
 ) where {timeType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
@@ -200,7 +203,7 @@ function TimeSampled(
         end
     end
     return TimeSampled{timeType, output_type, typeof(reducer), typeof(time_converter)}(
-        extrema(tsample), tsample, collect(tsave), time_converter, reducer, 1
+        extrema(tsample), tsample, collect(tsave), time_converter, reducer, 1, source, 0
     )
 end
 
@@ -237,6 +240,59 @@ savetimes(::SimulatorObservable) = []
 savetimes(::Type{T}, ::SimulatorObservable) where{T} = []
 
 
+"""
+    TimeSampled(source::TimeSampledObservable, tsave::AbstractVector; reducer=mean, output_type=Any)
+
+Constructs a `TimeSampled` output that aggregates the *already-saved outputs* of another
+`source` observable rather than re-sampling the raw simulator state. The sample grid is taken
+directly from the source's save times, so each coarse-scale value is reduced from the fine-scale
+outputs the source has already computed (e.g. a yearly mean built from daily means). `tsave` must
+be a subset of `savetimes(source)`.
+
+!!! note "Reducer composition"
+    The aggregated reduction is applied to the source's reduced values, not to the raw state.
+    `sum`, `minimum`/`maximum` compose exactly. `mean` composes exactly **only when each coarse
+    window contains an equal number of source values** (e.g. daily→yearly where every day
+    contributes exactly one value and every year the same number of days); it is biased for
+    unequal groups (e.g. monthly→yearly). Choosing a composable reducer is the caller's
+    responsibility.
+"""
+function TimeSampled(
+    source::TimeSampledObservable,
+    tsave::AbstractVector;
+    reducer = mean,
+    output_type = Any,
+)
+    src_savetimes = savetimes(source)
+    @assert length(tsave) > 0
+    @assert issubset(tsave, src_savetimes) "coarse save times must be a subset of the source's save times"
+    tsample = collect(src_savetimes)
+    tconvert = source.output.tconvert
+    timeType = eltype(tsample)
+    return TimeSampled{timeType, output_type, typeof(reducer), typeof(tconvert)}(
+        extrema(tsample), tsample, collect(tsave), tconvert, reducer, 1, nameof(source), 0
+    )
+end
+
+"""
+    TimeAggregatedObservable(source::TimeSampledObservable, tsave::AbstractVector; reducer=mean, name=Symbol(nameof(source), :_agg), output_type=Any)
+
+Convenience constructor for an observable that aggregates the already-saved outputs of `source`
+at the coarser save times `tsave`, reusing the source's spatial coordinates. The observable's
+`obsfunc` is never evaluated and is set to `nothing`; the values are read from the source's
+output during `observe!`. See [`TimeSampled`](@ref) for further details.
+"""
+function TimeAggregatedObservable(
+    source::TimeSampledObservable,
+    tsave::AbstractVector;
+    reducer = mean,
+    name::Symbol = Symbol(nameof(source), :_agg),
+    output_type = Any,
+)
+    output = TimeSampled(source, tsave; reducer, output_type)
+    return SimulatorObservable(nothing, source.coords; output, name)
+end
+
 default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
 """
@@ -252,6 +308,7 @@ function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
     scratch_buffer = get_scratch_buffer(data, nameof(obs))
     empty!(scratch_buffer)
     obs.output.sampleidx = 1
+    obs.output.source_cursor = 0
     return nothing
 end
 
@@ -264,14 +321,31 @@ stored values are then reduced according to the reducer function specified when 
 observable. **Requires** that initialize! was called with a valid handle parameter.
 """
 function observe!(data::SimulationData, obs::TimeSampledObservable, state)
+    if isnothing(obs.output.source)
+        # sample the raw simulator state
+        Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
+        return _observe_reduced!(data, obs, Y_t)
+    else
+        # aggregate the already-saved outputs of the source observable
+        src_buffer = get_output_buffer(data, obs.output.source)
+        n = length(src_buffer)
+        # no new source output since last call -> nothing to consume
+        n > obs.output.source_cursor || return nothing
+        obs.output.source_cursor = n
+        Y_t = _coerce(src_buffer[n], size(obs)[1:end-1])
+        return _observe_reduced!(data, obs, Y_t)
+    end
+end
+
+# Shared reduction body: buffer `Y_t` in scratch and, upon reaching a save time,
+# reduce the scratch buffer into the output buffer.
+function _observe_reduced!(data::SimulationData, obs::TimeSampledObservable, Y_t)
     output_buffer = get_output_buffer(data, nameof(obs))
     scratch_buffer = get_scratch_buffer(data, nameof(obs))
     inbounds = obs.output.sampleidx <= length(obs.output.tsample)
     t = inbounds ? obs.output.tsample[obs.output.sampleidx] : obs.output.tsample[end]
     # find index of time point
     idx = searchsorted(obs.output.tsave, t)
-    # get observable vector at current state
-    Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
     store!(scratch_buffer, Y_t)
     # if t ∈ save points, compute and store reduced output
     if first(idx) == last(idx) && inbounds && length(scratch_buffer) > 0
