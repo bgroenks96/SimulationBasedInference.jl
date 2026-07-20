@@ -96,5 +96,5 @@ get_observables(sol::EnsembleInferenceSolution, iter::Int)
 Internally, the algorithms use the method `ensemble_forward` to apply the necessary parameter transforms and call `solve` on the resulting ensemble:
 
 ```@docs; canonical=false
-ensemble_forward(solver::EnsembleSolver)
+ensemble_forward!(solver::EnsembleSolver)
 ```

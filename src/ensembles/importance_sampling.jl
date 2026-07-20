@@ -54,15 +54,15 @@ end
 function ensemblestep!(solver::EnsembleSolver{<:EnIS})
     state = solver.state
     # generate ensemble predictions
-    out = ensemble_forward(solver)
+    enspred = ensemble_forward!(solver)
     # compute importance weights
-    w, Neff = importance_weights(state.obs_mean, out.pred, state.obs_cov)
+    w, Neff = importance_weights(state.obs_mean, enspred, state.obs_cov)
     # compute likelihoods
-    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(out.pred))
+    loglik = map(y -> logpdf(MvNormal(state.obs_mean, state.obs_cov), y), eachcol(enspred))
     state.weights = w
     state.Neff = Neff
     solver.loglik = loglik
-    return out
+    return enspred
 end
 
 finalize!(::EnsembleSolver{EnIS}) = nothing

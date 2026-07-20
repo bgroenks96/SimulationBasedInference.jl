@@ -36,7 +36,7 @@ end
     # sample initial ensemble from model prior (excluding likelihood parameters)
     prior_ens = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
     enssol = solve(testprob.forward_prob, EnsembleThreads(), p=prior_ens)
-    y_pred = mapreduce(res -> vec(res.observables.y), hcat, enssol.u)
+    y_pred = mapreduce(sol -> get_observable(sol, :y), hcat, enssol)
     y_obs = testprob.likelihoods.y.data
     y_lik = mean(testprob.prior.lik.y)
     unconstrained_prior_ens = mapslices(transform, prior_ens, dims=1)
@@ -80,16 +80,15 @@ end
 @testset "ES-MDA: Linear ODE inversion" begin
     rng = Random.MersenneTwister(1234)
     # linear ODE test case with default parameter settings
-    inference_prob = linear_ode(; rng)
+    α_true = 0.2
+    inference_prob = linear_ode(α_true; rng)
     # parameter prior, excluding likelihood parameters
     prior_model = inference_prob.prior.model
     esmda = ESMDA()
     # solve inference problem with ES-MDA
     esmda_sol = solve(inference_prob, esmda, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
     # check results
-    u_ens = get_ensemble(esmda_sol.result)
-    constrained_to_unconstrained = bijector(prior_model)
-    posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(u_ens)))
+    posterior_ens = get_ensemble(esmda_sol)
     posterior_mean = mean(posterior_ens, dims=2)
-    @test abs(posterior_mean[1] - 0.2) < 0.01
+    @test abs(posterior_mean[1] - α_true) < 0.01
 end

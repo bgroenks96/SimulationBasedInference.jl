@@ -32,7 +32,7 @@ function evensen_scalar_nonlinear(
 end
 
 function linear_ode(
-    α_true=0.2;
+    α_true;
     n_obs=10,
     σ_y=0.01,
     α_prior=Beta(1,1),
@@ -58,10 +58,9 @@ function linear_ode(
     true_obs = getvalue(forward_sol.simdata, observable)
     # specify priors
     α_prior = prior(α=α_prior)
-    noise_scale = σ_y
     noise_scale_prior = prior(:σ, σ_prior)
     # create noisy data
-    noisy_obs = true_obs .+ noise_scale*randn(rng, n_obs)
+    noisy_obs = true_obs .+ σ_y*randn(rng, n_obs)
     # simple Gaussian likelihood; note that we're cheating a bit here since we know the noise level a priori
     lik = IsotropicGaussianLikelihood(observable, noisy_obs, noise_scale_prior)
     # inference problem

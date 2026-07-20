@@ -14,9 +14,9 @@ struct SimulatorForwardSolution{solType,probType<:SimulatorForwardProblem,dataTy
     simdata::dataType
 end
 
-get_observables(sol::SimulatorForwardSolution) = sol.prob.observables
+get_observables(sol::SimulatorForwardSolution) = map(obs -> getvalue(sol.simdata, obs), sol.prob.observables)
 
-get_observable(sol::SimulatorForwardSolution, name::Symbol) = getvalue(sol.simdata, getproperty(get_observables(sol), name))
+get_observable(sol::SimulatorForwardSolution, name::Symbol) = getvalue(sol.simdata, getproperty(sol.prob.observables, name))
 
 function init(prob::SimulatorForwardProblem, forward_alg=nothing, args...; kwargs...)
     return init(Simulator(prob.simulator), prob, forward_alg, args...; kwargs...)
@@ -299,9 +299,11 @@ end
 
 struct EnsembleForwardSolver{
     algType<:EnsembleAlgorithm,
+    dataType,
     solverType
 }
     ensalg::algType
+    simdata::dataType
     solvers::Vector{solverType}
 end
 
@@ -311,7 +313,7 @@ end
         forward_alg,
         ensalg::EnsembleAlgorithm,
         args...;
-        prob_func=(prob, p, i) -> remake(prob; p),
+        prob_func=(prob, i) -> prob,
         kwargs...
     )
 
@@ -325,7 +327,7 @@ function solve(
     ensalg::EnsembleAlgorithm,
     args...;
     ps::AbstractMatrix=forward_prob.p,
-    prob_func=(prob, p, i) -> remake(prob; p),
+    prob_func=(prob, i) -> prob,
     kwargs...
 )
     enssolver = init(forward_prob, forward_alg, ensalg, args...; ps, prob_func, kwargs...)
@@ -340,11 +342,11 @@ function init(
     ps::AbstractMatrix=forward_prob.p,
     storage::SimulationDataSet = SimulationDataSet(),
     prob_func=(prob, i) -> prob,
-    attrs=(;),
+    attributes=(;),
     kwargs...
 )
-    forward_probs = [prob_func(remake(prob; p), i) for p in eachcol(ps)]
-    return init(forward_probs, ensalg, forward_alg, args...; storage, attrs, kwargs...)
+    forward_probs = [prob_func(remake(forward_prob; p), i) for (i, p) in enumerate(eachcol(ps))]
+    return init(forward_probs, forward_alg, ensalg, args...; storage, attributes, kwargs...)
 end
 
 # Serial
@@ -355,14 +357,14 @@ function init(
     ensalg::EnsembleSerial,
     args...;
     storage::SimulationDataSet = SimulationDataSet(),
-    attrs = (;),
+    attributes = (;),
     kwargs...
 )
-    simdata = [allocate!(storage, prob.p; attrs) for prob in forward_probs]
+    simdata = [allocate!(storage, prob.p; attributes...) for prob in forward_probs]
     solvers = map(forward_probs, simdata) do prob, simdata
         init(prob, forward_alg, args...; simdata, kwargs...)
     end
-    return EnsembleForwardSolver(ensalg, solvers)
+    return EnsembleForwardSolver(ensalg, simdata, solvers)
 end
 
 function step!(enssolver::EnsembleForwardSolver{EnsembleSerial})
@@ -387,29 +389,29 @@ function init(
     ensalg::EnsembleThreads,
     args...;
     storage::SimulationDataSet = SimulationDataSet(),
-    attrs = (;),
+    attributes = (;),
     kwargs...
 )
-    simdata = [allocate!(storage, prob.p; attrs) for prob in forward_probs]
+    simdata = [allocate!(storage, prob.p; attributes...) for prob in forward_probs]
     solvers = Vector(undef, length(forward_probs))
-    Threads.@threads for i in 2:length(forward_probs)
+    Threads.@threads for i in 1:length(forward_probs)
         solvers[i] = init(forward_probs[i], forward_alg, args...; simdata=simdata[i], kwargs...)
     end
-    return EnsembleForwardSolver(ensalg, collect(iterate(solvers)))
+    return EnsembleForwardSolver(ensalg, simdata, collect(solvers))
 end
 
 function step!(enssolver::EnsembleForwardSolver{EnsembleThreads})
     results = Vector(undef, length(enssolver.solvers))
-    Threads.@threads for (i, solver) in enumerate(enssolver.solvers)
+    Threads.@threads for (i, solver) in collect(enumerate(enssolver.solvers))
         results[i] = step!(solver)
     end
-    return collect(iterate(results)) # iterate and collect to infer concrete eltype
+    return collect(results)
 end
 
 function solve!(enssolver::EnsembleForwardSolver{EnsembleThreads})
     sols = Vector(undef, length(enssolver.solvers))
-    Threads.@threads for (i, solver) in enumerate(enssolver.solvers)
-        sols[i] = solve!(solver)
+    Threads.@threads for i in 1:length(sols)
+        sols[i] = solve!(enssolver.solvers[i])
     end
-    return collect(iterate(results)) # iterate and collect to infer concrete eltype
+    return collect(sols)
 end
