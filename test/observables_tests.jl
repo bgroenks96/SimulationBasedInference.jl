@@ -3,6 +3,13 @@ using SimulationBasedInference
 using Dates
 using Test
 
+# lightweight mock simulator carrying a value `x` and a time `t`, for driving observe! manually
+struct MockSim{X,T}
+    x::X
+    t::T
+end
+SBI.current_time(m::MockSim) = m.t
+
 @testset "Transient" begin
     data = SimulationData()
     state = [0.0]
@@ -23,50 +30,47 @@ using Test
 end
 
 @testset "TimeSampled" begin
-    obsfunc(state) = state.x
+    obsfunc(sim) = sim.x
     t0 = DateTime(2000,1,1)
     savepoints = t0+Day(1):Day(1):DateTime(2001,1,1)
-    
+
     # case 1: scalar state
     data = SimulationData()
-    state = (x = 0.0,)
     buffered_observable = SimulatorObservable(
         obsfunc,
-        size(state.x),
+        size(0.0),
         name = :testobs,
         output = TimeSampled(t0, savepoints; samplerate=Hour(1))
     )
     @test buffered_observable.output.tsave == collect(savepoints)
     @test all(diff(buffered_observable.output.tsample) .== Hour(1))
-    SBI.initialize!(data, buffered_observable, state)
+    SBI.initialize!(data, buffered_observable, MockSim(0.0, t0))
     @test SBI.has_output(data, :testobs)
     @test typeof(SBI.get_output_buffer(data, :testobs)) <: SBI.DataBuffer
-    # update observable at each sample point
+    # update observable at each sample point (time supplied via current_time(sim))
     for t in t0:Hour(1):savepoints[end]
-        state = (x = 1.0,)
-        SBI.observe!(data, buffered_observable, state)
+        SBI.observe!(data, buffered_observable, MockSim(1.0, t))
     end
     obs_result = SBI.getvalue(data, buffered_observable)
     # we save 1.0 at each step, so average should always be 1
     @test all(obs_result .≈ 1.0)
     @test length(obs_result) == length(savepoints)
-    
+
     # case 2: vector state
     data = SimulationData()
-    state = (x = ones(10),)
     buffered_observable = SimulatorObservable(
         obsfunc,
-        size(state.x),
+        size(ones(10)),
         output = TimeSampled(t0, savepoints; samplerate=Hour(1)),
         name = :testobs
     )
-    SBI.initialize!(data, buffered_observable, state)
+    SBI.initialize!(data, buffered_observable, MockSim(ones(10), t0))
     @test SBI.has_output(data, :testobs)
     @test typeof(SBI.get_output_buffer(data, :testobs)) <: SBI.DataBuffer
 end
 
 @testset "TimeAggregated" begin
-    obsfunc(state) = state.x
+    obsfunc(sim) = sim.x
     t0 = DateTime(2000,1,1)
     daily_savepoints = collect(t0+Day(1):Day(1):DateTime(2002,1,1))
     yearly_savepoints = [DateTime(2001,1,1), DateTime(2002,1,1)]
@@ -80,9 +84,9 @@ end
 
     # helper: drive only the source over the hourly grid; the aggregate is derived afterwards
     function drive_source!(data, daily; signal = _ -> 1.0)
-        SBI.initialize!(data, daily, (x = signal(t0),))
+        SBI.initialize!(data, daily, MockSim(signal(t0), t0))
         for t in t0:Hour(1):last(daily_savepoints)
-            SBI.observe!(data, daily, (x = signal(t),))
+            SBI.observe!(data, daily, MockSim(signal(t), t))
         end
         return data
     end
@@ -129,7 +133,7 @@ end
     data = SimulationData()
     d4 = make_daily(); y4 = TimeAggregatedObservable(d4, yearly_savepoints; name=:yearly)
     drive_source!(data, d4)
-    SBI.initialize!(data, y4, (x = 1.0,))
+    SBI.initialize!(data, y4, MockSim(1.0, t0))
     @test length(SBI.getoutput(data, :yearly)) == 0   # not populated by the solve loop
     SBI.finalize!(data, (d4, y4))
     @test length(SBI.getoutput(data, :yearly)) == length(yearly_savepoints)

@@ -159,13 +159,12 @@ end
 (lower frequency) save times. A simple example would be a windowed average or resampling operation that saves averages
 over higher frequency samples.
 """
-mutable struct TimeSampled{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
+struct TimeSampled{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
     tconvert::converterType # time converter
     reducer::reducerType # reducer function
-    sampleidx::Int
 end
 
 """
@@ -200,7 +199,7 @@ function TimeSampled(
         end
     end
     return TimeSampled{timeType, output_type, typeof(reducer), typeof(time_converter)}(
-        extrema(tsample), tsample, collect(tsave), time_converter, reducer, 1
+        extrema(tsample), tsample, collect(tsave), time_converter, reducer
     )
 end
 
@@ -315,47 +314,43 @@ function TimeAggregatedObservable(
 end
 
 """
-    initialize!(data::SimulationData, obs::TimeSampledObservable, state; handle)
+    initialize!(data::SimulationData, obs::TimeSampledObservable, sim)
 
-Initialize the given time-sampled observable with the initial simulator state. A storage
-handle **must** be provided since scratch storage is now a feature of handles only. The
-handle will be stored in the output object for use during observe! calls.
+Initialize the given time-sampled observable, clearing its output and transient scratch buffers.
+`TimeSampled` is stateless: the sample/save times are tracked via the `current_time` of the given
+`sim`ulator in each `observe!` call.
 """
-function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
-    output_buffer = get_output_buffer(data, nameof(obs))
-    empty!(output_buffer)
-    scratch_buffer = get_scratch_buffer(data, nameof(obs))
-    empty!(scratch_buffer)
-    obs.output.sampleidx = 1
+function initialize!(data::SimulationData, obs::TimeSampledObservable, sim)
+    empty!(get_output_buffer(data, nameof(obs)))
+    empty!(get_scratch_buffer(data, nameof(obs)))
     return nothing
 end
 
 """
-    observe!(data::SimulationData, obs::TimeSampledObservable, state)
+    observe!(data::SimulationData, obs::TimeSampledObservable, sim)
 
-Observe the given time-sampled observable from the current simulator state. This method is called
-at each integration step to extract the observable value and store it in the scratch storage. The
-stored values are then reduced according to the reducer function specified when creating the
-observable. **Requires** that initialize! was called with a valid handle parameter.
+Observe the given time-sampled observable from the current simulator state. Called at each sample
+time, it extracts the observable value into the scratch buffer and, when the current time
+(`current_time(sim)`) coincides with a save time, reduces the accumulated window into the output
+buffer. The simulator must implement [`current_time`](@ref).
 """
-function observe!(data::SimulationData, obs::TimeSampledObservable, state)
+function observe!(data::SimulationData, obs::TimeSampledObservable, sim)
     output_buffer = get_output_buffer(data, nameof(obs))
     scratch_buffer = get_scratch_buffer(data, nameof(obs))
-    inbounds = obs.output.sampleidx <= length(obs.output.tsample)
-    t = inbounds ? obs.output.tsample[obs.output.sampleidx] : obs.output.tsample[end]
-    # find index of time point
-    idx = searchsorted(obs.output.tsave, t)
+    # the current time is retrieved from the simulator, keeping the observable stateless
+    t = current_time(sim)
+    @assert !isnothing(t) "TimeSampled observable :$(nameof(obs)) requires a simulator that implements `current_time`"
+    # save times in the same units as `t`
+    tsave = eltype(obs.output.tsave) === typeof(t) ? obs.output.tsave : savetimes(typeof(t), obs)
+    idx = searchsorted(tsave, t)
     # get observable vector at current state
-    Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
+    Y_t = _coerce(obs.obsfunc(sim), size(obs)[1:end-1])
     store!(scratch_buffer, Y_t)
-    # if t ∈ save points, compute and store reduced output
-    if first(idx) == last(idx) && inbounds && length(scratch_buffer) > 0
+    # if t is a save point, reduce the accumulated window and store the result
+    if first(idx) == last(idx) && length(scratch_buffer) > 0
         store!(output_buffer, obs.output.reducer(scratch_buffer))
-        # empty scratch
         empty!(scratch_buffer)
     end
-    # update cached time
-    obs.output.sampleidx += 1
     return Y_t
 end
 
@@ -398,13 +393,13 @@ unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, prod(size(
 
 # The aggregated observable is not sampled during the solve; its value is derived from the source's
 # stored outputs. `initialize!` clears any stale cache; `observe!` is a no-op.
-function initialize!(data::SimulationData, obs::TimeAggregatedObs, state)
+function initialize!(data::SimulationData, obs::TimeAggregatedObs, sim)
     empty!(get_output_buffer(data, nameof(obs)))
     empty!(get_scratch_buffer(data, nameof(obs)))
     return nothing
 end
 
-observe!(::SimulationData, ::TimeAggregatedObs, state) = nothing
+observe!(::SimulationData, ::TimeAggregatedObs, sim) = nothing
 
 """
     _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
