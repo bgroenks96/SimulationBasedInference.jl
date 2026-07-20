@@ -172,9 +172,7 @@ function step!(solver::EnsembleSolver)
     alg = solver.alg
     sol = solver.sol
     state = solver.state
-    if isiterative(solver.alg)
-        state.iter += 1
-    end
+    state.iter += 1
     # ensemble step
     ensemblestep!(solver)
     # set result
