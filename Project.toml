@@ -1,6 +1,6 @@
 name = "SimulationBasedInference"
 uuid = "78927d98-f421-490e-8789-96b006983a5c"
-version = "0.2.3"
+version = "0.3.0"
 authors = ["Brian Groenke <brian.groenke@awi.de>"]
 
 [deps]
