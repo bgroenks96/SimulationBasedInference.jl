@@ -166,8 +166,6 @@ mutable struct TimeSampled{timeType, outputType, reducerType, converterType} <: 
     tconvert::converterType # time converter
     reducer::reducerType # reducer function
     sampleidx::Int
-    source::Union{Nothing,Symbol} # name of source observable to aggregate, or `nothing` to sample raw state
-    source_cursor::Int # number of source outputs already consumed (0 when `source === nothing`)
 end
 
 """
@@ -188,7 +186,6 @@ function TimeSampled(
     reducer = mean,
     samplerate = default_sample_rate(tsave),
     output_type = Any,
-    source = nothing,
 ) where {timeType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
@@ -203,7 +200,7 @@ function TimeSampled(
         end
     end
     return TimeSampled{timeType, output_type, typeof(reducer), typeof(time_converter)}(
-        extrema(tsample), tsample, collect(tsave), time_converter, reducer, 1, source, 0
+        extrema(tsample), tsample, collect(tsave), time_converter, reducer, 1
     )
 end
 
@@ -240,60 +237,82 @@ savetimes(::SimulatorObservable) = []
 savetimes(::Type{T}, ::SimulatorObservable) where{T} = []
 
 
-"""
-    TimeSampled(source::TimeSampledObservable, tsave::AbstractVector; reducer=mean, output_type=Any)
+default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
-Constructs a `TimeSampled` output that aggregates the *already-saved outputs* of another
-`source` observable rather than re-sampling the raw simulator state. The sample grid is taken
-directly from the source's save times, so each coarse-scale value is reduced from the fine-scale
-outputs the source has already computed (e.g. a yearly mean built from daily means). `tsave` must
-be a subset of `savetimes(source)`.
-
-!!! note "Reducer composition"
-    The aggregated reduction is applied to the source's reduced values, not to the raw state.
-    `sum`, `minimum`/`maximum` compose exactly. `mean` composes exactly **only when each coarse
-    window contains an equal number of source values** (e.g. daily→yearly where every day
-    contributes exactly one value and every year the same number of days); it is biased for
-    unequal groups (e.g. monthly→yearly). Choosing a composable reducer is the caller's
-    responsibility.
 """
-function TimeSampled(
-    source::TimeSampledObservable,
-    tsave::AbstractVector;
-    reducer = mean,
-    output_type = Any,
-)
-    src_savetimes = savetimes(source)
-    @assert length(tsave) > 0
-    @assert issubset(tsave, src_savetimes) "coarse save times must be a subset of the source's save times"
-    tsample = collect(src_savetimes)
-    tconvert = source.output.tconvert
-    timeType = eltype(tsample)
-    return TimeSampled{timeType, output_type, typeof(reducer), typeof(tconvert)}(
-        extrema(tsample), tsample, collect(tsave), tconvert, reducer, 1, nameof(source), 0
-    )
+    TimeAggregated{timeType, outputType, reducerType, converterType} <: SimulatorOutput
+
+`SimulatorOutput` representing a coarser-scale temporal aggregation of another (`source`)
+observable's already-saved outputs. Unlike [`TimeSampled`](@ref), it does **not** sample the raw
+simulator state and is not observed during the forward solve; its value is computed by a single
+streaming reduction over the source's stored outputs and materialized after the solve completes
+(see [`TimeAggregatedObservable`](@ref)). Peak memory is bounded by one aggregation window, not the
+full source series.
+"""
+struct TimeAggregated{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
+    source::Symbol            # name of the source observable
+    tsource::Vector{timeType} # source save times (window boundaries), captured at construction
+    tsave::Vector{timeType}   # coarse save times (subset of tsource)
+    tconvert::converterType   # time converter
+    reducer::reducerType      # reduction applied over transformed slices within each window
 end
 
-"""
-    TimeAggregatedObservable(source::TimeSampledObservable, tsave::AbstractVector; reducer=mean, name=Symbol(nameof(source), :_agg), output_type=Any)
+# internal dispatch alias (the public name `TimeAggregatedObservable` is a constructor function)
+const TimeAggregatedObs{N,T} = SimulatorObservable{N,T} where {N,T<:TimeAggregated}
 
-Convenience constructor for an observable that aggregates the already-saved outputs of `source`
-at the coarser save times `tsave`, reusing the source's spatial coordinates. The observable's
-`obsfunc` is never evaluated and is set to `nothing`; the values are read from the source's
-output during `observe!`. See [`TimeSampled`](@ref) for further details.
+coordinates(obs::TimeAggregatedObs) = (obs.coords..., Ti(savetimes(obs)))
+savetimes(obs::TimeAggregatedObs) = obs.output.tsave
+savetimes(::Type{T}, obs::TimeAggregatedObs) where {T} = map(t -> obs.output.tconvert(T, t), savetimes(obs))
+
+"""
+    TimeAggregatedObservable(
+        source::TimeSampledObservable,
+        tsave::AbstractVector;
+        transform = identity,
+        reducer = mean,
+        coords = source.coords,
+        name = Symbol(nameof(source), :_agg),
+        output_type = Any,
+    )
+
+Constructs an observable that aggregates the already-saved outputs of `source` at the coarser save
+times `tsave` (which must be a subset of `savetimes(source)`). For each aggregation window, the
+per-slice `transform` is applied to every source time slice and the results are combined with
+`reducer`. The value is computed once by a streaming reduction over the source's stored outputs
+(materialized after the forward solve, or lazily on first `getvalue`), so the source observable can
+still be retained for diagnostics while this coarser observable is compared to observations via a
+likelihood.
+
+`transform` defaults to `identity`; when it changes the per-slice shape (e.g. a spatial reduction),
+pass the resulting spatial `coords` explicitly.
+
+!!! note "Reducer composition"
+    The reduction is applied to the source's saved (already-reduced) values, not the raw state.
+    `sum`, `minimum`/`maximum` compose exactly. `mean` composes exactly **only when each coarse
+    window contains an equal number of source values** (e.g. daily→yearly); it is biased for
+    unequal groups (e.g. monthly→yearly). Choosing a composable reducer is the caller's
+    responsibility.
 """
 function TimeAggregatedObservable(
     source::TimeSampledObservable,
     tsave::AbstractVector;
+    transform = identity,
     reducer = mean,
+    coords = source.coords,
     name::Symbol = Symbol(nameof(source), :_agg),
     output_type = Any,
 )
-    output = TimeSampled(source, tsave; reducer, output_type)
-    return SimulatorObservable(nothing, source.coords; output, name)
+    tsource = savetimes(source)
+    @assert length(tsave) > 0
+    @assert issubset(tsave, tsource) "coarse save times must be a subset of the source's save times"
+    tconvert = source.output.tconvert
+    timeType = eltype(tsource)
+    output = TimeAggregated{timeType, output_type, typeof(reducer), typeof(tconvert)}(
+        nameof(source), collect(tsource), collect(tsave), tconvert, reducer,
+    )
+    # the per-slice transform is stored as the observable's `obsfunc`
+    return SimulatorObservable(transform, coords; output, name)
 end
-
-default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
 """
     initialize!(data::SimulationData, obs::TimeSampledObservable, state; handle)
@@ -308,7 +327,6 @@ function initialize!(data::SimulationData, obs::TimeSampledObservable, state)
     scratch_buffer = get_scratch_buffer(data, nameof(obs))
     empty!(scratch_buffer)
     obs.output.sampleidx = 1
-    obs.output.source_cursor = 0
     return nothing
 end
 
@@ -321,31 +339,14 @@ stored values are then reduced according to the reducer function specified when 
 observable. **Requires** that initialize! was called with a valid handle parameter.
 """
 function observe!(data::SimulationData, obs::TimeSampledObservable, state)
-    if isnothing(obs.output.source)
-        # sample the raw simulator state
-        Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-        return _observe_reduced!(data, obs, Y_t)
-    else
-        # aggregate the already-saved outputs of the source observable
-        src_buffer = get_output_buffer(data, obs.output.source)
-        n = length(src_buffer)
-        # no new source output since last call -> nothing to consume
-        n > obs.output.source_cursor || return nothing
-        obs.output.source_cursor = n
-        Y_t = _coerce(src_buffer[n], size(obs)[1:end-1])
-        return _observe_reduced!(data, obs, Y_t)
-    end
-end
-
-# Shared reduction body: buffer `Y_t` in scratch and, upon reaching a save time,
-# reduce the scratch buffer into the output buffer.
-function _observe_reduced!(data::SimulationData, obs::TimeSampledObservable, Y_t)
     output_buffer = get_output_buffer(data, nameof(obs))
     scratch_buffer = get_scratch_buffer(data, nameof(obs))
     inbounds = obs.output.sampleidx <= length(obs.output.tsample)
     t = inbounds ? obs.output.tsample[obs.output.sampleidx] : obs.output.tsample[end]
     # find index of time point
     idx = searchsorted(obs.output.tsave, t)
+    # get observable vector at current state
+    Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
     store!(scratch_buffer, Y_t)
     # if t ∈ save points, compute and store reduced output
     if first(idx) == last(idx) && inbounds && length(scratch_buffer) > 0
@@ -358,7 +359,9 @@ function _observe_reduced!(data::SimulationData, obs::TimeSampledObservable, Y_t
     return Y_t
 end
 
-function getvalue(data::SimulationData, obs::TimeSampledObservable)
+# Assemble a time series of stored spatial slices into a `DimArray` with a trailing time axis,
+# dropping singleton dimensions. Shared by `TimeSampled` and `TimeAggregated` observables.
+function _build_timeseries(data::SimulationData, obs::SimulatorObservable)
     out = get_output_buffer(data, obs.name)
     @assert length(out) > 0 "output for observable $(obs.name) is empty; check for errors in the model evaluation"
     outputs = collect(out)
@@ -375,6 +378,8 @@ function getvalue(data::SimulationData, obs::TimeSampledObservable)
     return dropdims(darr, dims=singleton_dims)
 end
 
+getvalue(data::SimulationData, obs::TimeSampledObservable) = _build_timeseries(data, obs)
+
 function setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractArray)
     @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
     out = get_output_buffer(data, obs.name)
@@ -388,6 +393,86 @@ end
 setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(data, obs, reduce(hcat, values))
 
 unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, prod(size(obs)[1:end-1]), length(savetimes(obs)))
+
+# --- TimeAggregated observable methods ---
+
+# The aggregated observable is not sampled during the solve; its value is derived from the source's
+# stored outputs. `initialize!` clears any stale cache; `observe!` is a no-op.
+function initialize!(data::SimulationData, obs::TimeAggregatedObs, state)
+    empty!(get_output_buffer(data, nameof(obs)))
+    empty!(get_scratch_buffer(data, nameof(obs)))
+    return nothing
+end
+
+observe!(::SimulationData, ::TimeAggregatedObs, state) = nothing
+
+"""
+    _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
+
+Materialize the aggregated observable by a single streaming pass over the source observable's stored
+outputs: apply the per-slice transform (`obs.obsfunc`) to each source slice, accumulate into a
+window buffer, and reduce into the output buffer at each coarse save time. Peak memory is one window.
+"""
+function _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
+    out = get_output_buffer(data, nameof(obs))
+    empty!(out)
+    src = get_output_buffer(data, obs.output.source)
+    n = length(src)
+    @assert n > 0 "source observable :$(obs.output.source) for :$(nameof(obs)) has no stored output"
+    scratch = get_scratch_buffer(data, nameof(obs))
+    empty!(scratch)
+    tsource = obs.output.tsource
+    tsave = obs.output.tsave
+    slice_shape = size(obs)[1:end-1]
+    for i in 1:n
+        t = i <= length(tsource) ? tsource[i] : tsource[end]
+        # apply the per-slice transform, then buffer the result
+        y = _coerce(obs.obsfunc(src[i]), slice_shape)
+        store!(scratch, y)
+        # if t is a coarse save point, reduce the window and store
+        idx = searchsorted(tsave, t)
+        if first(idx) == last(idx) && length(scratch) > 0
+            store!(out, obs.output.reducer(scratch))
+            empty!(scratch)
+        end
+    end
+    empty!(scratch)
+    return nothing
+end
+
+function getvalue(data::SimulationData, obs::TimeAggregatedObs)
+    out = get_output_buffer(data, nameof(obs))
+    # lazily materialize if not already computed (e.g. outside the solver `finalize` path)
+    length(out) == 0 && _aggregate!(data, obs)
+    return _build_timeseries(data, obs)
+end
+
+function setvalue!(data::SimulationData, obs::TimeAggregatedObs, values::AbstractArray)
+    @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
+    out = get_output_buffer(data, obs.name)
+    empty!(out)
+    for vals in eachslice(values, dims=length(size(values)))
+        store!(out, vals)
+    end
+    return values
+end
+setvalue!(data::SimulationData, obs::TimeAggregatedObs, values::AbstractVector{<:AbstractVector}) = setvalue!(data, obs, reduce(hcat, values))
+
+unflatten(obs::TimeAggregatedObs, x::AbstractVector) = reshape(x, prod(size(obs)[1:end-1]), length(savetimes(obs)))
+
+"""
+    finalize!(data::SimulationData, observables)
+
+Materialize any [`TimeAggregatedObservable`](@ref)s from their sources' stored outputs. Called at the
+end of a forward solve so that aggregated observables are persisted like any other output (and thus
+available to storage/likelihood retrieval paths). A no-op for non-aggregated observables.
+"""
+function finalize!(data::SimulationData, observables)
+    for obs in observables
+        obs isa TimeAggregatedObs && _aggregate!(data, obs)
+    end
+    return nothing
+end
 
 """
     ODEObservable(

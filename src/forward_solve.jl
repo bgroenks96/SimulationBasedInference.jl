@@ -22,43 +22,6 @@ function init(prob::SimulatorForwardProblem, forward_alg=nothing, args...; kwarg
     return init(Simulator(prob.simulator), prob, forward_alg, args...; kwargs...)
 end
 
-# Observable ordering
-
-"""
-    sourcename(obs::Observable)
-
-Return the name of the source observable that `obs` aggregates, or `nothing` if it samples
-the raw simulator state directly.
-"""
-sourcename(obs::TimeSampledObservable) = obs.output.source
-sourcename(::Observable) = nothing
-
-"""
-    sort_observables(observables)
-
-Return the observables sorted so that every aggregating (sourced) observable appears after the
-observable it depends on, guaranteeing a source is observed before its dependents within a single
-solver step. Ordering is by dependency depth (0 for observables that sample raw state,
-`depth(source) + 1` for aggregators) via a stable sort, so the declared order is preserved among
-independent observables. Errors on unknown source names, sources that are not themselves
-`TimeSampled` observables (only those persist a reduced output series), and cyclic dependencies.
-"""
-function sort_observables(observables)
-    by_name = Dict{Symbol,Any}(nameof(obs) => obs for obs in observables)
-    function depth(obs, seen=Symbol[])
-        src = sourcename(obs)
-        isnothing(src) && return 0
-        haskey(by_name, src) || error("observable :$(nameof(obs)) references unknown source :$src")
-        isa(by_name[src], TimeSampledObservable) || error("source :$src of observable :$(nameof(obs)) is not a TimeSampled observable")
-        nameof(obs) in seen && error("cyclic observable dependency detected involving :$(nameof(obs))")
-        return 1 + depth(by_name[src], push!(seen, nameof(obs)))
-    end
-    # compute depths eagerly for every observable so validation and cycle detection always run
-    # (Julia's `sort` skips the `by` function for singleton collections)
-    depths = Dict{Symbol,Int}(nameof(obs) => depth(obs) for obs in observables)
-    return sort(collect(observables); by=(obs -> depths[nameof(obs)]), alg=Base.Sort.MergeSort)
-end
-
 # Forward solver types
 
 abstract type ForwardSolver{simType} end
@@ -107,10 +70,11 @@ function solve!(solver::ForwardMapSolver)
         solver.prob.simulator(solver.prob.p, solver.args...; seed=solver.prob.rng_seed, solver.kwargs...)
     end
     # compute observables
-    for obs in sort_observables(solver.prob.observables)
+    for obs in solver.prob.observables
         initialize!(solver.simdata, obs, output)
         observe!(solver.simdata, obs, output)
     end
+    finalize!(solver.simdata, solver.prob.observables)
     return SimulatorForwardSolution(solver.prob, output, solver.simdata)
 end
 
@@ -160,7 +124,7 @@ function init(
         init(prob.simulator, forward_alg, args...; seed=prob.rng_seed, p, kwargs...)
     end
     # initialize observables
-    for obs in sort_observables(prob.observables)
+    for obs in prob.observables
         initialize!(simdata, obs, sim)
     end
     return IterativeSolver(prob, simdata, sim, 1, maxiters)
@@ -168,7 +132,7 @@ end
 
 function step!(solver::IterativeSolver, args...; kwargs...)
     result = step!(solver.sim, args...; kwargs...)
-    for obs in sort_observables(solver.prob.observables)
+    for obs in solver.prob.observables
         observe!(solver.simdata, obs, solver.sim)
     end
     solver.iter += 1
@@ -180,6 +144,7 @@ function solve!(solver::IterativeSolver, args...; kwargs...)
         step!(solver, args...; kwargs...)
     end
     sol = solve!(solver.sim) # construct solution
+    finalize!(solver.simdata, solver.prob.observables)
     return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
@@ -246,7 +211,7 @@ function init(
         t_sample_all
     end
     # initialize observables
-    for obs in sort_observables(prob.observables)
+    for obs in prob.observables
         initialize!(simdata, obs, sim)
     end
     return DynamicalSolver(prob, simdata, sim, t_stops, 1)
@@ -270,7 +235,7 @@ function step!(solver::DynamicalSolver, args...; kwargs...)
         retval = step!(sim, dt, args...; kwargs...)
     end
     # iterate over observables and update those for which t is a sample point
-    for obs in sort_observables(prob.observables)
+    for obs in prob.observables
         if t ∈ sampletimes(typeof(t), obs)
             observe!(solver.simdata, obs, sim)
         end
@@ -285,6 +250,7 @@ function solve!(solver::DynamicalSolver, args...; kwargs...)
         step!(solver, args...; kwargs...)
     end
     sol = solve!(solver.sim)
+    finalize!(solver.simdata, solver.prob.observables)
     return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
