@@ -1,3 +1,5 @@
+const HMCInferenceSolution{algType} = SimulatorInferenceSolution{algType} where {hmcAlg<:DynamicHMC.NUTS, algType<:MCMC{hmcAlg}}
+
 mutable struct DynamicHMCSolver{algType<:MCMC,probType,statsType,QType}
     sol::SimulatorInferenceSolution{algType,probType}
     num_samples::Int
@@ -20,7 +22,7 @@ function CommonSolve.init(
     num_chains=1,
     autodiff=:ForwardDiff,
     rng::Random.AbstractRNG=Random.default_rng(),
-    storage::SBI.SimulationData=SimulationArrayStorage(),
+    storage::SBI.SimulationDataSet=SimulationDataSet(),
     initialization=default_hmc_init(rng, prob),
     warmup_stages=DynamicHMC.default_warmup_stages(),
     warmup_reporter=DynamicHMC.NoProgressReport(),
@@ -45,9 +47,11 @@ function CommonSolve.step!(solver::DynamicHMCSolver)
     solver.Q, stats = DynamicHMC.mcmc_next_step(solver.steps, solver.Q)
     # extract the position
     q = solver.Q.q
-    # extract observables
-    obs = map(obs -> ForwardDiff.value.(getvalue(obs)), prob.forward_prob.observables)
-    store!(sol.storage, q, obs)
+    # allocate a fresh simulation record and run the forward map at the current position to
+    # populate its observable outputs, then record the sampled position as the input
+    simdata = allocate!(sol.storage)
+    SBI.logjoint(prob, q; transform=true, simdata=simdata)
+    setinputs!(simdata, q)
     push!(solver.stats, stats)
     return nothing
 end
@@ -66,4 +70,18 @@ function CommonSolve.solve!(solver::DynamicHMCSolver)
     param_names = labels(prob.u0)
     solver.sol.result = Chains(reshape(samples, size(samples)..., 1), param_names)
     return solver.sol
+end
+
+"""
+    get_observables(sol::HMCInferenceSolution)
+
+Returns a `NamedTuple` of the ensemble simulated observables at iteration `iter`, assembled
+by concatenating each member's observable value along the ensemble dimension.
+"""
+function SimulationBasedInference.get_observables(sol::HMCInferenceSolution)
+    storage = sol.storage
+    observables = sol.prob.forward_prob.observables
+    return map(observables) do obs
+        reduce(SimulationBasedInference.enscat, [getvalue(storage[i], obs) for i in 1:length(storage)])
+    end
 end

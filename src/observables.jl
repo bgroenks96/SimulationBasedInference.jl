@@ -1,3 +1,6 @@
+"""
+Base type for simulator observable output handlers.
+"""
 abstract type SimulatorOutput{T} end
 
 """
@@ -7,34 +10,38 @@ Base type for observables with the given `outputType`.
 """
 abstract type Observable{outputType<:SimulatorOutput} end
 
-"""
-    initialize!(::Observable, state)
-
-Initialize the `Observable` from the given simulator state.
-"""
-initialize!(obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
+# Observable methods
 
 """
-    observe!(::Observable, state)
+    initialize!(data::SimulationData, ::Observable, state)
 
-Computes and stores the relevant state variables from the given simulator state.
+Initialize the `Observable` from the given simulator state, allocating any required storage
+(output and transient sample buffers) from the given [`SimulationData`](@ref).
 """
-observe!(obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
-
-"""
-    getvalue(::Observable, ::Type{T}=Any) where {T}
-
-Retreive the obsevable at all coordinates.
-"""
-getvalue(obs::Observable, ::Type{T}=Any) where {T} = error("not implemented for observable of type $(typeof(obs))")
+initialize!(::SimulationData, obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
 
 """
-    setvalue!(obs::Observable, value)
+    observe!(data::SimulationData, ::Observable, state)
 
-Overwrites the value of this observable. The type of `value` will depend on the type of the observable.
-This should generally only be used for testing and emulation purposes.
+Computes the relevant state variables from the given simulator state and stores them in the
+given [`SimulationData`](@ref).
 """
-setvalue!(obs::Observable, value) = error("not implemented for observable of type $(typeof(obs))")
+observe!(::SimulationData, obs::Observable, state) = error("not implemented for observable of type $(typeof(obs))")
+
+"""
+    getvalue(data::SimulationData, ::Observable)
+
+Retrieve the observable value (at all coordinates) from the given [`SimulationData`](@ref).
+"""
+getvalue(::SimulationData, obs::Observable) = error("not implemented for observable of type $(typeof(obs))")
+
+"""
+    setvalue!(data::SimulationData, obs::Observable, value)
+
+Overwrites the value of this observable in the given [`SimulationData`](@ref). The type of
+`value` will depend on the type of the observable.
+"""
+setvalue!(::SimulationData, obs::Observable, value) = error("not implemented for observable of type $(typeof(obs))")
 
 """
     coordinates(obs::Observable)
@@ -43,13 +50,6 @@ Retrieves coordinates for each dimension of the observables as a `Tuple` with le
 the number of dimensions.
 """
 coordinates(obs::Observable) = error("not implemented for osbervable of type $(typeof(obs))")
-
-"""
-    size(obs::Observable)
-
-Retruns the shape of this observable by evaluating the `length` of each set of coordinates returned by `coordinates(obs)`.
-"""
-Base.size(obs::Observable) = map(length, coordinates(obs))
 
 """
     coordinates(dims...)
@@ -69,7 +69,7 @@ coordinates(dims::Tuple) = coordinates(dims...)
 coordinates(::Tuple{}) = coordinates(1)
 
 """
-    SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType} <: Observable{outputType}
+    SimulatorObservable{N, outputType<:SimulatorOutput, funcType, coordsType} <: Observable{outputType}
 
 Represents a named "observable" that stores output from a simulator. `obsfunc`
 defines a mapping from the simulator state to the observed quantity. The type
@@ -77,7 +77,9 @@ and implementation of `output` determines how the samples are stored. The simple
 output type is `Transient` which simply maintains a pointer to the last observed
 output.
 """
-struct SimulatorObservable{N,outputType<:SimulatorOutput,funcType,coordsType<:Tuple{Vararg{Dimension,N}}} <: Observable{outputType}
+struct SimulatorObservable{
+    N, outputType<:SimulatorOutput, funcType, coordsType<:Tuple{Vararg{Dimension,N}}
+} <: Observable{outputType}
     name::Symbol
     obsfunc::funcType
     output::outputType
@@ -87,6 +89,10 @@ end
 coordinates(obs::SimulatorObservable) = obs.coords
 coordinates(obs::SimulatorObservable, batch_size::Int) = (obs.coords..., Dim{:ens}(1:batch_size))
 
+# Base methods
+
+Base.size(obs::Observable) = map(length, coordinates(obs))
+
 Base.nameof(obs::SimulatorObservable) = obs.name
 
 function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,outputType}) where {N,outputType<:SimulatorOutput}
@@ -94,43 +100,56 @@ function Base.show(io::IO, mime::MIME"text/plain", obs::SimulatorObservable{N,ou
     show(io, mime, obs.coords)
 end
 
+# Output types
+
 """
     Transient{T} <: SimulatorOutput
 
-Simple output type that stores a transient reference to an arbitrary state variable. The reference is
-overwritten on each subsequent call to `observe!`.
+Simple output type that retains only the last observed value of the observable function. The
+value itself is stored in the [`SimulationData`](@ref).
 """
-mutable struct Transient{T} <: SimulatorOutput{T}
-    value::Union{Nothing, T}
-end
+struct Transient{T} <: SimulatorOutput{T} end
+
+Transient(::Type{T}=Any) where {T} = Transient{T}()
 
 """
-    SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient{T}(nothing), name::Symbol = :obs)
+    SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient(), name::Symbol = :obs)
 
 Constructs an observable based on the given function `func(state)::T` and `output` type. Defaults to `Transient`
 output which simply saves the last observed value of `func`. The coordinates `coords` describe the shape of the output.
 """
-function SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient{Any}(nothing), name::Symbol = :obs)
+function SimulatorObservable(func, coords::Tuple; output::SimulatorOutput = Transient(), name::Symbol = :obs)
     ds = coordinates(coords)
     return SimulatorObservable(name, func, output, ds)
 end
 
-initialize!(obs::SimulatorObservable{N, <:Transient}, state) where {N} = observe!(obs, state)
+initialize!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N} = observe!(data, obs, state)
 
-function observe!(obs::SimulatorObservable{N, <:Transient}, state) where {N}
-    out = _coerce(obs.obsfunc(state), size(obs))
-    obs.output.value = out
-    return out
+function observe!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, state) where {N}
+    return with_output_buffer(data, obs.name) do buffer
+        # evaluate obsfunc on current state
+        out = _coerce(obs.obsfunc(state), size(obs))
+        # drop any existing data and store the current value
+        empty!(buffer)
+        store!(buffer, out)
+        return out
+    end
 end
 
-function getvalue(obs::SimulatorObservable{N, <:Transient}) where {N}
-    data = obs.output.value
+function getvalue(data::SimulationData, obs::SimulatorObservable{N, <:Transient}) where {N}
+    values = getoutput(data, obs.name)
+    @assert length(values) > 0 "observable $(obs.name) has not yet been observed"
     coords = coordinates(obs)
-    return DimArray(data, coords)
+    return DimArray(last(values), coords)
 end
 
-function setvalue!(obs::SimulatorObservable{N, <:Transient}, value) where {N}
-    obs.output.value = value
+function setvalue!(data::SimulationData, obs::SimulatorObservable{N, <:Transient}, value) where {N}
+    return with_output_buffer(data, obs.name) do buffer
+        # drop any existing data and store the current value
+        empty!(buffer)
+        store!(buffer, value)
+        return value
+    end
 end
 
 """
@@ -140,15 +159,12 @@ end
 (lower frequency) save times. A simple example would be a windowed average or resampling operation that saves averages
 over higher frequency samples.
 """
-mutable struct TimeSampled{timeType, outputType, storageType<:SimulationData{timeType, outputType}, reducerType, converterType} <: SimulatorOutput{outputType}
+struct TimeSampled{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
     tspan::NTuple{2,timeType}
     tsample::Vector{timeType} # sample times
     tsave::Vector{timeType} # save times
     tconvert::converterType # time converter
     reducer::reducerType # reducer function
-    storage::storageType
-    buffer::Union{Nothing, Vector{outputType}}
-    sampleidx::Int
 end
 
 """
@@ -157,6 +173,7 @@ end
         tsave::AbstractVector{tType};
         reducer=mean,
         samplerate=default_sample_rate(tsave),
+        handle=nothing,  # Optional handle parameter for efficient scratch storage
     ) where {tType}
 
 Constructs a `TimeSampled` simulator output which iteratively samples and stores outputs on each call to `observe!`.
@@ -168,7 +185,6 @@ function TimeSampled(
     reducer = mean,
     samplerate = default_sample_rate(tsave),
     output_type = Any,
-    storage::SimulationData=SimulationArrayStorage(; input_type=timeType, output_type),
 ) where {timeType}
     @assert length(tsave) > 0
     @assert first(tsave) >= t0
@@ -182,7 +198,9 @@ function TimeSampled(
             push!(tsample, t)
         end
     end
-    return TimeSampled(extrema(tsample), tsample, collect(tsave), time_converter, reducer, storage, nothing, 1)
+    return TimeSampled{timeType, output_type, typeof(reducer), typeof(time_converter)}(
+        extrema(tsample), tsample, collect(tsave), time_converter, reducer
+    )
 end
 
 const TimeSampledObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeSampled}
@@ -221,71 +239,235 @@ savetimes(::Type{T}, ::SimulatorObservable) where{T} = []
 default_sample_rate(ts::AbstractVector) = minimum(diff(ts))
 
 """
-    initialize!(obs::TimeSampledObservable, state)
+    TimeAggregated{timeType, outputType, reducerType, converterType} <: SimulatorOutput
 
-Initialize the given time-sampled observable with the initial simulator state. Note that this method
-checks whether the output of `obsfunc` actually matches the declared size `size(obs)` and will error
-if they do not match.
+`SimulatorOutput` representing a coarser-scale temporal aggregation of another (`source`)
+observable's already-saved outputs. Unlike [`TimeSampled`](@ref), it does **not** sample the raw
+simulator state and is not observed during the forward solve; its value is computed by a single
+streaming reduction over the source's stored outputs and materialized after the solve completes
+(see [`TimeAggregatedObservable`](@ref)). Peak memory is bounded by one aggregation window, not the
+full source series.
 """
-function initialize!(obs::TimeSampledObservable, state)
-    # Y = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    storage = obs.output.storage
-    clear!(storage)
-    obs.output.buffer = similar(storage.outputs, 0)
-    obs.output.sampleidx = 1
+struct TimeAggregated{timeType, outputType, reducerType, converterType} <: SimulatorOutput{outputType}
+    source::Symbol            # name of the source observable
+    tsource::Vector{timeType} # source save times (window boundaries), captured at construction
+    tsave::Vector{timeType}   # coarse save times (subset of tsource)
+    tconvert::converterType   # time converter
+    reducer::reducerType      # reduction applied over transformed slices within each window
+end
+
+# internal dispatch alias (the public name `TimeAggregatedObservable` is a constructor function)
+const TimeAggregatedObs{N,T} = SimulatorObservable{N,T} where {N,T<:TimeAggregated}
+
+coordinates(obs::TimeAggregatedObs) = (obs.coords..., Ti(savetimes(obs)))
+savetimes(obs::TimeAggregatedObs) = obs.output.tsave
+savetimes(::Type{T}, obs::TimeAggregatedObs) where {T} = map(t -> obs.output.tconvert(T, t), savetimes(obs))
+
+"""
+    TimeAggregatedObservable(
+        source::TimeSampledObservable,
+        tsave::AbstractVector;
+        transform = identity,
+        reducer = mean,
+        coords = source.coords,
+        name = Symbol(nameof(source), :_agg),
+        output_type = Any,
+    )
+
+Constructs an observable that aggregates the already-saved outputs of `source` at the coarser save
+times `tsave` (which must be a subset of `savetimes(source)`). For each aggregation window, the
+per-slice `transform` is applied to every source time slice and the results are combined with
+`reducer`. The value is computed once by a streaming reduction over the source's stored outputs
+(materialized after the forward solve, or lazily on first `getvalue`), so the source observable can
+still be retained for diagnostics while this coarser observable is compared to observations via a
+likelihood.
+
+`transform` defaults to `identity`; when it changes the per-slice shape (e.g. a spatial reduction),
+pass the resulting spatial `coords` explicitly.
+
+!!! note "Reducer composition"
+    The reduction is applied to the source's saved (already-reduced) values, not the raw state.
+    `sum`, `minimum`/`maximum` compose exactly. `mean` composes exactly **only when each coarse
+    window contains an equal number of source values** (e.g. daily→yearly); it is biased for
+    unequal groups (e.g. monthly→yearly). Choosing a composable reducer is the caller's
+    responsibility.
+"""
+function TimeAggregatedObservable(
+    source::TimeSampledObservable,
+    tsave::AbstractVector;
+    transform = identity,
+    reducer = mean,
+    coords = source.coords,
+    name::Symbol = Symbol(nameof(source), :_agg),
+    output_type = Any,
+)
+    tsource = savetimes(source)
+    @assert length(tsave) > 0
+    @assert issubset(tsave, tsource) "coarse save times must be a subset of the source's save times"
+    tconvert = source.output.tconvert
+    timeType = eltype(tsource)
+    output = TimeAggregated{timeType, output_type, typeof(reducer), typeof(tconvert)}(
+        nameof(source), collect(tsource), collect(tsave), tconvert, reducer,
+    )
+    # the per-slice transform is stored as the observable's `obsfunc`
+    return SimulatorObservable(transform, coords; output, name)
+end
+
+"""
+    initialize!(data::SimulationData, obs::TimeSampledObservable, sim)
+
+Initialize the given time-sampled observable, clearing its output and transient scratch buffers.
+`TimeSampled` is stateless: the sample/save times are tracked via the `current_time` of the given
+`sim`ulator in each `observe!` call.
+"""
+function initialize!(data::SimulationData, obs::TimeSampledObservable, sim)
+    empty!(get_output_buffer(data, nameof(obs)))
+    empty!(get_scratch_buffer(data, nameof(obs)))
     return nothing
 end
 
-function observe!(obs::TimeSampledObservable, state)
-    @assert !isnothing(obs.output.buffer) "observable not yet initialized"
-    inbounds = obs.output.sampleidx <= length(obs.output.tsample)
-    t = inbounds ? obs.output.tsample[obs.output.sampleidx] : obs.output.tsample[end]
-    # find index of time point
-    idx = searchsorted(obs.output.tsave, t)
+"""
+    observe!(data::SimulationData, obs::TimeSampledObservable, sim)
+
+Observe the given time-sampled observable from the current simulator state. Called at each sample
+time, it extracts the observable value into the scratch buffer and, when the current time
+(`current_time(sim)`) coincides with a save time, reduces the accumulated window into the output
+buffer. The simulator must implement `current_time`.
+"""
+function observe!(data::SimulationData, obs::TimeSampledObservable, sim)
+    output_buffer = get_output_buffer(data, nameof(obs))
+    scratch_buffer = get_scratch_buffer(data, nameof(obs))
+    # the current time is retrieved from the simulator, keeping the observable stateless
+    t = current_time(sim)
+    @assert !isnothing(t) "TimeSampled observable :$(nameof(obs)) requires a simulator that implements `current_time`"
+    # save times in the same units as `t`
+    tsave = eltype(obs.output.tsave) === typeof(t) ? obs.output.tsave : savetimes(typeof(t), obs)
+    idx = searchsorted(tsave, t)
     # get observable vector at current state
-    Y_t = _coerce(obs.obsfunc(state), size(obs)[1:end-1])
-    push!(obs.output.buffer, Y_t)
-    # if t ∈ save points, compute and store reduced output
-    if first(idx) == last(idx) && inbounds && length(obs.output.buffer) > 0
-        store!(obs.output.storage, t, obs.output.reducer(obs.output.buffer))
-        # empty buffer
-        resize!(obs.output.buffer, 0)
+    Y_t = _coerce(obs.obsfunc(sim), size(obs)[1:end-1])
+    store!(scratch_buffer, Y_t)
+    # if t is a save point, reduce the accumulated window and store the result
+    if first(idx) == last(idx) && length(scratch_buffer) > 0
+        store!(output_buffer, obs.output.reducer(scratch_buffer))
+        empty!(scratch_buffer)
     end
-    # update cached time
-    obs.output.sampleidx += 1
     return Y_t
 end
 
-function getvalue(obs::TimeSampledObservable)
-    @assert !isnothing(obs.output.buffer) "observable not yet initialized"
-    @assert length(obs.output.storage) > 0 "output buffer is empty; check for errors in the model evaluation"
-    outputs = getoutputs(obs.output.storage)
+# Assemble a time series of stored spatial slices into a `DimArray` with a trailing time axis,
+# dropping singleton dimensions. Shared by `TimeSampled` and `TimeAggregated` observables.
+function _build_timeseries(data::SimulationData, obs::SimulatorObservable)
+    out = get_output_buffer(data, obs.name)
+    @assert length(out) > 0 "output for observable $(obs.name) is empty; check for errors in the model evaluation"
+    outputs = collect(out)
     # time is always the last coordinate of the observable (excluding batch dimension)
     t_idx = length(size(obs))
     # get first output
     y0 = first(outputs)
-    out = foldl(outputs, init=similar(y0, tupleinsert(size(y0), t_idx, 0))) do out, yᵢ
-        cat(out, reshape(yᵢ, tupleinsert(size(yᵢ), t_idx, 1)), dims=t_idx)
+    result = foldl(outputs, init=similar(y0, tupleinsert(size(y0), t_idx, 0))) do acc, yᵢ
+        cat(acc, reshape(yᵢ, tupleinsert(size(yᵢ), t_idx, 1)), dims=t_idx)
     end
     coords = coordinates(obs)
-    darr = DimArray(reshape(out, size(obs)), coords)
+    darr = DimArray(reshape(result, size(obs)), coords)
     singleton_dims = filter(c -> length(c) == 1, coords)
     return dropdims(darr, dims=singleton_dims)
 end
 
-function setvalue!(obs::TimeSampledObservable, values::AbstractArray)
+getvalue(data::SimulationData, obs::TimeSampledObservable) = _build_timeseries(data, obs)
+
+function setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractArray)
     @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
-    resize!(obs.output.buffer, 0)
-    clear!(obs.output.storage)
-    ts = savetimes(obs)
-    for (i, vals) in enumerate(eachslice(values, dims=length(size(values))))
-        store!(obs.output.storage, ts[i], vals)
+    out = get_output_buffer(data, obs.name)
+    empty!(out)
+    for vals in eachslice(values, dims=length(size(values)))
+        store!(out, vals)
     end
+    return values
 end
 
-setvalue!(obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(obs, reduce(hcat, values))
+setvalue!(data::SimulationData, obs::TimeSampledObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(data, obs, reduce(hcat, values))
 
-unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, length(first(obs.output.storage)), length(obs.output.storage))
+unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, prod(size(obs)[1:end-1]), length(savetimes(obs)))
+
+# --- TimeAggregated observable methods ---
+
+# The aggregated observable is not sampled during the solve; its value is derived from the source's
+# stored outputs. `initialize!` clears any stale cache; `observe!` is a no-op.
+function initialize!(data::SimulationData, obs::TimeAggregatedObs, sim)
+    empty!(get_output_buffer(data, nameof(obs)))
+    empty!(get_scratch_buffer(data, nameof(obs)))
+    return nothing
+end
+
+observe!(::SimulationData, ::TimeAggregatedObs, sim) = nothing
+
+"""
+    _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
+
+Materialize the aggregated observable by a single streaming pass over the source observable's stored
+outputs: apply the per-slice transform (`obs.obsfunc`) to each source slice, accumulate into a
+window buffer, and reduce into the output buffer at each coarse save time. Peak memory is one window.
+"""
+function _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
+    out = get_output_buffer(data, nameof(obs))
+    empty!(out)
+    src = get_output_buffer(data, obs.output.source)
+    n = length(src)
+    @assert n > 0 "source observable :$(obs.output.source) for :$(nameof(obs)) has no stored output"
+    scratch = get_scratch_buffer(data, nameof(obs))
+    empty!(scratch)
+    tsource = obs.output.tsource
+    tsave = obs.output.tsave
+    slice_shape = size(obs)[1:end-1]
+    for i in 1:n
+        t = i <= length(tsource) ? tsource[i] : tsource[end]
+        # apply the per-slice transform, then buffer the result
+        y = _coerce(obs.obsfunc(src[i]), slice_shape)
+        store!(scratch, y)
+        # if t is a coarse save point, reduce the window and store
+        idx = searchsorted(tsave, t)
+        if first(idx) == last(idx) && length(scratch) > 0
+            store!(out, obs.output.reducer(scratch))
+            empty!(scratch)
+        end
+    end
+    empty!(scratch)
+    return nothing
+end
+
+function getvalue(data::SimulationData, obs::TimeAggregatedObs)
+    out = get_output_buffer(data, nameof(obs))
+    # lazily materialize if not already computed (e.g. outside the solver `finalize` path)
+    length(out) == 0 && _aggregate!(data, obs)
+    return _build_timeseries(data, obs)
+end
+
+function setvalue!(data::SimulationData, obs::TimeAggregatedObs, values::AbstractArray)
+    @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
+    out = get_output_buffer(data, obs.name)
+    empty!(out)
+    for vals in eachslice(values, dims=length(size(values)))
+        store!(out, vals)
+    end
+    return values
+end
+setvalue!(data::SimulationData, obs::TimeAggregatedObs, values::AbstractVector{<:AbstractVector}) = setvalue!(data, obs, reduce(hcat, values))
+
+unflatten(obs::TimeAggregatedObs, x::AbstractVector) = reshape(x, prod(size(obs)[1:end-1]), length(savetimes(obs)))
+
+"""
+    finalize!(data::SimulationData, observables)
+
+Materialize any [`TimeAggregatedObservable`](@ref)s from their sources' stored outputs. Called at the
+end of a forward solve so that aggregated observables are persisted like any other output (and thus
+available to storage/likelihood retrieval paths). A no-op for non-aggregated observables.
+"""
+function finalize!(data::SimulationData, observables)
+    for obs in observables
+        obs isa TimeAggregatedObs && _aggregate!(data, obs)
+    end
+    return nothing
+end
 
 """
     ODEObservable(

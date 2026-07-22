@@ -5,7 +5,8 @@ using Test
 
     rng = Random.MersenneTwister(1234)
     # linear ODE test case with default parameter settings
-    inference_prob = linear_ode(; rng)
+    α_true = 0.2
+    inference_prob = linear_ode(α_true; rng)
     # parameter prior, excluding likelihood parameters
     prior = inference_prob.prior.model
     eks = EKS()

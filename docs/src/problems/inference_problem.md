@@ -115,11 +115,11 @@ getprior(lik::SimulatorLikelihood)
 ```
 
 ```@docs; canonical=false
-predictive_distribution(lik::SimulatorLikelihood, args...)
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood, args...)
 ```
 
 ```@docs; canonical=false
-sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood, args...)
+sample_prediction(rng::AbstractRNG, data::SimulationData, lik::SimulatorLikelihood, args...)
 ```
 
 ## Parameter spaces

@@ -1,5 +1,6 @@
 using ArgParse
 using SimulationBasedInference
+using EmulationBasedInference
 using PythonCall
 using Documenter
 using Literate
@@ -26,6 +27,7 @@ deployconfig = Documenter.auto_detect_deploy_system()
 const modules = [
     SimulationBasedInference,
     SimulationBasedInference.PySBI,
+    EmulationBasedInference,
 ];
 
 examples_dir = joinpath(@__DIR__, "..", "examples")
@@ -64,6 +66,7 @@ makedocs(
                      "Observables" => "problems/observables.md",
                      "Forward problems" => "problems/forward_problem.md",
                      "Inference problems" => "problems/inference_problem.md",
+                     "Simulation data storage" => "problems/simulation_data.md",
               ],
               "Inference algorithms" => [
                      "Particle sampling" => "inference/particle.md",

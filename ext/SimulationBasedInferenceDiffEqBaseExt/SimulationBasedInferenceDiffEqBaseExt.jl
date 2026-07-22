@@ -43,16 +43,15 @@ Initializes a `DynamicalSolver` for the given forward problem and ODE integrator
 passed through to the integrator `init` implementation.
 """
 function init(
-    forward_prob::SimulatorForwardProblem{<:AbstractODEProblem},
+    forward_prob::SimulatorForwardProblem{<:AbstractODEProblem, <:Union{Nothing, AbstractVector}},
     ode_alg::SciMLBase.AbstractDEAlgorithm,
     args...;
     p=forward_prob.p,
     saveat=[],
     save_everystep=false,
-    copy_observables=false,
     solve_kwargs...
 )
-    return init(Simulator(forward_prob.simulator), forward_prob, ode_alg, args...; p, saveat, save_everystep, copy_observables, solve_kwargs...)
+    return init(Simulator(forward_prob.simulator), forward_prob, ode_alg, args...; p, saveat, save_everystep, solve_kwargs...)
 end
 
 """
@@ -65,7 +64,7 @@ function solve!(solver::ODESolver, args...; kwargs...)
         step!(solver, args...; kwargs...)
     end
     sol = solve!(solver.sim)
-    return SimulatorForwardSolution(solver.prob, sol)
+    return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
 end

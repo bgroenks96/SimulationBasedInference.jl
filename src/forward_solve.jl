@@ -3,17 +3,20 @@
 
 Solution for a `SimulatorForwardProblem` that wraps the underlying forward solution.
 """
-struct SimulatorForwardSolution{solType,probType<:SimulatorForwardProblem}
+struct SimulatorForwardSolution{solType,probType<:SimulatorForwardProblem,dataType<:SimulationData}
     "Forward problem"
     prob::probType
 
     "Solution/output data produced by the simulator"
     sol::solType
+
+    "Simulation data storage"
+    simdata::dataType
 end
 
-get_observables(sol::SimulatorForwardSolution) = sol.prob.observables
+get_observables(sol::SimulatorForwardSolution) = map(obs -> getvalue(sol.simdata, obs), sol.prob.observables)
 
-get_observable(sol::SimulatorForwardSolution, name::Symbol) = getvalue(getproperty(get_observables(sol), name))
+get_observable(sol::SimulatorForwardSolution, name::Symbol) = getvalue(sol.simdata, getproperty(sol.prob.observables, name))
 
 function init(prob::SimulatorForwardProblem, forward_alg=nothing, args...; kwargs...)
     return init(Simulator(prob.simulator), prob, forward_alg, args...; kwargs...)
@@ -28,11 +31,15 @@ abstract type ForwardSolver{simType} end
 mutable struct ForwardMapSolver{
     simulatorType,
     probType<:SimulatorForwardProblem{simulatorType},
+    dataType<:SimulationData,
     argsType,
     kwargsType
 } <: ForwardSolver{simulatorType}
     "Forward problem that started the simulation"
     prob::probType
+
+    "Simulation data storage"
+    simdata::dataType
 
     "Positional arguments for the simulator function"
     args::argsType
@@ -47,11 +54,11 @@ function init(
     ::Nothing,
     args...;
     p=prob.p,
-    copy_observables=false,
+    simdata::SimulationData=SimulationData(),
     kwargs...
 )
-    prob = remake(prob; p, copy_observables)
-    return ForwardMapSolver(prob, args, kwargs)
+    prob = remake(prob; p)
+    return ForwardMapSolver(prob, simdata, args, kwargs)
 end
 
 step!(::ForwardMapSolver, args...; kwargs...) = error("step! not defined for non-iterative simulators")
@@ -64,10 +71,11 @@ function solve!(solver::ForwardMapSolver)
     end
     # compute observables
     for obs in solver.prob.observables
-        initialize!(obs, output)
-        observe!(obs, output)
+        initialize!(solver.simdata, obs, output)
+        observe!(solver.simdata, obs, output)
     end
-    return SimulatorForwardSolution(solver.prob, output)
+    finalize!(solver.simdata, solver.prob.observables)
+    return SimulatorForwardSolution(solver.prob, output, solver.simdata)
 end
 
 ## Iterative simulations
@@ -80,10 +88,14 @@ Forward solver for forward problems of `Iterative` simulators.
 mutable struct IterativeSolver{
     simulationType,
     simulatorType,
-    probType<:SimulatorForwardProblem{simulatorType}
+    probType<:SimulatorForwardProblem{simulatorType},
+    dataType<:SimulationData
 } <: ForwardSolver{simulatorType}
     "Forward problem that started the simulation"
     prob::probType
+
+    "Simulation data storage"
+    simdata::dataType
 
     "Simulation object"
     sim::simulationType
@@ -101,11 +113,11 @@ function init(
     forward_alg,
     args...;
     p=prob.p,
-    copy_observables=false,
+    simdata::SimulationData=SimulationData(),
     maxiters=1000,
     kwargs...
 )
-    prob = remake(prob; p, copy_observables)
+    prob = remake(prob; p)
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
     else
@@ -113,15 +125,15 @@ function init(
     end
     # initialize observables
     for obs in prob.observables
-        initialize!(obs, sim)
+        initialize!(simdata, obs, sim)
     end
-    return IterativeSolver(prob, sim, 1, maxiters)
+    return IterativeSolver(prob, simdata, sim, 1, maxiters)
 end
 
 function step!(solver::IterativeSolver, args...; kwargs...)
     result = step!(solver.sim, args...; kwargs...)
     for obs in solver.prob.observables
-        observe!(obs, solver.sim)
+        observe!(solver.simdata, obs, solver.sim)
     end
     solver.iter += 1
     return result
@@ -132,7 +144,8 @@ function solve!(solver::IterativeSolver, args...; kwargs...)
         step!(solver, args...; kwargs...)
     end
     sol = solve!(solver.sim) # construct solution
-    return SimulatorForwardSolution(solver.prob, sol)
+    finalize!(solver.simdata, solver.prob.observables)
+    return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
 ## Dynamical system simulations
@@ -151,10 +164,14 @@ mutable struct DynamicalSolver{
     simulationType,
     simulatorType,
     timeType,
-    probType<:SimulatorForwardProblem{simulatorType}
+    probType<:SimulatorForwardProblem{simulatorType},
+    dataType<:SimulationData
 } <: ForwardSolver{simulatorType}
     "Forward problem that started the simulation"
     prob::probType
+
+    "Simulation data storage"
+    simdata::dataType
 
     "Simulation object"
     sim::simulationType
@@ -172,10 +189,10 @@ function init(
     forward_alg,
     args...;
     p=prob.p,
-    copy_observables=false,
+    simdata::SimulationData=SimulationData(),
     kwargs...
 )
-    prob = remake(prob; p, copy_observables)
+    prob = remake(prob; p)
     # initialize dynamical simulation
     sim = if isnothing(prob.rng_seed)
         init(prob.simulator, forward_alg, args...; p, kwargs...)
@@ -195,9 +212,9 @@ function init(
     end
     # initialize observables
     for obs in prob.observables
-        initialize!(obs, sim)
+        initialize!(simdata, obs, sim)
     end
-    return DynamicalSolver(prob, sim, t_stops, 1)
+    return DynamicalSolver(prob, simdata, sim, t_stops, 1)
 end
 
 function step!(solver::DynamicalSolver, args...; kwargs...)
@@ -220,7 +237,7 @@ function step!(solver::DynamicalSolver, args...; kwargs...)
     # iterate over observables and update those for which t is a sample point
     for obs in prob.observables
         if t ∈ sampletimes(typeof(t), obs)
-            observe!(obs, sim)
+            observe!(solver.simdata, obs, sim)
         end
     end
     # increment step index
@@ -233,12 +250,15 @@ function solve!(solver::DynamicalSolver, args...; kwargs...)
         step!(solver, args...; kwargs...)
     end
     sol = solve!(solver.sim)
-    return SimulatorForwardSolution(solver.prob, sol)
+    finalize!(solver.simdata, solver.prob.observables)
+    return SimulatorForwardSolution(solver.prob, sol, solver.simdata)
 end
 
 # Ensemble forward problems
 
 @enum ValidationResult OK RunAgain Skip Fail
+
+default_validator_func(sol, i) = OK
 
 """
 Alias for `SimulatorForwardProblem` with matrix-valued parameters.
@@ -249,7 +269,7 @@ function solve(
     prob::SimulatorForwardProblem,
     ensalg::EnsembleAlgorithm,
     args...;
-    p::AbstractMatrix=forward_prob.p,
+    p::AbstractMatrix=prob.p,
     kwargs...
 )
     prob = remake(prob; p)
@@ -261,22 +281,22 @@ function solve(
     forward_alg,
     ensalg::EnsembleAlgorithm,
     args...;
-    p::AbstractMatrix=forward_prob.p,
+    p::AbstractMatrix=prob.p,
     kwargs...
 )
     prob = remake(prob; p)
-    return solve(prob, forward_alg, ensalg, args...; kwargs...)
+    return solve(prob, forward_alg, ensalg, args...; p, kwargs...)
 end
 
-function solve(
-    forward_prob::EnsembleForwardProblem,
-    ensalg::EnsembleAlgorithm,
-    args...;
-    kwargs...
-)
-    return solve(forward_prob, nothing, ensalg, args...; kwargs...)
+struct EnsembleForwardSolver{
+    algType<:EnsembleAlgorithm,
+    dataType,
+    solverType
+}
+    ensalg::algType
+    simdata::dataType
+    solvers::Vector{solverType}
 end
-
 
 """
     solve(
@@ -284,8 +304,7 @@ end
         forward_alg,
         ensalg::EnsembleAlgorithm,
         args...;
-        prob_func=(prob, p, i) -> remake(prob; p),
-        validator_func=(sol, i) -> OK,
+        prob_func=(prob, i) -> prob,
         kwargs...
     )
 
@@ -298,30 +317,101 @@ function solve(
     forward_alg,
     ensalg::EnsembleAlgorithm,
     args...;
-    p_ens::AbstractMatrix=forward_prob.p,
-    prob_func=(prob, p, i) -> remake(prob; p=p),
-    validator_func=(sol, i) -> OK,
-    safetycopy=false,
+    p::AbstractMatrix=forward_prob.p,
+    simdata::Vector{<:SimulationData} = default_ensemble_simdata(p),
+    prob_func=(prob, i) -> prob,
     kwargs...
 )
-    ens_prob_func(prob, i, repeat) = prob_func(prob, p_ens[:, i], i)
-    output_func = ensemble_output_func(validator_func)
-    ensprob = EnsembleProblem(forward_prob; prob_func=ens_prob_func, output_func, safetycopy)
-    return solve(ensprob, forward_alg, ensalg, args...; trajectories=size(p_ens, 2), kwargs...)
+    enssolver = init(forward_prob, forward_alg, ensalg, args...; p, simdata, prob_func, kwargs...)
+    return solve!(enssolver)
 end
 
-function ensemble_output_func(validator=(sol, i) -> OK)
-    function output(sol::SimulatorForwardSolution, i)
-        result = validator(sol, i)
-        if result == OK
-            # retrieve observables and flatten into a vector
-            observables = map(obs -> getvalue(obs), sol.prob.observables)
-            return (; sol, observables), false
-        elseif result == Fail
-            error("forward solution validation failed: $sol")
-        else
-            observables = nothing
-            return (; sol, observables), result == RunAgain
-        end
+function solve(
+    forward_prob::EnsembleForwardProblem,
+    ensalg::EnsembleAlgorithm,
+    args...;
+    kwargs...
+)
+    return solve(forward_prob, nothing, ensalg, args...; kwargs...)
+end
+
+function init(
+    forward_prob::EnsembleForwardProblem,
+    forward_alg,
+    ensalg::EnsembleAlgorithm,
+    args...;
+    p::AbstractMatrix=forward_prob.p,
+    simdata::Vector{<:SimulationData} = default_ensemble_simdata(p),
+    prob_func=(prob, i) -> prob,
+    kwargs...
+)
+    @assert length(simdata) == size(p, 2) "Number of simdata must match the size of the ensemble"
+    forward_probs = [prob_func(remake(forward_prob; p=p_i), i) for (i, p_i) in enumerate(eachcol(p))]
+    return init(forward_probs, simdata, ensalg, forward_alg, args...; kwargs...)
+end
+
+function default_ensemble_simdata(ps::AbstractMatrix; attrs...)
+    dataset = SimulationDataSet()
+    return [allocate!(dataset, p; attrs...) for p in eachcol(ps)]
+end
+
+# Serial
+
+function init(
+    forward_probs::Vector{<:SimulatorForwardProblem},
+    simdata::Vector{<:SimulationData},
+    ensalg::EnsembleSerial,
+    args...;
+    kwargs...
+)
+    solvers = map(forward_probs, simdata) do prob, simdata
+        init(prob, args...; simdata, kwargs...)
     end
+    return EnsembleForwardSolver(ensalg, simdata, solvers)
+end
+
+function step!(enssolver::EnsembleForwardSolver{EnsembleSerial})
+    results = map(enssolver.solvers) do solver
+        step!(solver)
+    end
+    return results
+end
+
+function solve!(enssolver::EnsembleForwardSolver{EnsembleSerial})
+    sols = map(enssolver.solvers) do solver
+        solve!(solver)
+    end
+    return sols
+end
+
+# Threads
+
+function init(
+    forward_probs::Vector{<:SimulatorForwardProblem},
+    simdata::Vector{<:SimulationData},
+    ensalg::EnsembleThreads,
+    args...;
+    kwargs...
+)
+    solvers = Vector(undef, length(forward_probs))
+    Threads.@threads for i in 1:length(forward_probs)
+        solvers[i] = init(forward_probs[i], args...; simdata=simdata[i], kwargs...)
+    end
+    return EnsembleForwardSolver(ensalg, simdata, collect(solvers))
+end
+
+function step!(enssolver::EnsembleForwardSolver{EnsembleThreads})
+    results = Vector(undef, length(enssolver.solvers))
+    Threads.@threads for (i, solver) in collect(enumerate(enssolver.solvers))
+        results[i] = step!(solver)
+    end
+    return collect(results)
+end
+
+function solve!(enssolver::EnsembleForwardSolver{EnsembleThreads})
+    sols = Vector(undef, length(enssolver.solvers))
+    Threads.@threads for i in 1:length(sols)
+        sols[i] = solve!(enssolver.solvers[i])
+    end
+    return collect(sols)
 end

@@ -2,7 +2,7 @@
 function CommonSolve.solve(
     prob::SimulatorInferenceProblem,
     emcee::typeof(AffineInvariantMCMC.sample);
-    storage::SimulationData=SimulationArrayStorage(),
+    storage::SimulationDataSet=SimulationDataSet(),
     num_samples = 1000,
     num_chains = 100,
     thinning = 1,
