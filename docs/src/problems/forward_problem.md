@@ -59,13 +59,9 @@ The return value of `solve` for `SimulatorForwardProblem` is typically a [Simula
 For forward problems such as the ODE example above that involve iteration, the problem can also be solved iteratively using `init` and `step!`:
 
 ```@example fwd
-solver = init(forward_prob)
+solver = init(forward_prob, Tsit5())
 step!(solver) # one solver step
-for i in solver
-    # iterate until finished
-end
-
-# alternatively, solve!
+# solve to completion
 sol = solve!(solver)
 ```
 
