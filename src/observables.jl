@@ -256,12 +256,11 @@ struct TimeAggregated{timeType, outputType, reducerType, converterType} <: Simul
     reducer::reducerType      # reduction applied over transformed slices within each window
 end
 
-# internal dispatch alias (the public name `TimeAggregatedObservable` is a constructor function)
-const TimeAggregatedObs{N,T} = SimulatorObservable{N,T} where {N,T<:TimeAggregated}
+const TimeAggregatedObservable{N,T} = SimulatorObservable{N,T} where {N,T<:TimeAggregated}
 
-coordinates(obs::TimeAggregatedObs) = (obs.coords..., Ti(savetimes(obs)))
-savetimes(obs::TimeAggregatedObs) = obs.output.tsave
-savetimes(::Type{T}, obs::TimeAggregatedObs) where {T} = map(t -> obs.output.tconvert(T, t), savetimes(obs))
+coordinates(obs::TimeAggregatedObservable) = (obs.coords..., Ti(savetimes(obs)))
+savetimes(obs::TimeAggregatedObservable) = obs.output.tsave
+savetimes(::Type{T}, obs::TimeAggregatedObservable) where {T} = map(t -> obs.output.tconvert(T, t), savetimes(obs))
 
 """
     TimeAggregatedObservable(
@@ -393,22 +392,22 @@ unflatten(obs::TimeSampledObservable, x::AbstractVector) = reshape(x, prod(size(
 
 # The aggregated observable is not sampled during the solve; its value is derived from the source's
 # stored outputs. `initialize!` clears any stale cache; `observe!` is a no-op.
-function initialize!(data::SimulationData, obs::TimeAggregatedObs, sim)
+function initialize!(data::SimulationData, obs::TimeAggregatedObservable, sim)
     empty!(get_output_buffer(data, nameof(obs)))
     empty!(get_scratch_buffer(data, nameof(obs)))
     return nothing
 end
 
-observe!(::SimulationData, ::TimeAggregatedObs, sim) = nothing
+observe!(::SimulationData, ::TimeAggregatedObservable, sim) = nothing
 
 """
-    _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
+    _aggregate!(data::SimulationData, obs::TimeAggregatedObservable)
 
 Materialize the aggregated observable by a single streaming pass over the source observable's stored
 outputs: apply the per-slice transform (`obs.obsfunc`) to each source slice, accumulate into a
 window buffer, and reduce into the output buffer at each coarse save time. Peak memory is one window.
 """
-function _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
+function _aggregate!(data::SimulationData, obs::TimeAggregatedObservable)
     out = get_output_buffer(data, nameof(obs))
     empty!(out)
     src = get_output_buffer(data, obs.output.source)
@@ -435,14 +434,14 @@ function _aggregate!(data::SimulationData, obs::TimeAggregatedObs)
     return nothing
 end
 
-function getvalue(data::SimulationData, obs::TimeAggregatedObs)
+function getvalue(data::SimulationData, obs::TimeAggregatedObservable)
     out = get_output_buffer(data, nameof(obs))
     # lazily materialize if not already computed (e.g. outside the solver `finalize` path)
     length(out) == 0 && _aggregate!(data, obs)
     return _build_timeseries(data, obs)
 end
 
-function setvalue!(data::SimulationData, obs::TimeAggregatedObs, values::AbstractArray)
+function setvalue!(data::SimulationData, obs::TimeAggregatedObservable, values::AbstractArray)
     @assert size(values) == size(obs) "shape of values $(size(values)) does not match that of the observable $(size(obs))"
     out = get_output_buffer(data, obs.name)
     empty!(out)
@@ -451,9 +450,9 @@ function setvalue!(data::SimulationData, obs::TimeAggregatedObs, values::Abstrac
     end
     return values
 end
-setvalue!(data::SimulationData, obs::TimeAggregatedObs, values::AbstractVector{<:AbstractVector}) = setvalue!(data, obs, reduce(hcat, values))
+setvalue!(data::SimulationData, obs::TimeAggregatedObservable, values::AbstractVector{<:AbstractVector}) = setvalue!(data, obs, reduce(hcat, values))
 
-unflatten(obs::TimeAggregatedObs, x::AbstractVector) = reshape(x, prod(size(obs)[1:end-1]), length(savetimes(obs)))
+unflatten(obs::TimeAggregatedObservable, x::AbstractVector) = reshape(x, prod(size(obs)[1:end-1]), length(savetimes(obs)))
 
 """
     finalize!(data::SimulationData, observables)
@@ -464,7 +463,7 @@ available to storage/likelihood retrieval paths). A no-op for non-aggregated obs
 """
 function finalize!(data::SimulationData, observables)
     for obs in observables
-        obs isa TimeAggregatedObs && _aggregate!(data, obs)
+        obs isa TimeAggregatedObservable && _aggregate!(data, obs)
     end
     return nothing
 end
