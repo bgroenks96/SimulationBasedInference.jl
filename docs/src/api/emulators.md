@@ -1,9 +1,9 @@
 # [Emulators API](@id api_emulators)
 
-The `Emulators` submodule defines types and methods for emulating expensive [SimulatorForwardProblem](@ref)s.
+The `EmulationBasedInference` module defines types and methods for emulating expensive [SimulatorForwardProblem](@ref)s.
 
 ```@autodocs
-Modules = [SimulationBasedInference.Emulators]
+Modules = [EmulationBasedInference]
 Order = [:type, :function, :macro]
 Private = false
 ```

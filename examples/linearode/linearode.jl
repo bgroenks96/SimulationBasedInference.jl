@@ -183,7 +183,7 @@ end
 hmc_sol = @time solve(inference_prob, MCMC(NUTS()), num_samples=1000, rng=rng);
 posterior_hmc = transpose(Array(hmc_sol.result))
 posterior_mean_hmc = mean(posterior_hmc, dims=2)
-posterior_obs_hmc = reduce(hcat, map(out -> out.y, hmc_sol.storage.outputs))
+posterior_obs_hmc = get_observable(hmc_sol, :y)
 posterior_obs_mean_hmc = mean(posterior_obs_hmc, dims=2)[:,1]
 posterior_obs_std_hmc = std(posterior_obs_hmc, dims=2)[:,1]
 let fig = Makie.Figure()
