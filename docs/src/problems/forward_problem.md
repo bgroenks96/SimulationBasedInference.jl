@@ -2,9 +2,10 @@
 
 ```@meta
 CurrentModule = SimulationBasedInference
-DocTestSetup = quote
-    using SimulationBasedInference, OrdinaryDiffEq, ComponentArrays
-end
+```
+
+```@setup fwd
+using SimulationBasedInference, OrdinaryDiffEqTsit5
 ```
 
 The [SimulatorForwardProblem](@ref) defines a forward map $\mathcal{F}: \Phi \mapsto \{\mathbf{Y}_i\}$ for $i=1\dots N$ from parameters $\Phi$ to a set of $N$ [observables](@ref observables). Observables are functions of the simulator state that can be either diagnostics or true observable quantities that may be later compared to data.
@@ -29,13 +30,13 @@ SimulatorForwardProblem(
 ```
 
 Note that forward problems typically need to be defined with some initial input parameters:
-```@example
+```@example fwd
 p0 = ones(10)
 forward_prob = SimulatorForwardProblem(sum, p0)
 ```
 
 These parameters can be updated using the `remake` method from `SciMLBase`:
-```@example
+```@example fwd
 new_prob = remake(forward_prob, p=2*p0)
 ```
 
@@ -45,7 +46,7 @@ Like any SciML problem, `SimulatorForwardProblem` supports the [SciML solve](htt
 
 For example, a ODE-based simulator can be solved using algorithms from [OrdinaryDiffEq](https://docs.sciml.ai/OrdinaryDiffEq/stable/):
 
-```@example
+```@example fwd
 p = ComponentArray(α=0.1)
 odeprob = ODEProblem((u,p,t) -> -p.α*u, [1.0], (0.0,1.0), p)
 observable = SimulatorObservable(state -> state.u, size(odeprob.u0), name = :u, output = TimeSampled(0.0, 0.1:0.1:1.0, samplerate=0.01))
@@ -57,7 +58,7 @@ The return value of `solve` for `SimulatorForwardProblem` is typically a [Simula
 
 For forward problems such as the ODE example above that involve iteration, the problem can also be solved iteratively using `init` and `step!`:
 
-```@example
+```@example fwd
 solver = init(forward_prob)
 step!(solver) # one solver step
 for i in solver
