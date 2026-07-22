@@ -4,7 +4,7 @@
 CurrentModule = SimulationBasedInference
 DocTestSetup = quote
     using SimulationBasedInference
-    using SimulationBasedInference: EnsembleInferenceAlgorithm, ensemble_forward
+    using SimulationBasedInference: EnsembleInferenceAlgorithm, ensemble_forward!
 end
 ```
 
@@ -93,7 +93,7 @@ get_transformed_ensemble(sol::EnsembleInferenceSolution, iter::Int)
 get_observables(sol::EnsembleInferenceSolution, iter::Int)
 ```
 
-Internally, the algorithms use the method `ensemble_forward` to apply the necessary parameter transforms and call `solve` on the resulting ensemble:
+Internally, the algorithms use the method `ensemble_forward!` to apply the necessary parameter transforms and call `solve` on the resulting ensemble:
 
 ```@docs; canonical=false
 ensemble_forward!(solver::EnsembleSolver)

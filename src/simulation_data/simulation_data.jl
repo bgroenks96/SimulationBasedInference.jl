@@ -68,6 +68,13 @@ function get_output_buffer(data::SimulationData, name::Symbol)
     return DataBuffer{:output}(data.handle[], name)
 end
 
+"""
+    with_output_buffer(func!, data::SimulationData, name::Symbol)
+
+Open an output [`DataBuffer`](@ref) for `name`, call `func!(buffer)`, then close
+the handle. Equivalent to calling [`get_output_buffer`](@ref), using the result,
+and then calling `close(data)`.
+"""
 function with_output_buffer(func!, data::SimulationData, name::Symbol)
     buffer = get_output_buffer(data, name)
     try
@@ -92,6 +99,13 @@ function get_scratch_buffer(data::SimulationData, name::Symbol=:scratch)
     return DataBuffer{:scratch}(data.handle[], name)
 end
 
+"""
+    with_scratch_buffer(func!, data::SimulationData, name::Symbol=:scratch)
+
+Open a scratch [`DataBuffer`](@ref) for `name`, call `func!(buffer)`, then close
+the handle. Equivalent to calling [`get_scratch_buffer`](@ref), using the result,
+and then calling `close(data)`.
+"""
 function with_scratch_buffer(func!, data::SimulationData, name::Symbol=:scratch)
     buffer = get_scratch_buffer(data, name)
     try

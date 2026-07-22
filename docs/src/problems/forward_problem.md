@@ -53,7 +53,7 @@ forward_prob = SimulatorForwardProblem(odeprob, observable)
 forward_sol = solve(forward_prob, Tsit5())
 ```
 
-The return value of `solve` for `SimulatorForwardProblem` is typically a [SimulatorForwardSolution](@ref) which wraps both the underlying solution type as well as the original forward problem and its corresponding observables.
+The return value of `solve` for `SimulatorForwardProblem` is typically a [SimulatorForwardSolution](@ref) which wraps the underlying solution type, the original forward problem, and a [`SimulationData`](@ref) instance holding the computed observable values. Observable values can be retrieved via `get_observable(sol, :name)` or the lower-level `getvalue(sol.simdata, obs)`.
 
 For forward problems such as the ODE example above that involve iteration, the problem can also be solved iteratively using `init` and `step!`:
 

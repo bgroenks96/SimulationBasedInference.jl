@@ -332,7 +332,7 @@ end
 Observe the given time-sampled observable from the current simulator state. Called at each sample
 time, it extracts the observable value into the scratch buffer and, when the current time
 (`current_time(sim)`) coincides with a save time, reduces the accumulated window into the output
-buffer. The simulator must implement [`current_time`](@ref).
+buffer. The simulator must implement `current_time`.
 """
 function observe!(data::SimulationData, obs::TimeSampledObservable, sim)
     output_buffer = get_output_buffer(data, nameof(obs))

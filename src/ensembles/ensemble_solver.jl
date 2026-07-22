@@ -205,6 +205,13 @@ function solve!(solver::EnsembleSolver)
     return solver.sol
 end
 
+"""
+    ensemble_forward!(solver::EnsembleSolver)
+
+Map the current ensemble from unconstrained to constrained parameter space, solve the
+forward problem for each ensemble member, and store the results in the solver's storage.
+Returns the stacked prediction matrix used by the ensemble update step.
+"""
 function ensemble_forward!(solver::EnsembleSolver)
     inference_prob = solver.sol.prob
     # get current parameter ensemble
