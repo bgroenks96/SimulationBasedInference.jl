@@ -1,3 +1,5 @@
+const HMCInferenceSolution{algType} = SimulatorInferenceSolution{algType} where {hmcAlg<:DynamicHMC.NUTS, algType<:MCMC{hmcAlg}}
+
 mutable struct DynamicHMCSolver{algType<:MCMC,probType,statsType,QType}
     sol::SimulatorInferenceSolution{algType,probType}
     num_samples::Int
@@ -68,4 +70,18 @@ function CommonSolve.solve!(solver::DynamicHMCSolver)
     param_names = labels(prob.u0)
     solver.sol.result = Chains(reshape(samples, size(samples)..., 1), param_names)
     return solver.sol
+end
+
+"""
+    get_observables(sol::HMCInferenceSolution)
+
+Returns a `NamedTuple` of the ensemble simulated observables at iteration `iter`, assembled
+by concatenating each member's observable value along the ensemble dimension.
+"""
+function SimulationBasedInference.get_observables(sol::HMCInferenceSolution)
+    storage = sol.storage
+    observables = sol.prob.forward_prob.observables
+    return map(observables) do obs
+        reduce(SimulationBasedInference.enscat, [getvalue(storage[i], obs) for i in 1:length(storage)])
+    end
 end
