@@ -6,6 +6,7 @@ using Reexport
 using Dates
 using ForwardDiff
 using LinearAlgebra
+using OrderedCollections
 using Requires
 
 # SciML
@@ -28,6 +29,7 @@ using Random
 @reexport using Statistics
 
 @reexport import CommonSolve: init, solve, solve!, step!
+@reexport import FileIO: DataFormat, @format_str
 @reexport import LogDensityProblems: LogDensityProblems, logdensity
 
 import SciMLBase: EnsembleAlgorithm
@@ -46,11 +48,15 @@ abstract type SimulatorInferenceAlgorithm end
 export autoprior, from_moments
 include("utils.jl")
 
-export SimulationData, SimulationArrayStorage
-export store!, getinputs, getoutputs, getmetadata
-include("simulation_data.jl")
+export SimulationData, SimulationDataSet
+export store!, allocate!
+export getinputs, setinputs!, getmetadata, getoutput, getoutputs
+export iterations
+include("simulation_data/storage_backend.jl")
+include("simulation_data/data_buffer.jl")
+include("simulation_data/simulation_data.jl")
 
-export SimulatorObservable, TimeSampledObservable, TransientObservable, TimeSampled
+export SimulatorObservable, TimeSampledObservable, TimeSampled, TransientObservable, Transient, TimeAggregated, TimeAggregatedObservable
 export observe!, getvalue, coordinates
 include("observables.jl")
 

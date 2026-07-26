@@ -41,15 +41,15 @@ Observables are constructed using the `SimulatorObservable` type which consists 
 
 Currently, `SimulationBasedInference` provides two types of observable outputs:
 
-[Transient](@ref) output types (with alias `TransientObservable`) which naively evaluate `g_i` and store a pointer to the return value. Repeated evaluations of the observable overwrite previous values.
+[Transient](@ref) output types (with alias `TransientObservable`) which evaluate `g_i` and store the result in the given [`SimulationData`](@ref). Repeated evaluations overwrite previous values.
 
-```@docs
+```@docs; canonical=false
 SBI.Transient
 ```
 
 [TimeSampled](@ref) output types (with alias `TimeSampledObservable`) for dynamical systems which define a sampling frequency and a set of save times. Outputs of `g_i` at each sample time are buffered and then aggregated at each save time according to some reducer function (e.g. `mean`, `sum`, etc.).
 
-```@docs
+```@docs; canonical=false
 SBI.TimeSampled
 ```
 
@@ -85,19 +85,19 @@ This can be done by extending `SimulatorObservable` with a new `SimulatorOutput`
 In either case, subtypes of `Observable` must implement the following methods.
 
 ```@docs; canonical=false
-initialize!(obs::Observable, state)
+initialize!(data::SimulationData, obs::Observable, state)
 ```
 
 ```@docs; canonical=false
-observe!(obs::Observable, state)
+observe!(data::SimulationData, obs::Observable, state)
 ```
 
 ```@docs; canonical=false
-getvalue(obs::Observable)
+getvalue(data::SimulationData, obs::Observable)
 ```
 
 ```@docs; canonical=false
-setvalue!(obs::Observable, value)
+setvalue!(data::SimulationData, obs::Observable, value)
 ```
 
 ```@docs; canonical=false

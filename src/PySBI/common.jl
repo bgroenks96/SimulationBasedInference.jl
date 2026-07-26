@@ -1,6 +1,6 @@
 function pysimulator(
     inference_prob::SimulatorInferenceProblem,
-    data::SimulationData,
+    data::SimulationDataSet,
     transform,
     pred_transform,
     ::Type{T}=Vector;
@@ -14,12 +14,14 @@ function pysimulator(
         θ = zero(inference_prob.u0) + ζ
         ϕ = transform(θ)
         forward_sol = solve(inference_prob.forward_prob, inference_prob.forward_solver, p=ϕ.model)
-        store!(data, θ, map(getvalue, forward_sol.prob.observables))
+        simdata = forward_sol.simdata
+        setinputs!(simdata, θ)
+        store!(data, simdata)
         obs_vecs = map(inference_prob.likelihoods) do lik
             if hasproperty(ϕ, nameof(lik))
-                y_pred = SBI.sample_prediction(lik, ϕ[nameof(lik)])
+                y_pred = SBI.sample_prediction(simdata, lik, ϕ[nameof(lik)])
             else
-                y_pred = SBI.sample_prediction(lik)
+                y_pred = SBI.sample_prediction(simdata, lik)
             end
             lift(pred_transform(y_pred))
         end
@@ -34,10 +36,12 @@ function pysimulator(
     return simulator
 end
 
-function append_simulations!(inference_alg::Py, inference_prob::SimulatorInferenceProblem, data::SimulationData)
+function append_simulations!(inference_alg::Py, inference_prob::SimulatorInferenceProblem, data::SimulationDataSet)
+    observables = inference_prob.forward_prob.observables
     inputs = getinputs(data)
-    outputs = map(getoutputs(data)) do out
-        reduce(vcat, map(k -> vec(out[k]), keys(inference_prob.likelihoods)))
+    outputs = map(1:length(data)) do i
+        sim = data[i]
+        reduce(vcat, map(k -> vec(getvalue(sim, observables[k])), keys(inference_prob.likelihoods)))
     end
     Θ = transpose(reduce(hcat, inputs))
     Y = transpose(reduce(hcat, outputs))

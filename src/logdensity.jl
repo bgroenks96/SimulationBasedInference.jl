@@ -9,7 +9,7 @@ end
 """
     LogDensityProblems.logdensity(
         inference_prob::SimulatorInferenceProblem;
-        storage::SimulationData,
+        storage::SimulationDataSet,
         kwargs...
     )
 
@@ -18,7 +18,7 @@ the `LogDensityProblems` interface.
 """
 function LogDensityProblems.logdensity(
     inference_prob::SimulatorInferenceProblem;
-    storage=SimulationArrayStorage(),
+    storage=SimulationDataSet(),
     kwargs...
 )
     f = logdensityfunc(inference_prob, storage; kwargs...)

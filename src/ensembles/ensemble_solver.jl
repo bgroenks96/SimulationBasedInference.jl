@@ -87,17 +87,18 @@ ensemblestep!(::EnsembleSolver{algType}) where {algType} = error("not implemente
 """
     finalize!(solver::EnsembleSolver)
 
-Finalizes the solver state after iteration has completed. Default implementation runs `ensemble_solve`
-on the current ensemble state and stores the results in `sol.storage`.
+Finalizes the solver state after iteration has completed. Default implementation invokes `ensemble_forward!`
+on the current ensemble state.
 """
 function finalize!(solver::EnsembleSolver)
-    out = ensemble_forward(solver)
-    return if isiterative(solver.alg)
-        store!(solver.sol.storage, get_ensemble(solver.state), out.observables, iter=solver.state.iter + 1)
-    else
-        store!(solver.sol.storage, get_ensemble(solver.state), out.observables)
+    if isiterative(solver.alg)
+        solver.state.iter += 1
     end
+    ensemble_forward!(solver)
+    return nothing
 end
+
+get_iteration(solver::EnsembleSolver) = isiterative(solver.alg) ? solver.state.iter : 1
 
 ################################
 
@@ -115,13 +116,13 @@ function init(
     alg::EnsembleInferenceAlgorithm,
     ensalg::Union{Nothing,EnsembleAlgorithm}=EnsembleThreads(),
     solve_args...;
-    prob_func=(prob, p, i) -> remake(prob; p),
+    prob_func=(prob, i) -> prob,
     validator_func=(sol, i) -> OK,
     obs_cov_func=obscov,
     initial_ens=nothing,
     ensemble_size::Integer=isnothing(initial_ens) ? 128 : size(initial_ens, 2),
     itercallback=state -> true,
-    storage=SimulationArrayStorage(),
+    storage=SimulationDataSet(),
     verbose=true,
     rng=Random.default_rng(),
     solve_kwargs...
@@ -173,11 +174,9 @@ function step!(solver::EnsembleSolver)
     state = solver.state
     state.iter += 1
     # ensemble step
-    out = ensemblestep!(solver)
+    ensemblestep!(solver)
     # set result
     sol.result = state
-    # store observables
-    store!(sol.storage, get_ensemble(state), out.observables, iter=state.iter)
     # iteration callback
     callback_retval = solver.itercallback(state)
     # check convergence
@@ -206,50 +205,45 @@ function solve!(solver::EnsembleSolver)
     return solver.sol
 end
 
-function ensemble_forward(solver::EnsembleSolver)
+"""
+    ensemble_forward!(solver::EnsembleSolver)
+
+Map the current ensemble from unconstrained to constrained parameter space, solve the
+forward problem for each ensemble member, and store the results in the solver's storage.
+Returns the stacked prediction matrix used by the ensemble update step.
+"""
+function ensemble_forward!(solver::EnsembleSolver)
     inference_prob = solver.sol.prob
     # get current parameter ensemble
-    θ = get_ensemble(solver.state)
+    Θ = get_ensemble(solver.state)
     # map unconstrained parameters to constrained space
     param_map = unconstrained_forward_map(inference_prob.prior.model)
-    p = reduce(hcat, map(param_map, eachcol(θ)))
+    p_ens = mapreduce(param_map, hcat, eachcol(Θ))
+    simdata = map(eachcol(Θ)) do θ
+        allocate!(solver.sol.storage, θ; iter = get_iteration(solver))
+    end
     # solve the ensemble forward problem
     enssol = solve(
         inference_prob.forward_prob,
         inference_prob.forward_solver,
         solver.ensalg,
         solver.solve_args...;
-        p=p,
+        simdata,
+        p=p_ens,
         prob_func=solver.prob_func,
-        validator_func=solver.validator_func,
         solver.solve_kwargs...
     )
-    return ensemble_outputs(inference_prob, enssol)
+    # collect ensemble predictions
+    pred = mapreduce(ensemble_prediction(inference_prob), hcat, enssol)
+    return pred
 end
 
-# Non-batched simulator, ensemble solve
-function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::EnsembleSolution)
-    names = keys(inference_prob.likelihoods)
-    # extract prediction vector for combined likelihoods
-    pred = mapreduce(hcat, sol.u) do result
-        # retrieve observable for each likelihood and flatten into a vector
-        observables = map(name -> isnothing(result.observables) ? nothing : result.observables[name], names)
-        reduce(vcat, map(obs -> isnothing(obs) ? nothing : vec(obs), observables))
+function ensemble_prediction(prob::SimulatorInferenceProblem)
+    function likelihoods(sol::SimulatorForwardSolution)
+        preds = map(prob.likelihoods) do likelihood
+            obsv = observable(likelihood)
+            vec(getvalue(sol.simdata, obsv))
+        end
+        return reduce(vcat, preds)
     end
-    # extract observable values
-    observables = ntreduce(enscat, map(result -> result.observables, sol.u))
-    return (; pred, observables)
-end
-
-# Batched simulator
-function ensemble_outputs(inference_prob::SimulatorInferenceProblem, sol::SimulatorForwardSolution)
-    # extract prediction vector for combined likelihoods
-    pred = mapreduce(vcat, keys(inference_prob.likelihoods)) do name
-        arr = getvalue(sol.prob.observables[name])
-        # flatten all but the last (batch) axis
-        reshape(arr, :, length(last(axes(arr))))
-    end
-    # extract observable values
-    observables = map(getvalue, result.observables)
-    return (; pred, observables)
 end

@@ -26,13 +26,13 @@ function evensen_scalar_nonlinear(
     θ_prior = prior(x=x_prior, b=b_prior)
     y_pred = SimulatorObservable(y -> repeat(collect(y), n_obs), size(y_obs), name = :y)
     forward_prob = SimulatorForwardProblem(g, θ_true, y_pred)
-    lik = SimulatorLikelihood(IsoNormal, y_pred, y_obs, prior(:σ, σ_prior))
+    lik = IsotropicGaussianLikelihood(y_pred, y_obs, prior(:σ, σ_prior))
     inference_prob = SimulatorInferenceProblem(forward_prob, nothing, θ_prior, lik)
     return inference_prob
 end
 
 function linear_ode(
-    α_true=0.2;
+    α_true;
     n_obs=10,
     σ_y=0.01,
     α_prior=Beta(1,1),
@@ -55,15 +55,14 @@ function linear_ode(
     # generate "true" solution
     forward_sol = solve(forwardprob, Tsit5())
     @assert forward_sol.sol.retcode == ReturnCode.Success
-    true_obs = getvalue(observable)
+    true_obs = getvalue(forward_sol.simdata, observable)
     # specify priors
     α_prior = prior(α=α_prior)
-    noise_scale = σ_y
     noise_scale_prior = prior(:σ, σ_prior)
     # create noisy data
-    noisy_obs = true_obs .+ noise_scale*randn(rng, n_obs)
+    noisy_obs = true_obs .+ σ_y*randn(rng, n_obs)
     # simple Gaussian likelihood; note that we're cheating a bit here since we know the noise level a priori
-    lik = SimulatorLikelihood(IsoNormal, observable, noisy_obs, noise_scale_prior)
+    lik = IsotropicGaussianLikelihood(observable, noisy_obs, noise_scale_prior)
     # inference problem
     inference_prob = SimulatorInferenceProblem(forwardprob, ode_solver, α_prior, lik)
     return inference_prob

@@ -51,11 +51,11 @@ function ensemblestep!(solver::EnsembleSolver{<:EKS})
     solver.verbose && @info "Starting iteration $(state.iter) (maxiters=$(alg.maxiters))"
     Θ = get_u_final(ekp)
     # generate ensemble predictions
-    out = ensemble_forward(solver)
+    enspred = ensemble_forward!(solver)
     # update ensemble
-    update_ensemble!(ekp, out.pred)
+    update_ensemble!(ekp, enspred)
     # compute likelihoods and prior prob
-    loglik = map(y -> logpdf(MvNormal(get_obs(ekp), get_obs_noise_cov(ekp)), y), eachcol(out.pred))
+    loglik = map(y -> logpdf(MvNormal(get_obs(ekp), get_obs_noise_cov(ekp)), y), eachcol(enspred))
     logprior = map(θᵢ -> logdensity_prior(ekp, θᵢ), eachcol(Θ))
     # update ensemble solver state
     push!(solver.loglik, loglik)
@@ -65,5 +65,5 @@ function ensemblestep!(solver::EnsembleSolver{<:EKS})
     err = get_error(ekp)
     Δerr = length(err) > 1 ? err[end] - err[end-1] : missing
     solver.verbose && @info "Finished iteration $(state.iter); err: $(err[end]), Δerr: $Δerr, Δt: $(sum(ekp.Δt[2:end]))"
-    return out
+    return enspred
 end

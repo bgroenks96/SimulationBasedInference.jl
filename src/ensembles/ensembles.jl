@@ -7,7 +7,7 @@ abstract type EnsembleInferenceAlgorithm <: SimulatorInferenceAlgorithm end
 
 const EnsembleInferenceSolution{algType} = SimulatorInferenceSolution{algType} where {algType<:EnsembleInferenceAlgorithm}
 
-export EnsembleSolver, get_ensemble, initialstate, ensemblestep!, finalize!, ensemble_solve
+export EnsembleSolver, get_ensemble, initialstate, ensemblestep!, finalize!
 include("ensemble_solver.jl")
 
 export obscov, get_transformed_ensemble, get_predictions, get_observables

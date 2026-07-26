@@ -19,7 +19,7 @@ using Test
     forward_sol = solve(forwardprob, Tsit5())
     @test forward_sol.sol.retcode == ReturnCode.Success
     @test isa(forward_sol, SimulatorForwardSolution)
-    obs = getvalue(observable)
+    obs = getvalue(forward_sol.simdata, observable)
     @test size(obs) == (10,)
     @test all(diff(obs) .< 0.0)
 end
@@ -33,7 +33,7 @@ end
     forward_sol = solve(forwardprob, NewtonRaphson(), abstol=1e-6, reltol=1e-8)
     @test forward_sol.sol.retcode == ReturnCode.Success
     @test isa(forward_sol, SimulatorForwardSolution)
-    obs = getvalue(observable)
+    obs = getvalue(forward_sol.simdata, observable)
     @test isa(obs, AbstractVector{Float64})
     @test round(obs[1], digits=3) == -20.271
 end
@@ -58,7 +58,11 @@ end
     u.model.α = 0.5
     u.obs.σ = 1.0
     lp = logprob(inferenceprob, u)
-    lj = logpdf(MvNormal(getvalue(observable), I), data) + logprob(α_prior, u.model) + logprob(noise_scale_prior, u.obs)
+    # observables are stateless: run an explicit forward solve at the same model
+    # parameters to obtain the observable value for comparison
+    fsol = solve(forwardprob, Tsit5(); p=ComponentArray(α=u.model.α))
+    obs_val = getvalue(fsol.simdata, observable)
+    lj = logpdf(MvNormal(obs_val, I), data) + logprob(α_prior, u.model) + logprob(noise_scale_prior, u.obs)
     # check the logdensity is equal to the logjoint
     @test lp ≈ lj
     # apply bijection

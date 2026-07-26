@@ -38,13 +38,16 @@ DiagonalGaussianLikelihood(
 ) = SimulatorLikelihood(DiagNormal, obs, data, prior, name)
 
 
-function predictive_distribution(lik::SimulatorLikelihood{Normal}, σ)
-    μ = getvalue(lik.obs)[1]
+function predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{Normal}, σ)
+    μ = getvalue(data, lik.obs)[1]
     return Normal(μ, σ)
 end
 
-function predictive_distribution(lik::SimulatorLikelihood{<:MvNormal}, σ)
-    μ = vec(getvalue(lik.obs))
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{IsoNormal}, σ::Union{Number, AbstractVector}) = predictive_distribution(data, lik, MvNormal, σ)
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{DiagNormal}, σ::AbstractVector) = predictive_distribution(data, lik, MvNormal, σ)
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood{MvNormal}, Σ::AbstractMatrix) = predictive_distribution(data, lik, MvNormal, σ)
+function predictive_distribution(data::SimulationData, lik::SimulatorLikelihood, ::Type{MvNormal}, σ)
+    μ = vec(getvalue(data, lik.obs))
     Σ = cov(lik, σ)
     return MvNormal(μ, Σ)
 end

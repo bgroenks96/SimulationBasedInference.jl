@@ -15,9 +15,9 @@ consists of four basic components:
 (4) A prior distribution governing one or more additional parameters required to compute the likelihood.
 
 Due to the typically high cost of evaluating the parameter forward map, `SimulatorLikelihood` effectively decouples
-the computation of the likelihood from the simulator via the `SimulatorObservable`, which stores the result of a
-forward simulation. When the `SimulatorLikelihood` is evaluated, these outputs are obtained from `getvalue(obs)`
-and the only additional parameters needed are those specified by `prior`.
+the computation of the likelihood from the simulator via the `SimulatorObservable`. When the `SimulatorLikelihood`
+is evaluated, the observable output is obtained from the simulation data via `getvalue(data, obs)` and the only
+additional parameters needed are those specified by `prior`.
 """
 struct SimulatorLikelihood{distType,priorType,obsType,dataType} <: AbstractLikelihood
     name::Symbol
@@ -54,32 +54,34 @@ Note that this is distinct from the prior for the forward model parameters.
 getprior(lik::SimulatorLikelihood) = lik.prior
 
 """
-    predictive_distribution(lik::SimulatorLikelihood, args...)
+    predictive_distribution(data::SimulationData, lik::SimulatorLikelihood, args...)
 
-Builds the predictive distribution of `lik` given the parameters in `args`. This method is mandatory
-for all specializations of `SimulatorLikelihood`.
+Builds the predictive distribution of `lik` given the simulation `data` (from which the
+observable value is read) and the parameters in `args`. This method is mandatory for all
+specializations of `SimulatorLikelihood`. The likelihood is stateless and is evaluated
+per-simulation; the `SimulationData` is passed as the first argument.
 """
-predictive_distribution(lik::SimulatorLikelihood, args...) = error("not implemented")
-predictive_distribution(lik::SimulatorLikelihood, p::NamedTuple) = predictive_distribution(lik, p...)
-
-"""
-    sample_prediction([rng::AbstractRNG], lik::SimulatorLikelihood, args...)
-
-Samples the conditional predictive distribution `p(y|u)` where `u` is the current value of the likelihood
-observable. This method is optional for specializations; the default implementation simply invokes `rand`
-on the `predictive_distribution(lik, args...)`.
-"""
-sample_prediction(rng::AbstractRNG, lik::SimulatorLikelihood, args...) = rand(rng, predictive_distribution(lik, args...))
-sample_prediction(lik::SimulatorLikelihood, args...) = sample_prediction(Random.default_rng(), lik, args...)
+predictive_distribution(::SimulationData, lik::SimulatorLikelihood, args...) = error("not implemented")
+predictive_distribution(data::SimulationData, lik::SimulatorLikelihood, p::NamedTuple) = predictive_distribution(data, lik, p...)
 
 """
-    loglikelihood(lik::SimulatorLikelihood, args...)
+    sample_prediction([rng::AbstractRNG], data::SimulationData, lik::SimulatorLikelihood, args...)
 
-Evaluates the log-lielihood of `lik` on the current observable state by
+Samples the conditional predictive distribution `p(y|u)` where `u` is the observable value for
+the given simulation `data`. This method is optional for specializations; the default
+implementation simply invokes `rand` on the `predictive_distribution(data, lik, args...)`.
+"""
+sample_prediction(rng::AbstractRNG, data::SimulationData, lik::SimulatorLikelihood, args...) = rand(rng, predictive_distribution(data, lik, args...))
+sample_prediction(data::SimulationData, lik::SimulatorLikelihood, args...) = sample_prediction(Random.default_rng(), data, lik, args...)
+
+"""
+    loglikelihood(data::SimulationData, lik::SimulatorLikelihood, args...)
+
+Evaluates the log-likelihood of `lik` on the observable value stored in `data` by
 constructing the `predictive_distribution` and evaluating the `logpdf` of the data.
 """
-function loglikelihood(lik::SimulatorLikelihood, args...)
-    d = predictive_distribution(lik, args...)
+function loglikelihood(data::SimulationData, lik::SimulatorLikelihood, args...)
+    d = predictive_distribution(data, lik, args...)
     return logprob(d, lik.data)
 end
 

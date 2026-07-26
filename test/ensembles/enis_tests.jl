@@ -28,7 +28,7 @@ end
     # sample initial ensemble from model prior (excluding likelihood parameters)
     initial_ens = reduce(hcat, rand(rng, testprob.prior.model, ensemble_size))
     enssol = solve(testprob.forward_prob, EnsembleThreads(), p=initial_ens)
-    y_pred = mapreduce(res -> vec(res.observables.y), hcat, enssol.u)
+    y_pred = mapreduce(sol -> get_observable(sol, :y), hcat, enssol)
     y_obs = testprob.likelihoods.y.data
     y_lik = mean(testprob.prior.lik.y)
     w, Neff = importance_weights(y_obs, y_pred, y_lik.σ^2)

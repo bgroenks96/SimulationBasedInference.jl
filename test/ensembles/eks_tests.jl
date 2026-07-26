@@ -17,18 +17,17 @@ end
 @testset "EKS: Linear ODE inversion" begin
     rng = Random.MersenneTwister(1234)
     # linear ODE test case with default parameter settings
-    inference_prob = linear_ode(; rng)
+    α_true = 0.2
+    inference_prob = linear_ode(α_true; rng)
     # parameter prior, excluding likelihood parameters
     prior = inference_prob.prior.model
     eks = EKS()
     # solve inference problem with EKS
     eks_sol = solve(inference_prob, eks, EnsembleThreads(), ensemble_size=128, verbose=false, rng=rng)
     # check results
-    posterior_ens = get_ensemble(eks_sol)
-    constrained_to_unconstrained = bijector(prior)
-    posterior_ens = reduce(hcat, map(inverse(constrained_to_unconstrained), eachcol(posterior_ens)))
+    posterior_ens = get_transformed_ensemble(eks_sol)
     posterior_mean = mean(posterior_ens, dims=2)
-    @test abs(posterior_mean[1] - 0.2) < 0.01
+    @test abs(posterior_mean[1] - α_true) < 0.01
 end
 
 @testset "EKS: evensen_scalar_nonlinear" begin
@@ -45,9 +44,8 @@ end
     transform = bijector(testprob.prior.model)
     inverse_transform = inverse(transform)
     testsol = solve(testprob, EKS(), EnsembleThreads(); ensemble_size, verbose=false)
-    unconstrained_posterior = get_ensemble(testsol.result)
-    posterior = reduce(hcat, map(inverse_transform, eachcol(unconstrained_posterior)))
-    posterior_mean = mean(posterior, dims=2)[:,1]
+    posterior_ens = get_transformed_ensemble(testsol)
+    posterior_mean = mean(posterior_ens, dims=2)[:,1]
     @show posterior_mean
     @test abs(posterior_mean[1] - x_true) < 0.1
     @test abs(posterior_mean[2] - b_true) < 0.1

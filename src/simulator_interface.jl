@@ -75,7 +75,7 @@ current_time(integrator::SciMLBase.DEIntegrator) = integrator.t
 
 Return the current iteration number for iterative simulations. Default implementation returns `nothing`.
 
-See also [`current_time`](@ref).
+See also `current_time`.
 """
 current_iteration(simulation) = nothing
 

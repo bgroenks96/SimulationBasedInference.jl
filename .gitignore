@@ -27,6 +27,9 @@ LocalPreferences.toml
 # VSCode
 .vscode/
 
+# Claude
+.claude/
+
 # Other
 *.so
 *.mem
