@@ -33,3 +33,7 @@ end
 @testset "EKS" begin
     include("eks_tests.jl")
 end
+
+@testset "EnsembleDistributed" begin
+    include("distributed_tests.jl")
+end
