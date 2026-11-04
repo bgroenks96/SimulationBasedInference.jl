@@ -140,7 +140,7 @@ end
 _file_has(file, group::Symbol, name::Symbol) = haskey(file, _fkey(group, name))
 
 function _file_clear!(file, group::Symbol, name::Symbol)
-    k = _fkey(i, group, name)
+    k = _fkey(group, name)
     haskey(file, k) && delete!(file, k)
     return nothing
 end
@@ -310,10 +310,11 @@ function SimulationBasedInference.allocate!(b::ParallelJLD2Storage, input; metad
     b.num_simulations += 1
     index = b.num_simulations
     
-    # Create the simulation file
-    handle = open(b, index)
-    allocate!(handle, input; metadata...)
-    
+    # Create the simulation file; closing the handle flushes it so that other processes can read it
+    open(b, index) do handle
+        allocate!(handle, input; metadata...)
+    end
+
     return index
 end
 
