@@ -64,7 +64,6 @@ inference_prob = SimulatorInferenceProblem(forward_prob, ode_solver, model_prior
 #region EnIS: ensemble importance sampling
 # ---------------------------------------------------------------------------- #
 enis_sol = solve(inference_prob, EnIS(), ensemble_size=128, rng=rng);
-PosteriorStats.summarize(enis_sol)
 
 prior_ens = get_transformed_ensemble(enis_sol)
 prior_ens_mean = mean(prior_ens, dims=2)[:,1]
@@ -74,7 +73,7 @@ importance_weights = get_weights(enis_sol)
 nothing #hide
 
 posterior_mean = mean(prior_ens, weights(importance_weights), dims=2)
-posterior_std = mean(prior_ens, weights(importance_weights), dims=2)
+posterior_std = std(prior_ens, weights(importance_weights), 2)
 
 # u1, x
 prior_ens_obs = Array(get_observables(enis_sol).u1);
